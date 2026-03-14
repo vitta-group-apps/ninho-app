@@ -14,16 +14,253 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      children: {
+        Row: {
+          allergies: Json | null
+          avatar_url: string | null
+          birth_date: string
+          blood_type: string | null
+          created_at: string
+          family_id: string
+          id: string
+          medications: Json | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          allergies?: Json | null
+          avatar_url?: string | null
+          birth_date: string
+          blood_type?: string | null
+          created_at?: string
+          family_id: string
+          id?: string
+          medications?: Json | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          allergies?: Json | null
+          avatar_url?: string | null
+          birth_date?: string
+          blood_type?: string | null
+          created_at?: string
+          family_id?: string
+          id?: string
+          medications?: Json | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "children_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      families: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      health_logs: {
+        Row: {
+          author_id: string
+          child_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          occurred_at: string
+          type: Database["public"]["Enums"]["health_log_type"]
+        }
+        Insert: {
+          author_id: string
+          child_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          occurred_at?: string
+          type: Database["public"]["Enums"]["health_log_type"]
+        }
+        Update: {
+          author_id?: string
+          child_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          occurred_at?: string
+          type?: Database["public"]["Enums"]["health_log_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_logs_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memberships: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          invited_email: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          invited_email?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          invited_email?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memberships_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      routine_logs: {
+        Row: {
+          author_id: string
+          child_id: string
+          created_at: string
+          end_time: string | null
+          id: string
+          notes: string | null
+          start_time: string
+          type: Database["public"]["Enums"]["routine_log_type"]
+        }
+        Insert: {
+          author_id: string
+          child_id: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_time?: string
+          type: Database["public"]["Enums"]["routine_log_type"]
+        }
+        Update: {
+          author_id?: string
+          child_id?: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_time?: string
+          type?: Database["public"]["Enums"]["routine_log_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_logs_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "monitor" | "viewer"
+      health_log_type: "vaccine" | "fever" | "medication" | "note"
+      routine_log_type: "sleep" | "feed" | "diaper" | "note"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +387,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "monitor", "viewer"],
+      health_log_type: ["vaccine", "fever", "medication", "note"],
+      routine_log_type: ["sleep", "feed", "diaper", "note"],
+    },
   },
 } as const

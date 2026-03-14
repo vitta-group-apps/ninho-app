@@ -18,6 +18,20 @@ import NotFound from '@/pages/NotFound';
 
 const queryClient = new QueryClient();
 
+function AuthedRoutes() {
+  return (
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/rotina" element={<Rotina />} />
+        <Route path="/saude" element={<Saude />} />
+        <Route path="/perfil" element={<Perfil />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppShell>
+  );
+}
+
 function NinhoApp() {
   const [splashDone, setSplashDone] = useState(false);
   const { user, loading } = useAuth();
@@ -26,67 +40,31 @@ function NinhoApp() {
     setSplashDone(true);
   }, []);
 
-  // Show spinner while Supabase resolves session
-  if (loading && splashDone) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
-        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'hsl(var(--ninho-sage))' }} />
-      </div>
-    );
-  }
-
   return (
     <AnimatePresence mode="wait">
       {!splashDone ? (
         <SplashScreen key="splash" onFinish={handleSplashFinish} />
+      ) : loading ? (
+        // Loading state after splash — waiting for auth check
+        <div
+          key="loading"
+          className="min-h-screen flex items-center justify-center"
+          style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}
+        >
+          <div
+            className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: 'hsl(var(--ninho-sage))' }}
+          />
+        </div>
       ) : (
-        <BrowserRouter>
+        <BrowserRouter key="app">
           <Routes>
-            {/* Public */}
-            <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-            {/* Protected */}
-            {user ? (
-              <Route element={<AppShell><div /></AppShell>}>
-                <Route
-                  path="/"
-                  element={
-                    <AppShell>
-                      <Home />
-                    </AppShell>
-                  }
-                />
-                <Route
-                  path="/rotina"
-                  element={
-                    <AppShell>
-                      <Rotina />
-                    </AppShell>
-                  }
-                />
-                <Route
-                  path="/saude"
-                  element={
-                    <AppShell>
-                      <Saude />
-                    </AppShell>
-                  }
-                />
-                <Route
-                  path="/perfil"
-                  element={
-                    <AppShell>
-                      <Perfil />
-                    </AppShell>
-                  }
-                />
-              </Route>
-            ) : (
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            )}
-
-            <Route path="*" element={<NotFound />} />
+            <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+            <Route
+              path="/*"
+              element={user ? <AuthedRoutes /> : <Navigate to="/login" replace />}
+            />
           </Routes>
         </BrowserRouter>
       )}

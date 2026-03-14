@@ -1,105 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/*
+ * NINHO Design System
+ * Todas as cores em HSL. Não usar hex diretamente nos componentes.
+ */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* ── Ninho Brand Colors ── */
+    --ninho-sand:    37 30% 96%;       /* #F7F5F2 — fundo principal */
+    --ninho-brown:   16 14% 30%;       /* #5A4A42 — textos e elementos */
+    --ninho-sage:    152 15% 55%;      /* #7A9A8B — CTAs e destaques */
+    --ninho-mauve:   270 12% 52%;      /* #8A7A92 — splash, headers */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* ── shadcn semantic tokens ── */
+    --background:    37 30% 96%;
+    --foreground:    16 14% 30%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --card:          0 0% 100%;
+    --card-foreground: 16 14% 30%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --popover:       0 0% 100%;
+    --popover-foreground: 16 14% 30%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --primary:       270 12% 52%;
+    --primary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary:     37 30% 92%;
+    --secondary-foreground: 16 14% 30%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --muted:         37 20% 92%;
+    --muted-foreground: 16 10% 55%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --accent:        152 15% 90%;
+    --accent-foreground: 16 14% 30%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --destructive:   0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    --border:        37 20% 88%;
+    --input:         37 20% 88%;
+    --ring:          270 12% 52%;
 
-    --sidebar-background: 0 0% 98%;
+    --radius:        0.75rem;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* sidebar (não usado neste app, mas exigido pelo shadcn) */
+    --sidebar-background: 37 30% 96%;
+    --sidebar-foreground: 16 14% 30%;
+    --sidebar-primary: 270 12% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 37 30% 92%;
+    --sidebar-accent-foreground: 16 14% 30%;
+    --sidebar-border: 37 20% 88%;
+    --sidebar-ring: 270 12% 52%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --background:    16 14% 10%;
+    --foreground:    37 30% 92%;
+    --card:          16 14% 14%;
+    --card-foreground: 37 30% 92%;
+    --popover:       16 14% 14%;
+    --popover-foreground: 37 30% 92%;
+    --primary:       270 12% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary:     16 14% 20%;
+    --secondary-foreground: 37 30% 92%;
+    --muted:         16 14% 20%;
+    --muted-foreground: 16 10% 65%;
+    --accent:        16 14% 22%;
+    --accent-foreground: 37 30% 92%;
+    --destructive:   0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border:        16 14% 22%;
+    --input:         16 14% 22%;
+    --ring:          270 12% 62%;
+    --sidebar-background: 16 14% 10%;
+    --sidebar-foreground: 37 30% 92%;
+    --sidebar-primary: 270 12% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 16 14% 20%;
+    --sidebar-accent-foreground: 37 30% 92%;
+    --sidebar-border: 16 14% 22%;
+    --sidebar-ring: 270 12% 62%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    font-family: 'Nunito', system-ui, sans-serif;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Nunito', system-ui, sans-serif;
+    overscroll-behavior: none;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Quicksand', system-ui, sans-serif;
+  }
+
+  /* iOS safe area support */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

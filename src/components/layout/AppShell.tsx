@@ -11,7 +11,6 @@ export function AppShell({ children }: AppShellProps) {
       className="min-h-screen w-full max-w-md mx-auto relative"
       style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}
     >
-      {/* Main content with bottom padding for nav bar */}
       <main className="pb-24 min-h-screen">
         {children}
       </main>

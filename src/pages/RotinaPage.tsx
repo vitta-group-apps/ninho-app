@@ -1,13 +1,29 @@
-import { TopHeader } from '@/components/layout/TopHeader';
 import { motion } from 'framer-motion';
 import { ClockIcon } from '@heroicons/react/24/outline';
 
-export default function Rotina() {
+export default function RotinaPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
-      <TopHeader title="Rotina" />
+      <div
+        className="px-5 pt-14 pb-5"
+        style={{ backgroundColor: 'hsl(var(--ninho-sage))' }}
+      >
+        <h1
+          className="text-2xl font-bold text-white"
+          style={{ fontFamily: 'Quicksand, sans-serif' }}
+        >
+          Rotina
+        </h1>
+        <p
+          className="text-sm text-white/70 mt-0.5"
+          style={{ fontFamily: 'Nunito, sans-serif' }}
+        >
+          Sono, mamadas e trocas
+        </p>
+      </div>
+
       <motion.div
-        className="flex flex-col items-center justify-center px-5 pt-20 text-center"
+        className="flex flex-col items-center justify-center px-5 pt-16 text-center"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -19,16 +35,16 @@ export default function Rotina() {
           <ClockIcon className="w-10 h-10" style={{ color: 'hsl(var(--ninho-sage))' }} />
         </div>
         <h2
-          className="text-2xl font-bold mb-2"
+          className="text-xl font-bold mb-2"
           style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}
         >
           Rotina Diária
         </h2>
         <p
-          className="text-base max-w-xs"
+          className="text-sm max-w-xs"
           style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
         >
-          Em breve: timeline de sono, mamadas e trocas com gráficos e estatísticas do dia.
+          Timeline de sono, mamadas e trocas com estatísticas do dia.
         </p>
         <div
           className="mt-6 px-4 py-2 rounded-full text-sm font-semibold"

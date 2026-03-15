@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      child_vaccines: {
+        Row: {
+          applied_on: string | null
+          child_id: string
+          created_at: string
+          id: string
+          status: string | null
+          updated_at: string
+          vaccine_id: string
+        }
+        Insert: {
+          applied_on?: string | null
+          child_id: string
+          created_at?: string
+          id?: string
+          status?: string | null
+          updated_at?: string
+          vaccine_id: string
+        }
+        Update: {
+          applied_on?: string | null
+          child_id?: string
+          created_at?: string
+          id?: string
+          status?: string | null
+          updated_at?: string
+          vaccine_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_vaccines_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "child_vaccines_vaccine_id_fkey"
+            columns: ["vaccine_id"]
+            isOneToOne: false
+            referencedRelation: "vaccines_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       children: {
         Row: {
           allergies: Json | null
@@ -84,6 +129,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      health_events: {
+        Row: {
+          author_id: string
+          child_id: string
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json | null
+          severity: string | null
+        }
+        Insert: {
+          author_id: string
+          child_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          severity?: string | null
+        }
+        Update: {
+          author_id?: string
+          child_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          severity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_events_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       health_logs: {
         Row: {
@@ -157,6 +240,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          code: string
+          id: string
+          name: string
+          price_cents: number
+        }
+        Insert: {
+          code: string
+          id?: string
+          name: string
+          price_cents?: number
+        }
+        Update: {
+          code?: string
+          id?: string
+          name?: string
+          price_cents?: number
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -241,6 +345,33 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vaccines_catalog: {
+        Row: {
+          calendar_type: string
+          description: string | null
+          dose_number: number | null
+          id: string
+          name: string
+          recommended_age_days: number | null
+        }
+        Insert: {
+          calendar_type?: string
+          description?: string | null
+          dose_number?: number | null
+          id?: string
+          name: string
+          recommended_age_days?: number | null
+        }
+        Update: {
+          calendar_type?: string
+          description?: string | null
+          dose_number?: number | null
+          id?: string
+          name?: string
+          recommended_age_days?: number | null
         }
         Relationships: []
       }

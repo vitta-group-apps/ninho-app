@@ -9,10 +9,11 @@ import { SplashScreen } from '@/components/auth/SplashScreen';
 import { LoginPage } from '@/components/auth/LoginPage';
 import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/hooks/useAuth';
-import Home from '@/pages/Home';
-import Rotina from '@/pages/Rotina';
-import Saude from '@/pages/Saude';
-import Perfil from '@/pages/Perfil';
+import HomePage from '@/pages/HomePage';
+import RotinaPage from '@/pages/RotinaPage';
+import SaudePage from '@/pages/SaudePage';
+import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
+import FamiliaPage from '@/pages/FamiliaPage';
 import { ResetPasswordPage } from '@/pages/ResetPassword';
 import NotFound from '@/pages/NotFound';
 
@@ -22,10 +23,12 @@ function AuthedRoutes() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/rotina" element={<Rotina />} />
-        <Route path="/saude" element={<Saude />} />
-        <Route path="/perfil" element={<Perfil />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/routine" element={<RotinaPage />} />
+        <Route path="/health" element={<SaudePage />} />
+        <Route path="/development" element={<DesenvolvimentoPage />} />
+        <Route path="/family" element={<FamiliaPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppShell>
@@ -36,16 +39,13 @@ function NinhoApp() {
   const [splashDone, setSplashDone] = useState(false);
   const { user, loading } = useAuth();
 
-  const handleSplashFinish = useCallback(() => {
-    setSplashDone(true);
-  }, []);
+  const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   return (
     <AnimatePresence mode="wait">
       {!splashDone ? (
         <SplashScreen key="splash" onFinish={handleSplashFinish} />
       ) : loading ? (
-        // Loading state after splash — waiting for auth check
         <div
           key="loading"
           className="min-h-screen flex items-center justify-center"
@@ -60,7 +60,7 @@ function NinhoApp() {
         <BrowserRouter key="app">
           <Routes>
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+            <Route path="/login" element={user ? <Navigate to="/home" replace /> : <LoginPage />} />
             <Route
               path="/*"
               element={user ? <AuthedRoutes /> : <Navigate to="/login" replace />}

@@ -1,35 +1,36 @@
-import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { useLocation, NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   HomeIcon as HomeOutline,
   ClockIcon as ClockOutline,
-  ClipboardDocumentListIcon as ClipboardOutline,
-  UserCircleIcon as UserOutline,
+  HeartIcon as HeartOutline,
+  StarIcon as StarOutline,
+  UserGroupIcon as GroupOutline,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeSolid,
   ClockIcon as ClockSolid,
-  ClipboardDocumentListIcon as ClipboardSolid,
-  UserCircleIcon as UserSolid,
+  HeartIcon as HeartSolid,
+  StarIcon as StarSolid,
+  UserGroupIcon as GroupSolid,
 } from '@heroicons/react/24/solid';
 
 const tabs = [
-  { path: '/', label: 'Início', Outline: HomeOutline, Solid: HomeSolid },
-  { path: '/rotina', label: 'Rotina', Outline: ClockOutline, Solid: ClockSolid },
-  { path: '/saude', label: 'Saúde', Outline: ClipboardOutline, Solid: ClipboardSolid },
-  { path: '/perfil', label: 'Perfil', Outline: UserOutline, Solid: UserSolid },
+  { path: '/home', label: 'Início', Outline: HomeOutline, Solid: HomeSolid },
+  { path: '/routine', label: 'Rotina', Outline: ClockOutline, Solid: ClockSolid },
+  { path: '/health', label: 'Saúde', Outline: HeartOutline, Solid: HeartSolid },
+  { path: '/development', label: 'Desen.', Outline: StarOutline, Solid: StarSolid },
+  { path: '/family', label: 'Família', Outline: GroupOutline, Solid: GroupSolid },
 ];
 
 export function BottomNav() {
   const location = useLocation();
-  const [active, setActive] = useState(location.pathname);
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-3 pb-safe"
+      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-1 pt-2"
       style={{
-        background: 'rgba(255,255,255,0.82)',
+        background: 'rgba(255,255,255,0.88)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderTop: '1px solid rgba(90,74,66,0.08)',
@@ -44,13 +45,12 @@ export function BottomNav() {
           <NavLink
             key={tab.path}
             to={tab.path}
-            onClick={() => setActive(tab.path)}
-            className="flex flex-col items-center gap-0.5 min-w-[60px] relative py-1"
+            className="flex flex-col items-center gap-0.5 min-w-[58px] relative py-1"
           >
             {isActive && (
               <motion.div
                 layoutId="nav-pill"
-                className="absolute -top-1 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full"
+                className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full"
                 style={{ backgroundColor: 'hsl(var(--ninho-sage))' }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               />
@@ -64,7 +64,7 @@ export function BottomNav() {
               style={{
                 fontFamily: 'Nunito, sans-serif',
                 color: isActive ? 'hsl(var(--ninho-sage))' : 'hsl(var(--ninho-brown))',
-                opacity: isActive ? 1 : 0.6,
+                opacity: isActive ? 1 : 0.55,
               }}
             >
               {tab.label}

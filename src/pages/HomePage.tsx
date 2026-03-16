@@ -224,18 +224,22 @@ export default function HomePage() {
   const loadNextVaccine = useCallback(async () => {
     if (!activeChild) return;
     try {
-      // Find pending vaccines for this child
       const { data } = await supabase
         .from('child_vaccines')
-        .select('vaccine_id, vaccines_catalog(name, recommended_age_days)')
+        .select('vaccine_id')
         .eq('child_id', activeChild.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: true })
         .limit(1);
 
       if (data && data.length > 0) {
-        const vc = data[0].vaccines_catalog as { name: string; recommended_age_days: number | null } | null;
-        setNextVaccine(vc ? { name: vc.name } : null);
+        const vaccineId = data[0].vaccine_id;
+        const { data: vac } = await supabase
+          .from('vaccines_catalog')
+          .select('name')
+          .eq('id', vaccineId)
+          .maybeSingle();
+        setNextVaccine(vac ? { name: vac.name } : null);
       } else {
         setNextVaccine(null);
       }

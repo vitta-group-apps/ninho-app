@@ -172,9 +172,9 @@ function TimelineItem({ log }: { log: RoutineLog }) {
               {meta.sub}
             </p>
           )}
-          {log.notes && (
+          {userNotes && (
             <p className="text-xs mt-0.5 truncate" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-              {log.notes}
+              {userNotes}
             </p>
           )}
         </div>

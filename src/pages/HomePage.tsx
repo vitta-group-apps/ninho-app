@@ -87,17 +87,39 @@ function QuickAction({ emoji, label, onClick, color }: { emoji: string; label: s
   );
 }
 
+// ─── Helper: parse payload from notes field ─────────────────────────────────
+function parsePayload(notes: string | null): Record<string, string> {
+  if (!notes) return {};
+  try {
+    const prefix = '__payload:';
+    if (notes.startsWith(prefix)) return JSON.parse(notes.slice(prefix.length));
+  } catch { /* noop */ }
+  return {};
+}
+
+function extractUserNotes(notes: string | null): string | null {
+  if (!notes) return null;
+  if (notes.startsWith('__payload:')) {
+    try {
+      const obj = JSON.parse(notes.slice('__payload:'.length)) as Record<string, string>;
+      return obj._notes ?? null;
+    } catch { return null; }
+  }
+  return notes;
+}
+
 // ─── Timeline Item ─────────────────────────────────────────────────────────
 function TimelineItem({ log }: { log: RoutineLog }) {
-  const details = (log.details as Record<string, string | number> | null) ?? {};
+  const payload = parsePayload(log.notes);
+  const userNotes = extractUserNotes(log.notes);
 
   const meta = {
     feed: {
       emoji: '🍼',
       label: 'Mamada',
-      sub: details.feeding_method === 'breast' ? 'Seio'
-        : details.feeding_method === 'bottle' ? 'Mamadeira'
-        : details.feeding_method === 'formula' ? 'Fórmula' : '',
+      sub: payload.feeding_method === 'breast' ? 'Seio'
+        : payload.feeding_method === 'bottle' ? 'Mamadeira'
+        : payload.feeding_method === 'formula' ? 'Fórmula' : '',
       color: 'hsl(var(--ninho-sage))',
     },
     sleep: {
@@ -111,9 +133,9 @@ function TimelineItem({ log }: { log: RoutineLog }) {
     diaper: {
       emoji: '🧷',
       label: 'Troca',
-      sub: details.diaper_type === 'pee' ? 'Xixi'
-        : details.diaper_type === 'poop' ? 'Cocô'
-        : details.diaper_type === 'both' ? 'Xixi e Cocô' : '',
+      sub: payload.diaper_type === 'pee' ? 'Xixi'
+        : payload.diaper_type === 'poop' ? 'Cocô'
+        : payload.diaper_type === 'both' ? 'Xixi e Cocô' : '',
       color: '#E8A045',
     },
     note: { emoji: '📝', label: 'Nota', sub: '', color: 'hsl(var(--ninho-brown))' },

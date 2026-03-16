@@ -32,17 +32,19 @@ const queryClient = new QueryClient();
 /** Authenticated main app with bottom nav */
 function AuthedRoutes() {
   return (
-    <AppShell>
-      <Routes>
-        <Route path="/" element={<Navigate to="/home" replace />} />
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/routine" element={<RotinaPage />} />
-        <Route path="/health" element={<SaudePage />} />
-        <Route path="/development" element={<DesenvolvimentoPage />} />
-        <Route path="/family" element={<FamiliaPage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppShell>
+    <ActiveChildProvider>
+      <AppShell>
+        <Routes>
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/routine" element={<RotinaPage />} />
+          <Route path="/health" element={<SaudePage />} />
+          <Route path="/development" element={<DesenvolvimentoPage />} />
+          <Route path="/family" element={<FamiliaPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AppShell>
+    </ActiveChildProvider>
   );
 }
 

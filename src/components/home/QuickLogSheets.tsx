@@ -174,14 +174,17 @@ export function SleepSheet({ open, onClose, onSaved }: SleepSheetProps) {
     if (!user || !childId || !startTime) return;
     setSaving(true);
     try {
+      const payload: Record<string, string> = {};
+      if (notes.trim()) payload._notes = notes.trim();
+      const notesField = Object.keys(payload).length > 0 ? '__payload:' + JSON.stringify(payload) : null;
+
       const { error } = await supabase.from('routine_logs').insert({
         child_id: childId,
         author_id: user.id,
         type: 'sleep',
         start_time: new Date(startTime).toISOString(),
         end_time: endTime ? new Date(endTime).toISOString() : null,
-        notes: notes.trim() || null,
-        details: {},
+        notes: notesField,
       });
       if (error) throw error;
       toast({ title: 'Sono registrado! 😴' });

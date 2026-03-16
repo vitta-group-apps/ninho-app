@@ -5,7 +5,6 @@ import {
   MoonIcon,
   ShieldCheckIcon,
   CalendarIcon,
-  PlusIcon,
   ExclamationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,8 +14,7 @@ import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSh
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Tables } from '@/integrations/supabase/types';
 
-// Extended type to handle payload stored as JSON in notes field
-type RoutineLog = Tables<'routine_logs'> & { _payload?: Record<string, string | number> };
+type RoutineLog = Tables<'routine_logs'>;
 
 // ─── Helper: format time ───────────────────────────────────────────────────
 function fmtTime(iso: string) {

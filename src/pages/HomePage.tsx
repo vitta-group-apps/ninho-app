@@ -15,7 +15,8 @@ import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSh
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Tables } from '@/integrations/supabase/types';
 
-type RoutineLog = Tables<'routine_logs'>;
+// Extended type to handle payload stored as JSON in notes field
+type RoutineLog = Tables<'routine_logs'> & { _payload?: Record<string, string | number> };
 
 // ─── Helper: format time ───────────────────────────────────────────────────
 function fmtTime(iso: string) {

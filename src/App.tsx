@@ -9,6 +9,7 @@ import { SplashScreen } from '@/components/auth/SplashScreen';
 import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
+import { ActiveChildProvider } from '@/contexts/ActiveChildContext';
 
 // Pages — main app
 import HomePage from '@/pages/HomePage';

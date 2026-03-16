@@ -276,13 +276,16 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
     if (!user || !childId) return;
     setSaving(true);
     try {
+      const payload: Record<string, string> = { diaper_type: diaperType };
+      if (notes.trim()) payload._notes = notes.trim();
+      const notesField = '__payload:' + JSON.stringify(payload);
+
       const { error } = await supabase.from('routine_logs').insert({
         child_id: childId,
         author_id: user.id,
         type: 'diaper',
         start_time: new Date().toISOString(),
-        notes: notes.trim() || null,
-        details: { diaper_type: diaperType },
+        notes: notesField,
       });
       if (error) throw error;
       toast({ title: 'Troca registrada! 🧷' });

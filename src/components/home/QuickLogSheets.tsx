@@ -61,16 +61,17 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     if (!user || !childId) return;
     setSaving(true);
     try {
+      const payload: Record<string, string | number> = { feeding_method: method };
+      if (amount) payload.amount_ml = Number(amount);
+      if (notes.trim()) payload._notes = notes.trim();
+      const notesField = '__payload:' + JSON.stringify(payload);
+
       const { error } = await supabase.from('routine_logs').insert({
         child_id: childId,
         author_id: user.id,
         type: 'feed',
         start_time: new Date().toISOString(),
-        notes: notes.trim() || null,
-        details: {
-          feeding_method: method,
-          ...(amount ? { amount_ml: Number(amount) } : {}),
-        },
+        notes: notesField,
       });
       if (error) throw error;
       toast({ title: 'Mamada registrada! 🍼' });

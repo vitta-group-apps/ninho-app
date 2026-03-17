@@ -1,10 +1,18 @@
 /**
- * DiaperSheet — Fast diaper logging with progressive disclosure.
+ * DiaperSheet — Refined diaper logging with smart progressive disclosure.
  *
- * Step 1 (always visible): one-tap kind selection — Xixi / Cocô / Ambos
- * Step 2 (progressive): optional enrichment — quantity, color, texture, notes, report toggle
+ * Data model:
+ *   kind: pee | poop | both (required)
+ *   quantity: small | medium | large (optional)
+ *   pee_color: clear | pale_yellow | dark_yellow | other (optional, shown for pee/both)
+ *   poop_color: yellow | green | brown | dark | red | black | white | other (optional, shown for poop/both)
+ *   poop_texture: liquid | pasty | soft | firm | mucus_like | other (optional, shown for poop/both)
+ *   _notes: free text (optional)
+ *   include_in_report: boolean (optional, only inside expanded layer)
  *
- * Saving with no enrichment is always one tap away.
+ * Flow:
+ *   Step 1 → one-tap kind selection → saves immediately (quick log)
+ *   Step 2 → optional enrichment via "+ Adicionar informação"
  */
 
 import { useState, useEffect } from 'react';
@@ -12,44 +20,76 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import { makePayloadNotes } from '@/lib/routineUtils';
-import { DIAPER_KIND_LABEL, DIAPER_QUANTITY_LABEL, DIAPER_COLOR_LABEL, DIAPER_TEXTURE_LABEL } from '@/lib/eventSystem';
+import {
+  DIAPER_KIND_LABEL,
+  DIAPER_QUANTITY_LABEL,
+  DIAPER_POOP_COLOR_LABEL,
+  DIAPER_PEE_COLOR_LABEL,
+  DIAPER_TEXTURE_LABEL,
+} from '@/lib/eventSystem';
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 type DiaperKind = 'pee' | 'poop' | 'both';
 
+// ─── Option arrays ──────────────────────────────────────────────────────────
+
 const KIND_OPTIONS: { kind: DiaperKind; emoji: string; label: string }[] = [
-  { kind: 'pee', emoji: '💛', label: 'Xixi' },
+  { kind: 'pee',  emoji: '💛', label: 'Xixi' },
   { kind: 'poop', emoji: '💩', label: 'Cocô' },
   { kind: 'both', emoji: '🔄', label: 'Ambos' },
 ];
 
-const QUANTITY_OPTIONS = [
-  { value: 'little', label: DIAPER_QUANTITY_LABEL.little },
-  { value: 'medium', label: DIAPER_QUANTITY_LABEL.medium },
-  { value: 'large', label: DIAPER_QUANTITY_LABEL.large },
-];
+const QUANTITY_OPTIONS = Object.entries(DIAPER_QUANTITY_LABEL).map(([v, l]) => ({ value: v, label: l }));
+const PEE_COLOR_OPTIONS = Object.entries(DIAPER_PEE_COLOR_LABEL).map(([v, l]) => ({ value: v, label: l }));
+const POOP_COLOR_OPTIONS = Object.entries(DIAPER_POOP_COLOR_LABEL).map(([v, l]) => ({ value: v, label: l }));
+const TEXTURE_OPTIONS = Object.entries(DIAPER_TEXTURE_LABEL).map(([v, l]) => ({ value: v, label: l }));
 
-const COLOR_OPTIONS = [
-  { value: 'yellow', label: DIAPER_COLOR_LABEL.yellow },
-  { value: 'green', label: DIAPER_COLOR_LABEL.green },
-  { value: 'brown', label: DIAPER_COLOR_LABEL.brown },
-  { value: 'dark', label: DIAPER_COLOR_LABEL.dark },
-  { value: 'other', label: DIAPER_COLOR_LABEL.other },
-];
-
-const TEXTURE_OPTIONS = [
-  { value: 'liquid', label: DIAPER_TEXTURE_LABEL.liquid },
-  { value: 'pasty', label: DIAPER_TEXTURE_LABEL.pasty },
-  { value: 'firm', label: DIAPER_TEXTURE_LABEL.firm },
-];
+// ─── Colors ─────────────────────────────────────────────────────────────────
 
 const ORANGE = 'hsl(32,80%,57%)';
+const font = 'Nunito, sans-serif';
+
+// ─── Sub-components ─────────────────────────────────────────────────────────
+
+function ChipRow({
+  options,
+  value,
+  onToggle,
+  wrap = false,
+}: {
+  options: { value: string; label: string }[];
+  value: string;
+  onToggle: (v: string) => void;
+  wrap?: boolean;
+}) {
+  return (
+    <div className={`flex gap-2 ${wrap ? 'flex-wrap' : 'overflow-x-auto pb-1'}`}>
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          onClick={() => onToggle(opt.value)}
+          className="py-2 px-3 rounded-2xl text-xs font-bold transition-all active:scale-95 whitespace-nowrap flex-shrink-0"
+          style={{
+            backgroundColor: value === opt.value ? ORANGE : 'hsl(var(--muted))',
+            color: value === opt.value ? 'white' : 'hsl(var(--ninho-brown))',
+            fontFamily: font,
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 interface DiaperSheetProps {
   open: boolean;
@@ -57,52 +97,67 @@ interface DiaperSheetProps {
   onSaved: () => void;
 }
 
+// ─── Main component ──────────────────────────────────────────────────────────
+
 export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
   const { user } = useAuth();
   const { activeChildId } = useActiveChild();
-  const [childId, setChildId] = useState(activeChildId ?? '');
 
-  // Step 1 — quick selection
+  // Core state
   const [selectedKind, setSelectedKind] = useState<DiaperKind | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Step 2 — optional enrichment
+  // Enrichment
   const [enrichOpen, setEnrichOpen] = useState(false);
-  const [quantity, setQuantity] = useState('');
-  const [color, setColor] = useState('');
-  const [texture, setTexture] = useState('');
-  const [notes, setNotes] = useState('');
+  const [quantity, setQuantity]     = useState('');
+  const [peeColor, setPeeColor]     = useState('');
+  const [poopColor, setPoopColor]   = useState('');
+  const [texture, setTexture]       = useState('');
+  const [notes, setNotes]           = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
+  // Reset on open
   useEffect(() => {
     if (open) {
-      setChildId(activeChildId ?? '');
       setSelectedKind(null);
       setEnrichOpen(false);
       setQuantity('');
-      setColor('');
+      setPeeColor('');
+      setPoopColor('');
       setTexture('');
       setNotes('');
       setIncludeInReport(false);
     }
-  }, [open, activeChildId]);
+  }, [open]);
+
+  // ─── Helpers ────────────────────────────────────────────────────────────
+
+  const showPeeFields  = selectedKind === 'pee'  || selectedKind === 'both';
+  const showPoopFields = selectedKind === 'poop' || selectedKind === 'both';
 
   function resetEnrich() {
-    setQuantity(''); setColor(''); setTexture(''); setNotes(''); setIncludeInReport(false);
+    setQuantity(''); setPeeColor(''); setPoopColor('');
+    setTexture(''); setNotes(''); setIncludeInReport(false);
     setEnrichOpen(false);
   }
 
-  async function handleSave(kind: DiaperKind, withEnrich = false) {
+  // ─── Save ────────────────────────────────────────────────────────────────
+
+  async function doSave(kind: DiaperKind, withEnrich: boolean) {
+    const childId = activeChildId;
     if (!user || !childId) return;
     setSaving(true);
     try {
       const payload: Record<string, unknown> = { kind };
+
       if (withEnrich) {
-        if (quantity) payload.quantity = quantity;
-        if (color) payload.color = color;
-        if (texture) payload.texture = texture;
+        if (quantity)       payload.quantity     = quantity;
+        if (peeColor  && showPeeFields)  payload.pee_color   = peeColor;
+        if (poopColor && showPoopFields) payload.poop_color  = poopColor;
+        if (texture   && showPoopFields) payload.poop_texture = texture;
         if (includeInReport) payload.include_in_report = true;
       }
+
       const { error } = await supabase.from('routine_logs').insert({
         child_id: childId,
         author_id: user.id,
@@ -110,30 +165,37 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
         start_time: new Date().toISOString(),
         notes: makePayloadNotes(payload, withEnrich ? notes : ''),
       });
+
       if (error) throw error;
+
       toast({ title: `🧷 Troca registrada — ${DIAPER_KIND_LABEL[kind] ?? kind}` });
       onSaved();
       onClose();
     } catch (e: unknown) {
-      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
+      toast({
+        title: 'Erro ao salvar',
+        description: e instanceof Error ? e.message : 'Tente novamente',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
   }
 
-  // Quick save: tap kind → save immediately (no enrichment)
+  // Quick tap — save immediately, no enrichment
   async function handleQuickTap(kind: DiaperKind) {
+    if (enrichOpen) { setSelectedKind(kind); return; }
     setSelectedKind(kind);
-    await handleSave(kind, false);
+    await doSave(kind, false);
   }
 
-  // Save with enrichment data
+  // Save with enrichment
   async function handleEnrichedSave() {
     if (!selectedKind) return;
-    await handleSave(selectedKind, true);
+    await doSave(selectedKind, true);
   }
 
-  const showPoopFields = selectedKind === 'poop' || selectedKind === 'both';
+  // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -142,39 +204,41 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
         className="rounded-t-3xl pb-safe"
         style={{ backgroundColor: 'hsl(var(--card))' }}
       >
-        <div className="px-1 pt-2 space-y-4">
+        <div className="px-1 pt-2 pb-6 space-y-4 max-h-[85vh] overflow-y-auto">
 
           {/* Header */}
           <div className="text-center">
             <p className="text-xl font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
               🧷 Registrar troca
             </p>
-            <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-              Toque para registrar rapidamente
+            <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+              {enrichOpen ? 'Selecione o tipo e adicione detalhes' : 'Toque para registrar rapidamente'}
             </p>
           </div>
 
-          {/* Step 1 — Quick kind selection */}
+          {/* Step 1 — Kind selection */}
           <div className="grid grid-cols-3 gap-3">
-            {KIND_OPTIONS.map(opt => (
-              <button
-                key={opt.kind}
-                onClick={() => enrichOpen ? setSelectedKind(opt.kind) : handleQuickTap(opt.kind)}
-                disabled={saving}
-                className="flex flex-col items-center gap-2 py-6 rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-60"
-                style={{
-                  backgroundColor: selectedKind === opt.kind && enrichOpen
-                    ? ORANGE
-                    : `${ORANGE}18`,
-                  border: `2px solid ${selectedKind === opt.kind && enrichOpen ? ORANGE : `${ORANGE}30`}`,
-                  color: selectedKind === opt.kind && enrichOpen ? 'white' : 'hsl(var(--ninho-brown))',
-                  fontFamily: 'Nunito, sans-serif',
-                }}
-              >
-                <span className="text-3xl">{opt.emoji}</span>
-                <span className="text-sm font-bold">{saving && selectedKind === opt.kind && !enrichOpen ? '...' : opt.label}</span>
-              </button>
-            ))}
+            {KIND_OPTIONS.map(opt => {
+              const isActive = selectedKind === opt.kind && enrichOpen;
+              const isSaving = saving && selectedKind === opt.kind && !enrichOpen;
+              return (
+                <button
+                  key={opt.kind}
+                  onClick={() => handleQuickTap(opt.kind)}
+                  disabled={saving}
+                  className="flex flex-col items-center gap-2 py-6 rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-60"
+                  style={{
+                    backgroundColor: isActive ? ORANGE : `${ORANGE}18`,
+                    border: `2px solid ${isActive ? ORANGE : `${ORANGE}30`}`,
+                    color: isActive ? 'white' : 'hsl(var(--ninho-brown))',
+                    fontFamily: font,
+                  }}
+                >
+                  <span className="text-3xl">{opt.emoji}</span>
+                  <span className="text-sm font-bold">{isSaving ? '...' : opt.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Toggle enrichment */}
@@ -182,7 +246,7 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
             <button
               onClick={() => setEnrichOpen(true)}
               className="w-full py-2.5 text-sm font-semibold text-center rounded-2xl transition-all active:scale-95"
-              style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
+              style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', fontFamily: font }}
             >
               + Adicionar informação
             </button>
@@ -193,12 +257,12 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-4 overflow-hidden"
+                transition={{ duration: 0.22 }}
+                className="space-y-5 overflow-hidden"
               >
-                {/* Kind selection header */}
+                {/* Section header */}
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
                     Informações adicionais
                   </p>
                   <button onClick={resetEnrich} className="text-xs font-semibold" style={{ color: 'hsl(var(--muted-foreground))' }}>
@@ -206,93 +270,77 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
                   </button>
                 </div>
 
-                {/* Quantity */}
-                <div className="space-y-1.5">
+                {/* Quantity — always shown */}
+                <div className="space-y-2">
                   <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Quantidade</Label>
-                  <div className="flex gap-2">
-                    {QUANTITY_OPTIONS.map(opt => (
-                      <button key={opt.value} onClick={() => setQuantity(v => v === opt.value ? '' : opt.value)}
-                        className="flex-1 py-2.5 rounded-2xl text-xs font-bold transition-all active:scale-95"
-                        style={{
-                          backgroundColor: quantity === opt.value ? ORANGE : 'hsl(var(--muted))',
-                          color: quantity === opt.value ? 'white' : 'hsl(var(--ninho-brown))',
-                          fontFamily: 'Nunito, sans-serif',
-                        }}>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
+                  <ChipRow options={QUANTITY_OPTIONS} value={quantity} onToggle={v => setQuantity(p => p === v ? '' : v)} />
                 </div>
 
-                {/* Color (always for both, poop-specific for context) */}
-                {showPoopFields && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Cor</Label>
-                      <Select value={color} onValueChange={setColor}>
-                        <SelectTrigger className="h-11 rounded-2xl border-border">
-                          <SelectValue placeholder="Selecionar cor (opcional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COLOR_OPTIONS.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Consistência</Label>
-                      <div className="flex gap-2">
-                        {TEXTURE_OPTIONS.map(opt => (
-                          <button key={opt.value} onClick={() => setTexture(v => v === opt.value ? '' : opt.value)}
-                            className="flex-1 py-2.5 rounded-2xl text-xs font-bold transition-all active:scale-95"
-                            style={{
-                              backgroundColor: texture === opt.value ? ORANGE : 'hsl(var(--muted))',
-                              color: texture === opt.value ? 'white' : 'hsl(var(--ninho-brown))',
-                              fontFamily: 'Nunito, sans-serif',
-                            }}>
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
+                {/* Pee color — only for pee / both */}
+                {showPeeFields && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Cor do xixi</Label>
+                    <ChipRow options={PEE_COLOR_OPTIONS} value={peeColor} onToggle={v => setPeeColor(p => p === v ? '' : v)} />
+                  </div>
                 )}
 
-                {/* Notes */}
-                <div className="space-y-1.5">
+                {/* Poop color — only for poop / both */}
+                {showPoopFields && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Cor do cocô</Label>
+                    <ChipRow options={POOP_COLOR_OPTIONS} value={poopColor} onToggle={v => setPoopColor(p => p === v ? '' : v)} wrap />
+                  </div>
+                )}
+
+                {/* Poop texture — only for poop / both */}
+                {showPoopFields && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Consistência</Label>
+                    <ChipRow options={TEXTURE_OPTIONS} value={texture} onToggle={v => setTexture(p => p === v ? '' : v)} wrap />
+                  </div>
+                )}
+
+                {/* Note */}
+                <div className="space-y-2">
                   <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Observações (opcional)</Label>
-                  <Textarea value={notes} onChange={e => setNotes(e.target.value)}
-                    placeholder="Alguma observação..." className="rounded-2xl border-border resize-none" rows={2} />
+                  <Textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Alguma observação..."
+                    className="rounded-2xl border-border resize-none"
+                    rows={2}
+                  />
                 </div>
 
                 {/* Report toggle */}
                 <div className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'hsl(var(--muted))' }}>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
+                    <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: font }}>
                       Incluir no relatório médico
                     </p>
-                    <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                    <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
                       Marca para inclusão futura
                     </p>
                   </div>
                   <Switch checked={includeInReport} onCheckedChange={setIncludeInReport} />
                 </div>
 
-                {/* Save enriched */}
-                {selectedKind && (
+                {/* Save button */}
+                {selectedKind ? (
                   <button
                     onClick={handleEnrichedSave}
                     disabled={saving}
                     className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-60"
-                    style={{ background: `linear-gradient(135deg, ${ORANGE}, hsl(var(--ninho-mauve)))`, color: 'white', fontFamily: 'Nunito, sans-serif' }}
+                    style={{
+                      background: `linear-gradient(135deg, ${ORANGE}, hsl(var(--ninho-mauve)))`,
+                      color: 'white',
+                      fontFamily: font,
+                    }}
                   >
                     {saving ? 'Salvando...' : `✓ Registrar — ${KIND_OPTIONS.find(o => o.kind === selectedKind)?.label}`}
                   </button>
-                )}
-                {!selectedKind && (
-                  <p className="text-xs text-center" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                ) : (
+                  <p className="text-xs text-center" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
                     Selecione o tipo acima para salvar
                   </p>
                 )}

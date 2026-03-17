@@ -87,52 +87,36 @@ function QuickAction({ emoji, label, onClick, color }: { emoji: string; label: s
   );
 }
 
-// ─── Helper: parse payload from notes field ─────────────────────────────────
-function parsePayload(notes: string | null): Record<string, string> {
-  if (!notes) return {};
-  try {
-    const prefix = '__payload:';
-    if (notes.startsWith(prefix)) return JSON.parse(notes.slice(prefix.length));
-  } catch { /* noop */ }
-  return {};
-}
-
-function extractUserNotes(notes: string | null): string | null {
-  if (!notes) return null;
-  if (notes.startsWith('__payload:')) {
-    try {
-      const obj = JSON.parse(notes.slice('__payload:'.length)) as Record<string, string>;
-      return obj._notes ?? null;
-    } catch { return null; }
-  }
-  return notes;
-}
-
 // ─── Timeline Item ─────────────────────────────────────────────────────────
-function TimelineItem({ log }: { log: RoutineLog }) {
+function TimelineItem({ log, onTap }: { log: RoutineLog; onTap: () => void }) {
   const payload = parsePayload(log.notes);
-  const userNotes = extractUserNotes(log.notes);
+  const isBreastfeed = log.type === 'feed' && String(payload.session_type) === 'breastfeed';
 
   const meta = {
     feed: {
-      emoji: '🍼',
-      label: 'Mamada',
-      sub: payload.feeding_method === 'breast' ? 'Seio'
-        : payload.feeding_method === 'bottle' ? 'Mamadeira'
-        : payload.feeding_method === 'formula' ? 'Fórmula' : '',
+      emoji: isBreastfeed ? '🤱' : '🍼',
+      label: isBreastfeed ? 'Amamentação' : 'Mamada',
+      sub: isBreastfeed
+        ? (() => {
+            const l = Number(payload.left_seconds ?? 0);
+            const r = Number(payload.right_seconds ?? 0);
+            const parts: string[] = [];
+            if (l > 0) parts.push(`E: ${Math.floor(l / 60)}min`);
+            if (r > 0) parts.push(`D: ${Math.floor(r / 60)}min`);
+            return parts.join(' · ');
+          })()
+        : (payload.feeding_method === 'breast' ? 'Seio'
+          : payload.feeding_method === 'bottle' ? 'Mamadeira'
+          : payload.feeding_method === 'formula' ? 'Fórmula' : ''),
       color: 'hsl(var(--ninho-sage))',
     },
     sleep: {
-      emoji: '😴',
-      label: 'Sono',
-      sub: log.end_time
-        ? `até ${fmtTime(log.end_time)}`
-        : 'em andamento',
+      emoji: '😴', label: 'Sono',
+      sub: log.end_time ? `até ${fmtTime(log.end_time)}` : 'em andamento',
       color: 'hsl(var(--ninho-mauve))',
     },
     diaper: {
-      emoji: '🧷',
-      label: 'Troca',
+      emoji: '🧷', label: 'Troca',
       sub: payload.diaper_type === 'pee' ? 'Xixi'
         : payload.diaper_type === 'poop' ? 'Cocô'
         : payload.diaper_type === 'both' ? 'Xixi e Cocô' : '',
@@ -143,7 +127,6 @@ function TimelineItem({ log }: { log: RoutineLog }) {
 
   return (
     <div className="flex items-start gap-3">
-      {/* Time + line */}
       <div className="flex flex-col items-center">
         <span className="text-[10px] font-semibold w-11 text-center"
           style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
@@ -152,33 +135,26 @@ function TimelineItem({ log }: { log: RoutineLog }) {
         <div className="w-px flex-1 mt-1 min-h-[16px]" style={{ backgroundColor: 'hsl(var(--border))' }} />
       </div>
 
-      {/* Card */}
-      <div
-        className="flex-1 rounded-2xl px-3 py-2.5 mb-2 flex items-center gap-2.5"
-        style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+      <button
+        onClick={isBreastfeed ? onTap : undefined}
+        className={`flex-1 rounded-2xl px-3 py-2.5 mb-2 flex items-center gap-2.5 text-left w-full ${isBreastfeed ? 'active:scale-[0.98] transition-transform' : ''}`}
+        style={{
+          backgroundColor: 'hsl(var(--card))',
+          border: `1px solid ${isBreastfeed ? 'hsl(var(--ninho-sage) / 0.25)' : 'hsl(var(--border))'}`,
+          cursor: isBreastfeed ? 'pointer' : 'default',
+        }}
       >
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${meta.color}18` }}
-        >
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${meta.color}18` }}>
           <span className="text-base">{meta.emoji}</span>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-            {meta.label}
-          </p>
-          {meta.sub && (
-            <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-              {meta.sub}
-            </p>
-          )}
-          {userNotes && (
-            <p className="text-xs mt-0.5 truncate" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-              {userNotes}
-            </p>
-          )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>{meta.label}</p>
+            {isBreastfeed && <span className="text-[10px] flex-shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }}>›</span>}
+          </div>
+          {meta.sub && <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>{meta.sub}</p>}
         </div>
-      </div>
+      </button>
     </div>
   );
 }

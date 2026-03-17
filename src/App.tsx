@@ -79,18 +79,19 @@ function OnboardingGuard() {
 
   return (
     <Routes>
-      <Route path="/onboarding" element={<WelcomePage />} />
-      <Route path="/onboarding/auth" element={<AuthPage />} />
+      {/* paths are relative to the /onboarding/* parent match */}
+      <Route index element={<WelcomePage />} />
+      <Route path="auth" element={<AuthPage />} />
       <Route
-        path="/onboarding/family"
+        path="family"
         element={user ? <FamilyPage /> : <Navigate to="/onboarding/auth" replace />}
       />
       <Route
-        path="/onboarding/child"
+        path="child"
         element={user ? <ChildPage /> : <Navigate to="/onboarding/auth" replace />}
       />
       <Route
-        path="/onboarding/complete"
+        path="complete"
         element={user ? <CompletePage /> : <Navigate to="/onboarding/auth" replace />}
       />
     </Routes>

@@ -11,7 +11,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { ChildSwitcher } from '@/components/home/ChildSwitcher';
 import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSheets';
+import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { parsePayload } from '@/lib/routineUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type RoutineLog = Tables<'routine_logs'>;

@@ -1,17 +1,15 @@
 /**
- * FeedSheet v5 — Breastfeeding session flow.
+ * FeedSheet v6 — Final MVP breastfeeding session flow.
  *
- * Session state machine:  suggest → session (ACTIVE | PAUSED) → FINISHED → summary → saved
+ * State machine: suggest → session (ACTIVE | PAUSED) → FINISHED → summary → saved
  *
- * Summary uses progressive disclosure:
- *   Default: duration + E/D + insight + [Salvar] [Adicionar observação] [Descartar]
- *   Expanded: chips + free text + report toggle → still shows [Salvar] always visible
- *
- * Timer invariants:
- *   - sideTimesRef = accumulated ms per side (closed segments)
- *   - segmentStartRef = epoch of current open segment (null when paused/finished)
- *   - 500ms interval forces re-render; all display derived at render time from refs
- *   - switchCount ONLY incremented in handleSwitch
+ * Key improvements:
+ *   - Clean action hierarchy per state
+ *   - Smart discard confirmation (only for sessions ≥ 1 min)
+ *   - Stable SideCard layout (no size changes between states)
+ *   - Status labels always consistent
+ *   - Progressive disclosure in summary
+ *   - Child context header
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -23,28 +21,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import {
-  parsePayload,
-  makePayloadNotes,
-  fmtTimer,
-  fmtDurationShort,
-  fmtTimeSince,
+  parsePayload, makePayloadNotes, fmtTimer, fmtDurationShort, fmtTimeSince,
   type RoutineLog,
 } from '@/lib/routineUtils';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-const SESSION_KEY = 'ninho_feed_session_v4';
+const SESSION_KEY = 'ninho_feed_session_v6';
 
 const QUICK_TAGS = [
   { id: 'mamou_bem', label: '😊 Mamou bem' },
@@ -96,7 +86,8 @@ function saveSession(d: PersistedSession) {
 }
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem('ninho_feed_session'); // legacy key
+  localStorage.removeItem('ninho_feed_session_v4');
+  localStorage.removeItem('ninho_feed_session');
 }
 function loadSession(): PersistedSession | null {
   try { const r = localStorage.getItem(SESSION_KEY); return r ? JSON.parse(r) : null; }
@@ -106,17 +97,14 @@ function loadSession(): PersistedSession | null {
 // ─── Insight engine ────────────────────────────────────────────────────────
 
 function computeInsight(
-  totalSec: number,
-  sw: number,
-  lastFeedTime: string | null,
+  totalSec: number, sw: number, lastFeedTime: string | null,
   recent: { start_time: string; notes: string | null }[],
 ): string | null {
   const today = new Date().toDateString();
   const todaySessions = recent.filter(s => new Date(s.start_time).toDateString() === today);
 
   const todayTotals = todaySessions
-    .map(s => Number(parsePayload(s.notes).total_seconds ?? 0))
-    .filter(t => t > 0);
+    .map(s => Number(parsePayload(s.notes).total_seconds ?? 0)).filter(t => t > 0);
   if (todayTotals.length >= 1 && totalSec > Math.max(...todayTotals)) {
     return '✨ Sessão mais longa do dia';
   }
@@ -138,51 +126,34 @@ function computeInsight(
       return '🔄 Mais trocas que o habitual';
     }
   }
-
   return null;
 }
 
 // ─── ChildHeader ───────────────────────────────────────────────────────────
-// Shows avatar placeholder + name + age. Informational only (no switching yet).
 
 function ChildHeader() {
   const { activeChild, getAgeLabel } = useActiveChild();
   if (!activeChild) return null;
-
   const initials = activeChild.name.charAt(0).toUpperCase();
   const age = getAgeLabel(activeChild.birth_date);
 
   return (
     <div className="flex items-center gap-3 mb-5">
       {activeChild.avatar_url ? (
-        <img
-          src={activeChild.avatar_url}
-          alt={activeChild.name}
-          className="w-11 h-11 rounded-full object-cover flex-shrink-0"
-        />
+        <img src={activeChild.avatar_url} alt={activeChild.name}
+          className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
       ) : (
-        <div
-          className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold"
-          style={{
-            background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))',
-            color: 'white',
-            fontFamily: 'Quicksand, sans-serif',
-          }}
-        >
+        <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold"
+          style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Quicksand, sans-serif' }}>
           {initials}
         </div>
       )}
       <div>
-        <p
-          className="text-base font-bold leading-tight"
-          style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}
-        >
+        <p className="text-base font-bold leading-tight"
+          style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
           {activeChild.name}
         </p>
-        <p
-          className="text-xs"
-          style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
-        >
+        <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
           {age}
         </p>
       </div>
@@ -190,7 +161,7 @@ function ChildHeader() {
   );
 }
 
-// ─── SideCard ──────────────────────────────────────────────────────────────
+// ─── SideCard (STABLE LAYOUT — never changes size) ─────────────────────────
 
 function SideCard({
   side, active, totalMs, sessionStatus, onClick,
@@ -203,7 +174,14 @@ function SideCard({
 }) {
   const label = side === 'L' ? 'Esquerdo' : 'Direito';
   const arrow = side === 'L' ? '←' : '→';
-  const isRunning = active && sessionStatus === 'ACTIVE';
+
+  // Status label — always present to maintain layout stability
+  const statusLabel = !sessionStatus ? '\u00A0' // non-breaking space placeholder
+    : active && sessionStatus === 'ACTIVE' ? 'ativo'
+    : active && sessionStatus === 'PAUSED' ? 'pausado'
+    : '\u00A0';
+
+  const showPulse = active && sessionStatus === 'ACTIVE';
 
   return (
     <button
@@ -213,48 +191,44 @@ function SideCard({
       style={{
         backgroundColor: active ? 'hsl(var(--ninho-sage) / 0.1)' : 'hsl(var(--muted))',
         border: active ? '2px solid hsl(var(--ninho-sage) / 0.4)' : '2px solid transparent',
-        opacity: active ? 1 : 0.35,
-        transform: active ? 'scale(1.04)' : 'scale(1)',
-        boxShadow: active ? '0 4px 24px -6px hsl(var(--ninho-sage) / 0.35)' : 'none',
+        opacity: active ? 1 : 0.4,
+        transform: active ? 'scale(1.02)' : 'scale(1)',
+        boxShadow: active ? '0 4px 20px -6px hsl(var(--ninho-sage) / 0.3)' : 'none',
       }}
     >
-      <div
-        className="w-11 h-11 rounded-full mx-auto flex items-center justify-center text-base font-bold"
+      <div className="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-base font-bold"
         style={{
           backgroundColor: active ? 'hsl(var(--ninho-sage) / 0.2)' : 'hsl(var(--border))',
           color: active ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))',
-        }}
-      >
+        }}>
         {arrow}
       </div>
-      <p
-        className="text-[11px] mt-2 font-bold uppercase tracking-wide"
-        style={{
-          color: active ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))',
-          fontFamily: 'Nunito, sans-serif',
-        }}
-      >
+      <p className="text-[11px] mt-2 font-bold uppercase tracking-wide"
+        style={{ color: active ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
         {label}
       </p>
-      {totalMs !== undefined && (
-        <p
-          className="text-2xl font-bold tabular-nums mt-1"
-          style={{
-            color: active ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))',
-            fontFamily: 'Quicksand, sans-serif',
-          }}
-        >
-          {fmtTimer(Math.floor(totalMs / 1000))}
-        </p>
-      )}
-      {isRunning && (
-        <div className="flex items-center justify-center gap-1 mt-2">
-          <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }} />
-          <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Nunito, sans-serif' }}>ativo</span>
-        </div>
-      )}
+      {/* Timer — fixed height block */}
+      <div className="h-9 flex items-center justify-center mt-1">
+        {totalMs !== undefined ? (
+          <p className="text-2xl font-bold tabular-nums"
+            style={{ color: active ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))', fontFamily: 'Quicksand, sans-serif' }}>
+            {fmtTimer(Math.floor(totalMs / 1000))}
+          </p>
+        ) : (
+          <div className="h-9" />
+        )}
+      </div>
+      {/* Status label — always occupies space */}
+      <div className="h-5 flex items-center justify-center gap-1 mt-1">
+        {showPulse && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }} />}
+        <span className="text-[10px] font-semibold"
+          style={{ color: active ? 'hsl(var(--ninho-sage))' : 'transparent', fontFamily: 'Nunito, sans-serif' }}>
+          {statusLabel}
+        </span>
+      </div>
+      {/* Selection indicator for suggest phase */}
       {onClick && (
-        <div className="mt-2">
+        <div className="mt-1">
           {active
             ? <div className="w-5 h-5 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }}><div className="w-2 h-2 rounded-full bg-white" /></div>
             : <div className="w-5 h-5 rounded-full border-2 mx-auto" style={{ borderColor: 'hsl(var(--border))' }} />
@@ -265,7 +239,7 @@ function SideCard({
   );
 }
 
-// ─── ChildSelect (multi-child only) ────────────────────────────────────────
+// ─── ChildSelect ───────────────────────────────────────────────────────────
 
 function ChildSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { children } = useActiveChild();
@@ -283,29 +257,59 @@ function ChildSelect({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-// ─── UnsavedDialog ─────────────────────────────────────────────────────────
+// ─── DiscardDialog ─────────────────────────────────────────────────────────
+
+function DiscardDialog({ durationMin, onDiscard, onContinue }: {
+  durationMin: number; onDiscard: () => void; onContinue: () => void;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={onContinue}>
+      <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+        className="w-full max-w-md rounded-t-3xl p-6 space-y-3" style={{ backgroundColor: 'hsl(var(--card))' }}
+        onClick={e => e.stopPropagation()}>
+        <p className="text-base font-bold text-center" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+          Descartar sessão?
+        </p>
+        <p className="text-sm text-center" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+          Você registrou {durationMin} min nesta mamada. Deseja descartar mesmo?
+        </p>
+        <div className="space-y-2 pt-2">
+          <button onClick={onContinue} className="w-full py-3.5 rounded-2xl text-sm font-bold"
+            style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
+            Continuar editando
+          </button>
+          <button onClick={onDiscard} className="w-full py-2 text-xs font-semibold"
+            style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}>
+            Descartar sessão
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── UnsavedDialog (for closing summary without saving) ────────────────────
 
 function UnsavedDialog({ onSave, onDiscard, onContinue }: {
   onSave: () => void; onDiscard: () => void; onContinue: () => void;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="fixed inset-0 z-[60] flex items-end justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={onContinue}
-    >
-      <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={onContinue}>
+      <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-        className="w-full max-w-md rounded-t-3xl p-6 space-y-3"
-        style={{ backgroundColor: 'hsl(var(--card))' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <p className="text-base font-bold text-center" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>Sessão não salva</p>
-        <p className="text-sm text-center" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Deseja salvar esta sessão antes de sair?</p>
+        className="w-full max-w-md rounded-t-3xl p-6 space-y-3" style={{ backgroundColor: 'hsl(var(--card))' }}
+        onClick={e => e.stopPropagation()}>
+        <p className="text-base font-bold text-center" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+          Sessão não salva
+        </p>
+        <p className="text-sm text-center" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+          Deseja salvar esta sessão antes de sair?
+        </p>
         <div className="space-y-2 pt-2">
           <button onClick={onSave} className="w-full py-3.5 rounded-2xl text-sm font-bold"
             style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Nunito, sans-serif' }}>
@@ -327,11 +331,7 @@ function UnsavedDialog({ onSave, onDiscard, onContinue }: {
 
 // ─── Main FeedSheet ────────────────────────────────────────────────────────
 
-interface FeedSheetProps {
-  open: boolean;
-  onClose: () => void;
-  onSaved: () => void;
-}
+interface FeedSheetProps { open: boolean; onClose: () => void; onSaved: () => void; }
 
 export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
   const { user } = useAuth();
@@ -350,28 +350,28 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
   const [activeSide, setActiveSide] = useState<Side>('L');
   const [switchCount, setSwitchCount] = useState(0);
 
-  // ── Timer refs (single source of truth) ──
+  // Timer refs
   const sideTimesRef = useRef<SideTimes>({ L: 0, R: 0 });
   const segmentStartRef = useRef<number | null>(null);
   const activeSideRef = useRef<Side>('L');
   const [, forceRender] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Summary ──
+  // Summary
   const [finishedData, setFinishedData] = useState<FinishedData | null>(null);
   const [sessionInsight, setSessionInsight] = useState<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [tipIndex] = useState(() => Math.floor(Math.random() * EDU_TIPS.length));
 
-  // ── Observations (only shown when user opens subflow) ──
+  // Observations
   const [obsOpen, setObsOpen] = useState(false);
   const [obsTags, setObsTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
-
   const [saving, setSaving] = useState(false);
 
-  // ── Bottle / manual ──
+  // Bottle / manual
   const [bottleMethod, setBottleMethod] = useState<'bottle' | 'formula'>('bottle');
   const [bottleAmount, setBottleAmount] = useState('');
   const [manualStart, setManualStart] = useState('');
@@ -386,6 +386,11 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     const L = sideTimesRef.current.L + (activeSideRef.current === 'L' ? nowMs : 0);
     const R = sideTimesRef.current.R + (activeSideRef.current === 'R' ? nowMs : 0);
     return { L, R, total: L + R };
+  }
+
+  function getTotalDurationMin() {
+    const d = getDisplay();
+    return Math.floor(d.total / 60000);
   }
 
   // ─── Timer control ────────────────────────────────────────────
@@ -408,7 +413,13 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
 
   const persistSession = useCallback(() => {
     if (phase !== 'session') return;
-    saveSession({ childId, sessionStartEpoch, sideTimes: sideTimesRef.current, activeSide: activeSideRef.current, switchCount, status: sessionStatus, segmentStartEpoch: segmentStartRef.current });
+    saveSession({
+      childId, sessionStartEpoch,
+      sideTimes: sideTimesRef.current,
+      activeSide: activeSideRef.current,
+      switchCount, status: sessionStatus,
+      segmentStartEpoch: segmentStartRef.current,
+    });
   }, [phase, childId, sessionStartEpoch, switchCount, sessionStatus]);
 
   useEffect(() => { persistSession(); }, [persistSession]);
@@ -417,7 +428,8 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
 
   const loadSuggestion = useCallback(async (cid: string) => {
     try {
-      const { data } = await supabase.from('routine_logs').select('*').eq('child_id', cid).eq('type', 'feed').order('start_time', { ascending: false }).limit(10);
+      const { data } = await supabase.from('routine_logs').select('*').eq('child_id', cid).eq('type', 'feed')
+        .order('start_time', { ascending: false }).limit(10);
       if (data && data.length > 0) {
         const last = data[0];
         const ls = parsePayload(last.notes).last_side as Side | undefined;
@@ -438,6 +450,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     setChildId(cid);
     resetObs();
     setShowUnsavedDialog(false);
+    setShowDiscardDialog(false);
 
     const p = loadSession();
     if (p && p.childId === cid) {
@@ -451,6 +464,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         stopInterval(); segmentStartRef.current = null;
         setSessionStatus('FINISHED'); setPhase('session');
       } else if (p.status === 'ACTIVE' && p.segmentStartEpoch) {
+        // Was active when closed — accumulate gap and pause
         const gap = Date.now() - p.segmentStartEpoch;
         sideTimesRef.current = { ...sideTimesRef.current, [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + gap };
         segmentStartRef.current = null; setSessionStatus('PAUSED'); setPhase('session');
@@ -476,6 +490,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     setObsOpen(false); setObsTags([]); setNotes(''); setIncludeInReport(false);
     setFinishedData(null); setSessionInsight(null); setSaving(false);
     setBottleAmount(''); setBottleMethod('bottle');
+    setManualStart(''); setManualEnd(''); setManualSide('L');
   }
 
   function toggleTag(id: string) {
@@ -491,9 +506,9 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     segmentStartRef.current = n;
     setActiveSide(selectedSide); setSwitchCount(0);
     setSessionStatus('ACTIVE'); setSessionStartEpoch(n); setPhase('session');
+    toast({ title: '🤱 Sessão iniciada' });
   }
 
-  /** ✅ ONLY here switchCount increments */
   function handleSwitch() {
     const n = Date.now();
     const newSide: Side = activeSideRef.current === 'L' ? 'R' : 'L';
@@ -504,9 +519,10 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     segmentStartRef.current = n;
     activeSideRef.current = newSide;
     setActiveSide(newSide);
-    setSwitchCount(c => c + 1); // ← ONLY here
+    setSwitchCount(c => c + 1);
     setSessionStatus('ACTIVE');
     forceRender(n => n + 1);
+    toast({ title: `↔ Lado ${newSide === 'R' ? 'direito' : 'esquerdo'} iniciado` });
   }
 
   function handlePause() {
@@ -515,12 +531,14 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       sideTimesRef.current = { ...sideTimesRef.current, [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + (n - segmentStartRef.current) };
       segmentStartRef.current = null;
     }
-    setSessionStatus('PAUSED'); // switchCount unchanged ✅
+    setSessionStatus('PAUSED');
+    toast({ title: '⏸ Sessão pausada' });
   }
 
   function handleResume() {
     segmentStartRef.current = Date.now();
-    setSessionStatus('ACTIVE'); // switchCount unchanged ✅
+    setSessionStatus('ACTIVE');
+    toast({ title: '▶ Sessão retomada' });
   }
 
   function handleFinish() {
@@ -544,6 +562,25 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     setSessionInsight(computeInsight(tSec, switchCount, lastFeedTime, recentSessions));
     setSessionStatus('FINISHED');
     setPhase('summary');
+  }
+
+  // ─── Discard logic ────────────────────────────────────────────
+
+  function requestDiscard() {
+    const min = getTotalDurationMin();
+    if (min < 1) {
+      doDiscard();
+    } else {
+      setShowDiscardDialog(true);
+    }
+  }
+
+  function doDiscard() {
+    clearSession(); resetTimers(); resetObs();
+    setPhase('suggest'); setShowDiscardDialog(false); setShowUnsavedDialog(false);
+    onClose();
+    toast({ title: '🗑 Sessão descartada' });
+    loadSuggestion(childId);
   }
 
   // ─── Save ─────────────────────────────────────────────────────
@@ -570,7 +607,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       });
       if (error) throw error;
       clearSession();
-      toast({ title: 'Sessão salva! 🤱' });
+      toast({ title: '✓ Sessão salva' });
       onSaved(); doClose(true);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
@@ -583,9 +620,13 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     try {
       const payload: Record<string, unknown> = { feeding_method: bottleMethod };
       if (bottleAmount) payload.amount_ml = Number(bottleAmount);
-      const { error } = await supabase.from('routine_logs').insert({ child_id: childId, author_id: user.id, type: 'feed', start_time: new Date().toISOString(), notes: makePayloadNotes(payload, notes) });
+      const { error } = await supabase.from('routine_logs').insert({
+        child_id: childId, author_id: user.id, type: 'feed',
+        start_time: new Date().toISOString(),
+        notes: makePayloadNotes(payload, notes),
+      });
       if (error) throw error;
-      toast({ title: bottleMethod === 'bottle' ? 'Mamadeira registrada! 🍼' : 'Fórmula registrada! 🥛' });
+      toast({ title: bottleMethod === 'bottle' ? '🍼 Mamadeira registrada' : '🥛 Fórmula registrada' });
       onSaved(); doClose(true);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
@@ -601,9 +642,19 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       const tSec = end ? Math.floor((end.getTime() - start.getTime()) / 1000) : 0;
       const lSec = manualSide === 'R' ? 0 : manualSide === 'both' ? Math.floor(tSec / 2) : tSec;
       const rSec = manualSide === 'L' ? 0 : manualSide === 'both' ? Math.ceil(tSec / 2) : tSec;
-      const { error } = await supabase.from('routine_logs').insert({ child_id: childId, author_id: user.id, type: 'feed', start_time: start.toISOString(), end_time: end?.toISOString() ?? null, notes: makePayloadNotes({ session_type: 'breastfeed', mode: 'manual', total_seconds: tSec, left_seconds: lSec, right_seconds: rSec, switches: manualSide === 'both' ? 1 : 0, last_side: manualSide === 'L' ? 'L' : 'R' }, notes) });
+      const { error } = await supabase.from('routine_logs').insert({
+        child_id: childId, author_id: user.id, type: 'feed',
+        start_time: start.toISOString(),
+        end_time: end?.toISOString() ?? null,
+        notes: makePayloadNotes({
+          session_type: 'breastfeed', mode: 'manual',
+          total_seconds: tSec, left_seconds: lSec, right_seconds: rSec,
+          switches: manualSide === 'both' ? 1 : 0,
+          last_side: manualSide === 'L' ? 'L' : 'R',
+        }, notes),
+      });
       if (error) throw error;
-      toast({ title: 'Amamentação registrada! 🤱' });
+      toast({ title: '🤱 Amamentação registrada' });
       onSaved(); doClose(true);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
@@ -617,20 +668,14 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       setShowUnsavedDialog(true); return;
     }
     if (phase === 'session' && (sessionStatus === 'ACTIVE' || sessionStatus === 'PAUSED')) {
-      onClose(); return; // session persisted, just close
+      onClose(); return; // session persisted
     }
     doClose(false);
   }
 
   function doClose(fullReset: boolean) {
-    setShowUnsavedDialog(false); onClose();
+    setShowUnsavedDialog(false); setShowDiscardDialog(false); onClose();
     if (fullReset) { resetTimers(); resetObs(); setPhase('suggest'); clearSession(); }
-  }
-
-  function handleDiscard() {
-    clearSession(); resetTimers(); resetObs();
-    setPhase('suggest'); setShowUnsavedDialog(false); onClose();
-    loadSuggestion(childId);
   }
 
   // ─── Render ───────────────────────────────────────────────────
@@ -651,13 +696,9 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
             {/* ══ SUGGEST ══════════════════════════════════════════ */}
             {phase === 'suggest' && (
               <motion.div key="suggest" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="flex flex-col px-1 pt-2">
-
-                {/* Child context header */}
                 <ChildHeader />
-
                 <ChildSelect value={childId} onChange={setChildId} />
 
-                {/* Last feed banner */}
                 {lastFeedTime && (
                   <div className="rounded-2xl px-4 py-3 mb-5 flex items-center gap-3" style={{ backgroundColor: 'hsl(var(--ninho-sage) / 0.08)' }}>
                     <span className="text-xl">⏰</span>
@@ -702,27 +743,24 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
               </motion.div>
             )}
 
-            {/* ══ SESSION ══════════════════════════════════════════ */}
+            {/* ══ SESSION (ACTIVE / PAUSED) ═══════════════════════ */}
             {phase === 'session' && (
               <motion.div key="session" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
-                <div className="flex items-center justify-between px-1 pt-1 mb-5">
-                  <div className="flex items-center gap-2">
-                    {sessionStatus === 'ACTIVE' && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }} />}
-                    <p className="text-xs font-bold" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-                      {sessionStatus === 'ACTIVE' ? 'Sessão ativa' : sessionStatus === 'PAUSED' ? '⏸ Pausado' : '✓ Finalizado'}
-                    </p>
-                  </div>
-                  <button onClick={handleDiscard} className="text-xs font-semibold px-3 py-1 rounded-full"
-                    style={{ color: 'hsl(var(--destructive))', backgroundColor: 'hsl(var(--destructive) / 0.08)' }}>
-                    Descartar
-                  </button>
+                {/* Status header — matches card state */}
+                <div className="flex items-center justify-center gap-2 px-1 pt-1 mb-5">
+                  {sessionStatus === 'ACTIVE' && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }} />}
+                  <p className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
+                    {sessionStatus === 'ACTIVE' ? 'Sessão em andamento' : sessionStatus === 'PAUSED' ? '⏸ Sessão pausada' : '✓ Sessão finalizada'}
+                  </p>
                 </div>
 
+                {/* Side cards */}
                 <div className="flex gap-3 px-1">
                   <SideCard side="L" active={activeSide === 'L'} totalMs={display.L} sessionStatus={sessionStatus} />
                   <SideCard side="R" active={activeSide === 'R'} totalMs={display.R} sessionStatus={sessionStatus} />
                 </div>
 
+                {/* Total timer */}
                 <div className="flex-1 flex flex-col items-center justify-center">
                   <p className="text-7xl font-bold tabular-nums"
                     style={{ color: sessionStatus === 'ACTIVE' ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))', fontFamily: 'Quicksand, sans-serif' }}>
@@ -737,9 +775,17 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   )}
                 </div>
 
+                {/* Actions — clean hierarchy */}
                 <div className="px-1 pb-4 space-y-3">
                   {sessionStatus !== 'FINISHED' && (
                     <>
+                      {/* Switch side — primary during session */}
+                      <button onClick={handleSwitch}
+                        className="w-full py-5 rounded-2xl text-base font-bold transition-all active:scale-[0.97] shadow-md"
+                        style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Nunito, sans-serif' }}>
+                        ⟷ Trocar para lado {activeSide === 'L' ? 'direito →' : '← esquerdo'}
+                      </button>
+                      {/* Secondary: pause/resume + finish */}
                       <div className="flex gap-3">
                         <button onClick={sessionStatus === 'PAUSED' ? handleResume : handlePause}
                           className="flex-1 py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95"
@@ -752,11 +798,6 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                           ✓ Finalizar
                         </button>
                       </div>
-                      <button onClick={handleSwitch}
-                        className="w-full py-5 rounded-2xl text-base font-bold transition-all active:scale-[0.97] shadow-md"
-                        style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Nunito, sans-serif' }}>
-                        ⟷ Trocar para lado {activeSide === 'L' ? 'direito →' : '← esquerdo'}
-                      </button>
                     </>
                   )}
                   {sessionStatus === 'FINISHED' && (
@@ -774,14 +815,13 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
               <motion.div key="summary" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}
                 className="flex-1 flex flex-col px-1 pt-2">
 
-                {/* Time range */}
                 <p className="text-xl font-bold text-center mb-0.5" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>Resumo</p>
                 <p className="text-xs text-center mb-5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
                   {finishedData.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} –{' '}
                   {finishedData.end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
 
-                {/* Total duration — prominent */}
+                {/* Total duration */}
                 <div className="text-center mb-4">
                   <p className="text-5xl font-bold tabular-nums" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Quicksand, sans-serif' }}>
                     {fmtDurationShort(finishedData.totalSec)}
@@ -803,7 +843,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   ))}
                 </div>
 
-                {/* E/D visual bar */}
+                {/* E/D bar */}
                 {finishedData.totalSec > 0 && (
                   <div className="h-2 rounded-full overflow-hidden flex mb-4" style={{ backgroundColor: 'hsl(var(--muted))' }}>
                     <div style={{ width: `${(finishedData.leftSec / finishedData.totalSec) * 100}%`, background: 'hsl(var(--ninho-sage))', borderRadius: '9999px 0 0 9999px' }} />
@@ -813,7 +853,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   </div>
                 )}
 
-                {/* Insight — only when meaningful */}
+                {/* Insight */}
                 {sessionInsight && (
                   <div className="rounded-2xl px-4 py-2.5 mb-3 flex items-center gap-2"
                     style={{ backgroundColor: 'hsl(var(--ninho-sage) / 0.07)', border: '1px solid hsl(var(--ninho-sage) / 0.2)' }}>
@@ -823,7 +863,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   </div>
                 )}
 
-                {/* Educational tip — only for newer users */}
+                {/* Educational tip */}
                 {recentSessions.length <= 5 && !sessionInsight && (
                   <p className="text-[11px] text-center mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
                     💡 {EDU_TIPS[tipIndex]}
@@ -832,25 +872,16 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
 
                 <div className="flex-1 min-h-3" />
 
-                {/* ── OBSERVATION SUBFLOW (progressive disclosure) ── */}
+                {/* Observation subflow (progressive disclosure) */}
                 <AnimatePresence>
                   {obsOpen && (
-                    <motion.div
-                      key="obs"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="mb-3 space-y-3 overflow-hidden"
-                    >
-                      {/* Subflow header */}
+                    <motion.div key="obs" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="mb-3 space-y-3 overflow-hidden">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Como foi?</p>
                         <button onClick={() => { setObsOpen(false); setObsTags([]); setNotes(''); setIncludeInReport(false); }}
                           className="text-xs font-semibold" style={{ color: 'hsl(var(--muted-foreground))' }}>Cancelar</button>
                       </div>
-
-                      {/* Quick tags */}
                       <div className="flex flex-wrap gap-2">
                         {QUICK_TAGS.map(tag => (
                           <button key={tag.id} onClick={() => toggleTag(tag.id)}
@@ -864,14 +895,9 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                           </button>
                         ))}
                       </div>
-
-                      {/* Free text */}
                       <Textarea value={notes} onChange={e => setNotes(e.target.value)}
                         placeholder="Outras observações..." className="rounded-2xl border-border resize-none" rows={2} />
-
-                      {/* Report toggle — ONLY inside obs subflow */}
-                      <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
-                        style={{ backgroundColor: 'hsl(var(--muted))' }}>
+                      <div className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'hsl(var(--muted))' }}>
                         <div>
                           <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
                             Incluir no relatório médico
@@ -886,7 +912,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   )}
                 </AnimatePresence>
 
-                {/* ── PRIMARY ACTIONS — always visible, no scroll needed ── */}
+                {/* Actions — always visible */}
                 <Button onClick={handleSave} disabled={saving}
                   className="w-full rounded-2xl h-14 text-base font-bold shadow-md mb-2"
                   style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white' }}>
@@ -901,7 +927,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   </button>
                 )}
 
-                <button onClick={handleDiscard} className="w-full py-2 text-xs font-semibold"
+                <button onClick={requestDiscard} className="w-full py-2 text-xs font-semibold"
                   style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}>
                   Descartar sessão
                 </button>
@@ -990,7 +1016,10 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       </Sheet>
 
       {showUnsavedDialog && (
-        <UnsavedDialog onSave={handleSave} onDiscard={handleDiscard} onContinue={() => setShowUnsavedDialog(false)} />
+        <UnsavedDialog onSave={handleSave} onDiscard={doDiscard} onContinue={() => setShowUnsavedDialog(false)} />
+      )}
+      {showDiscardDialog && (
+        <DiscardDialog durationMin={finishedData ? Math.floor(finishedData.totalSec / 60) : getTotalDurationMin()} onDiscard={doDiscard} onContinue={() => setShowDiscardDialog(false)} />
       )}
     </>
   );

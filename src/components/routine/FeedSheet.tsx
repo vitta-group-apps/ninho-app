@@ -1,18 +1,17 @@
 /**
- * FeedSheet v4 — Breastfeeding session as a first-class product experience.
+ * FeedSheet v5 — Breastfeeding session flow.
  *
- * Session state machine:
- *   suggest → session (ACTIVE | PAUSED) → finished (UNSAVED) → saved
+ * Session state machine:  suggest → session (ACTIVE | PAUSED) → FINISHED → summary → saved
+ *
+ * Summary uses progressive disclosure:
+ *   Default: duration + E/D + insight + [Salvar] [Adicionar observação] [Descartar]
+ *   Expanded: chips + free text + report toggle → still shows [Salvar] always visible
  *
  * Timer invariants:
- *   - Single source of truth: accumulated ms in `accumulatedMs` ref
- *   - Interval only runs while ACTIVE; on every tick writes to ref and forces re-render
- *   - Reading time: accumulatedMs.current (no Date.now() in render path)
+ *   - sideTimesRef = accumulated ms per side (closed segments)
+ *   - segmentStartRef = epoch of current open segment (null when paused/finished)
+ *   - 500ms interval forces re-render; all display derived at render time from refs
  *   - switchCount ONLY incremented in handleSwitch
- *
- * Data model:
- *   notes = __payload:{ session_type, left_seconds, right_seconds, total_seconds,
- *                       switches, last_side, tags?, _notes?, include_in_report? }
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -65,14 +64,10 @@ const EDU_TIPS = [
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 type Side = 'L' | 'R';
-/** ACTIVE = running, PAUSED = stopped but not done, FINISHED = completed awaiting save */
 type SessionStatus = 'ACTIVE' | 'PAUSED' | 'FINISHED';
 type FeedPhase = 'suggest' | 'session' | 'summary' | 'manual' | 'bottle';
 
-interface SideTimes {
-  L: number; // accumulated ms on left
-  R: number; // accumulated ms on right
-}
+interface SideTimes { L: number; R: number; }
 
 interface PersistedSession {
   childId: string;
@@ -81,7 +76,6 @@ interface PersistedSession {
   activeSide: Side;
   switchCount: number;
   status: SessionStatus;
-  /** epoch when current segment started (only valid when ACTIVE) */
   segmentStartEpoch: number | null;
 }
 
@@ -95,15 +89,14 @@ interface FinishedData {
   lastSide: Side;
 }
 
-// ─── Persistence helpers ───────────────────────────────────────────────────
+// ─── Persistence ───────────────────────────────────────────────────────────
 
-function saveSession(data: PersistedSession) {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch { /* noop */ }
+function saveSession(d: PersistedSession) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(d)); } catch { /* noop */ }
 }
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
-  // clean old key too
-  localStorage.removeItem('ninho_feed_session');
+  localStorage.removeItem('ninho_feed_session'); // legacy key
 }
 function loadSession(): PersistedSession | null {
   try { const r = localStorage.getItem(SESSION_KEY); return r ? JSON.parse(r) : null; }
@@ -112,45 +105,89 @@ function loadSession(): PersistedSession | null {
 
 // ─── Insight engine ────────────────────────────────────────────────────────
 
-function computeInsights(
+function computeInsight(
   totalSec: number,
   sw: number,
   lastFeedTime: string | null,
   recent: { start_time: string; notes: string | null }[],
-): string[] {
-  const insights: string[] = [];
+): string | null {
   const today = new Date().toDateString();
   const todaySessions = recent.filter(s => new Date(s.start_time).toDateString() === today);
 
-  // Longest session today (compare against today's completed sessions)
   const todayTotals = todaySessions
     .map(s => Number(parsePayload(s.notes).total_seconds ?? 0))
     .filter(t => t > 0);
   if (todayTotals.length >= 1 && totalSec > Math.max(...todayTotals)) {
-    insights.push('✨ Sessão mais longa do dia');
+    return '✨ Sessão mais longa do dia';
   }
 
-  // Short interval vs historical average (needs ≥4 sessions for reliability)
   if (lastFeedTime && recent.length >= 4) {
     const times = recent.slice(0, 7).map(s => new Date(s.start_time).getTime());
     const diffs = times.slice(0, -1).map((t, i) => Math.abs(t - times[i + 1]) / 60000);
     const avgMin = diffs.reduce((a, b) => a + b, 0) / diffs.length;
     const currentMin = (Date.now() - new Date(lastFeedTime).getTime()) / 60000;
     if (avgMin > 0 && currentMin < avgMin * 0.65 && currentMin < 90) {
-      insights.push('⏱ Intervalo menor que o usual');
+      return '⏱ Intervalo menor que o usual';
     }
   }
 
-  // More switches than recent average (needs ≥2 other sessions today)
   if (todaySessions.length >= 2) {
     const swCounts = todaySessions.map(s => Number(parsePayload(s.notes).switches ?? 0));
     const avg = swCounts.reduce((a, b) => a + b, 0) / swCounts.length;
     if (avg > 0 && sw > avg * 1.5 && sw >= 3) {
-      insights.push('🔄 Mais trocas que o habitual');
+      return '🔄 Mais trocas que o habitual';
     }
   }
 
-  return insights.slice(0, 1);
+  return null;
+}
+
+// ─── ChildHeader ───────────────────────────────────────────────────────────
+// Shows avatar placeholder + name + age. Informational only (no switching yet).
+
+function ChildHeader() {
+  const { activeChild, getAgeLabel } = useActiveChild();
+  if (!activeChild) return null;
+
+  const initials = activeChild.name.charAt(0).toUpperCase();
+  const age = getAgeLabel(activeChild.birth_date);
+
+  return (
+    <div className="flex items-center gap-3 mb-5">
+      {activeChild.avatar_url ? (
+        <img
+          src={activeChild.avatar_url}
+          alt={activeChild.name}
+          className="w-11 h-11 rounded-full object-cover flex-shrink-0"
+        />
+      ) : (
+        <div
+          className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-base font-bold"
+          style={{
+            background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))',
+            color: 'white',
+            fontFamily: 'Quicksand, sans-serif',
+          }}
+        >
+          {initials}
+        </div>
+      )}
+      <div>
+        <p
+          className="text-base font-bold leading-tight"
+          style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}
+        >
+          {activeChild.name}
+        </p>
+        <p
+          className="text-xs"
+          style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
+        >
+          {age}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // ─── SideCard ──────────────────────────────────────────────────────────────
@@ -160,7 +197,7 @@ function SideCard({
 }: {
   side: Side;
   active: boolean;
-  totalMs?: number;       // accumulated ms for this side (for display during session)
+  totalMs?: number;
   sessionStatus?: SessionStatus;
   onClick?: () => void;
 }) {
@@ -175,10 +212,10 @@ function SideCard({
       className="flex-1 rounded-3xl p-4 text-center transition-all duration-200"
       style={{
         backgroundColor: active ? 'hsl(var(--ninho-sage) / 0.1)' : 'hsl(var(--muted))',
-        border: active ? `2px solid hsl(var(--ninho-sage) / 0.4)` : '2px solid transparent',
+        border: active ? '2px solid hsl(var(--ninho-sage) / 0.4)' : '2px solid transparent',
         opacity: active ? 1 : 0.35,
         transform: active ? 'scale(1.04)' : 'scale(1)',
-        boxShadow: active ? `0 4px 24px -6px hsl(var(--ninho-sage) / 0.35)` : 'none',
+        boxShadow: active ? '0 4px 24px -6px hsl(var(--ninho-sage) / 0.35)' : 'none',
       }}
     >
       <div
@@ -190,7 +227,6 @@ function SideCard({
       >
         {arrow}
       </div>
-
       <p
         className="text-[11px] mt-2 font-bold uppercase tracking-wide"
         style={{
@@ -200,7 +236,6 @@ function SideCard({
       >
         {label}
       </p>
-
       {totalMs !== undefined && (
         <p
           className="text-2xl font-bold tabular-nums mt-1"
@@ -212,33 +247,25 @@ function SideCard({
           {fmtTimer(Math.floor(totalMs / 1000))}
         </p>
       )}
-
       {isRunning && (
         <div className="flex items-center justify-center gap-1 mt-2">
           <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }} />
-          <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Nunito, sans-serif' }}>
-            ativo
-          </span>
+          <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Nunito, sans-serif' }}>ativo</span>
         </div>
       )}
-
-      {/* Radio-button style for suggest phase */}
       {onClick && (
         <div className="mt-2">
-          {active ? (
-            <div className="w-5 h-5 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }}>
-              <div className="w-2 h-2 rounded-full bg-white" />
-            </div>
-          ) : (
-            <div className="w-5 h-5 rounded-full border-2 mx-auto" style={{ borderColor: 'hsl(var(--border))' }} />
-          )}
+          {active
+            ? <div className="w-5 h-5 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }}><div className="w-2 h-2 rounded-full bg-white" /></div>
+            : <div className="w-5 h-5 rounded-full border-2 mx-auto" style={{ borderColor: 'hsl(var(--border))' }} />
+          }
         </div>
       )}
     </button>
   );
 }
 
-// ─── ChildSelect ───────────────────────────────────────────────────────────
+// ─── ChildSelect (multi-child only) ────────────────────────────────────────
 
 function ChildSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { children } = useActiveChild();
@@ -256,11 +283,11 @@ function ChildSelect({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-// ─── UnsavedDialog — shown when user tries to close during FINISHED state ──
+// ─── UnsavedDialog ─────────────────────────────────────────────────────────
 
-function UnsavedDialog({
-  onSave, onDiscard, onContinue,
-}: { onSave: () => void; onDiscard: () => void; onContinue: () => void }) {
+function UnsavedDialog({ onSave, onDiscard, onContinue }: {
+  onSave: () => void; onDiscard: () => void; onContinue: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -277,32 +304,19 @@ function UnsavedDialog({
         style={{ backgroundColor: 'hsl(var(--card))' }}
         onClick={e => e.stopPropagation()}
       >
-        <p className="text-base font-bold text-center" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-          Sessão não salva
-        </p>
-        <p className="text-sm text-center" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-          Deseja salvar esta sessão antes de sair?
-        </p>
+        <p className="text-base font-bold text-center" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>Sessão não salva</p>
+        <p className="text-sm text-center" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Deseja salvar esta sessão antes de sair?</p>
         <div className="space-y-2 pt-2">
-          <button
-            onClick={onSave}
-            className="w-full py-3.5 rounded-2xl text-sm font-bold"
-            style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Nunito, sans-serif' }}
-          >
+          <button onClick={onSave} className="w-full py-3.5 rounded-2xl text-sm font-bold"
+            style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Nunito, sans-serif' }}>
             Salvar
           </button>
-          <button
-            onClick={onContinue}
-            className="w-full py-3.5 rounded-2xl text-sm font-bold"
-            style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-          >
+          <button onClick={onContinue} className="w-full py-3.5 rounded-2xl text-sm font-bold"
+            style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
             Continuar editando
           </button>
-          <button
-            onClick={onDiscard}
-            className="w-full py-2 text-xs font-semibold"
-            style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}
-          >
+          <button onClick={onDiscard} className="w-full py-2 text-xs font-semibold"
+            style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}>
             Descartar
           </button>
         </div>
@@ -321,68 +335,60 @@ interface FeedSheetProps {
 
 export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
   const { user } = useAuth();
-  const { activeChildId, activeChild } = useActiveChild();
+  const { activeChildId } = useActiveChild();
   const [childId, setChildId] = useState(activeChildId ?? '');
 
-  // ── Phase & session status ─────────────────────────────────────
   const [phase, setPhase] = useState<FeedPhase>('suggest');
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('ACTIVE');
 
-  // ── Suggest state ──────────────────────────────────────────────
   const [selectedSide, setSelectedSide] = useState<Side>('L');
   const [suggestedSide, setSuggestedSide] = useState<Side>('L');
   const [lastFeedTime, setLastFeedTime] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<RoutineLog[]>([]);
 
-  // ── Session state ──────────────────────────────────────────────
   const [sessionStartEpoch, setSessionStartEpoch] = useState<number>(0);
   const [activeSide, setActiveSide] = useState<Side>('L');
   const [switchCount, setSwitchCount] = useState(0);
 
-  /**
-   * TIMER — single source of truth.
-   * sideTimes = accumulated ms per side (only for completed segments).
-   * segmentStartEpoch = epoch when the current running segment started (null = paused/finished).
-   * displayMs = sideTimes + (now - segmentStartEpoch) when ACTIVE.
-   */
+  // ── Timer refs (single source of truth) ──
   const sideTimesRef = useRef<SideTimes>({ L: 0, R: 0 });
   const segmentStartRef = useRef<number | null>(null);
   const activeSideRef = useRef<Side>('L');
   const [, forceRender] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Summary / unsaved dialog state ────────────────────────────
+  // ── Summary ──
   const [finishedData, setFinishedData] = useState<FinishedData | null>(null);
-  const [sessionInsights, setSessionInsights] = useState<string[]>([]);
+  const [sessionInsight, setSessionInsight] = useState<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [tipIndex] = useState(() => Math.floor(Math.random() * EDU_TIPS.length));
 
-  // ── Observations ───────────────────────────────────────────────
+  // ── Observations (only shown when user opens subflow) ──
   const [obsOpen, setObsOpen] = useState(false);
   const [obsTags, setObsTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [tipIndex] = useState(() => Math.floor(Math.random() * EDU_TIPS.length));
 
-  // ── Bottle / manual state ──────────────────────────────────────
+  const [saving, setSaving] = useState(false);
+
+  // ── Bottle / manual ──
   const [bottleMethod, setBottleMethod] = useState<'bottle' | 'formula'>('bottle');
   const [bottleAmount, setBottleAmount] = useState('');
   const [manualStart, setManualStart] = useState('');
   const [manualEnd, setManualEnd] = useState('');
   const [manualSide, setManualSide] = useState<'L' | 'R' | 'both'>('L');
 
-  // ─── Derived display values ─────────────────────────────────────
+  // ─── Display derived from refs ───────────────────────────────
 
-  function getCurrentDisplayMs(): { L: number; R: number; total: number } {
+  function getDisplay() {
     const nowMs = segmentStartRef.current !== null && sessionStatus === 'ACTIVE'
-      ? Date.now() - segmentStartRef.current
-      : 0;
+      ? Date.now() - segmentStartRef.current : 0;
     const L = sideTimesRef.current.L + (activeSideRef.current === 'L' ? nowMs : 0);
     const R = sideTimesRef.current.R + (activeSideRef.current === 'R' ? nowMs : 0);
     return { L, R, total: L + R };
   }
 
-  // ─── Timer control ─────────────────────────────────────────────
+  // ─── Timer control ────────────────────────────────────────────
 
   function startInterval() {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -393,221 +399,139 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
   }
 
   useEffect(() => {
-    if (phase === 'session' && sessionStatus === 'ACTIVE') {
-      startInterval();
-    } else {
-      stopInterval();
-    }
+    if (phase === 'session' && sessionStatus === 'ACTIVE') startInterval();
+    else stopInterval();
     return stopInterval;
   }, [phase, sessionStatus]);
 
-  // ─── Persistence ───────────────────────────────────────────────
+  // ─── Persist ─────────────────────────────────────────────────
 
   const persistSession = useCallback(() => {
     if (phase !== 'session') return;
-    saveSession({
-      childId,
-      sessionStartEpoch,
-      sideTimes: sideTimesRef.current,
-      activeSide: activeSideRef.current,
-      switchCount,
-      status: sessionStatus,
-      segmentStartEpoch: segmentStartRef.current,
-    });
+    saveSession({ childId, sessionStartEpoch, sideTimes: sideTimesRef.current, activeSide: activeSideRef.current, switchCount, status: sessionStatus, segmentStartEpoch: segmentStartRef.current });
   }, [phase, childId, sessionStartEpoch, switchCount, sessionStatus]);
 
   useEffect(() => { persistSession(); }, [persistSession]);
 
-  // ─── Load suggestion + history ─────────────────────────────────
+  // ─── Load suggestion ──────────────────────────────────────────
 
   const loadSuggestion = useCallback(async (cid: string) => {
     try {
-      const { data } = await supabase
-        .from('routine_logs')
-        .select('*')
-        .eq('child_id', cid)
-        .eq('type', 'feed')
-        .order('start_time', { ascending: false })
-        .limit(10);
-
+      const { data } = await supabase.from('routine_logs').select('*').eq('child_id', cid).eq('type', 'feed').order('start_time', { ascending: false }).limit(10);
       if (data && data.length > 0) {
         const last = data[0];
-        const p = parsePayload(last.notes);
-        const ls = p.last_side as Side | undefined;
+        const ls = parsePayload(last.notes).last_side as Side | undefined;
         const suggested: Side = ls === 'L' ? 'R' : 'L';
-        setSuggestedSide(suggested);
-        setSelectedSide(suggested);
-        setLastFeedTime(last.start_time);
-        setRecentSessions(data as RoutineLog[]);
+        setSuggestedSide(suggested); setSelectedSide(suggested);
+        setLastFeedTime(last.start_time); setRecentSessions(data as RoutineLog[]);
       } else {
-        setSuggestedSide('L');
-        setSelectedSide('L');
-        setLastFeedTime(null);
-        setRecentSessions([]);
+        setSuggestedSide('L'); setSelectedSide('L'); setLastFeedTime(null); setRecentSessions([]);
       }
-    } catch {
-      setSuggestedSide('L');
-      setSelectedSide('L');
-    }
+    } catch { setSuggestedSide('L'); setSelectedSide('L'); }
   }, []);
 
-  // ─── On sheet open ──────────────────────────────────────────────
+  // ─── On sheet open ────────────────────────────────────────────
 
   useEffect(() => {
     if (!open) return;
     const cid = activeChildId ?? '';
     setChildId(cid);
-    resetObsState();
+    resetObs();
     setShowUnsavedDialog(false);
 
-    const persisted = loadSession();
-    if (persisted && persisted.childId === cid) {
-      // Restore session — recalc accumulated time for any gap if ACTIVE
-      sideTimesRef.current = persisted.sideTimes ?? { L: 0, R: 0 };
-      activeSideRef.current = persisted.activeSide ?? 'L';
-      setActiveSide(persisted.activeSide ?? 'L');
-      setSwitchCount(persisted.switchCount ?? 0);
-      setSessionStartEpoch(persisted.sessionStartEpoch);
+    const p = loadSession();
+    if (p && p.childId === cid) {
+      sideTimesRef.current = p.sideTimes ?? { L: 0, R: 0 };
+      activeSideRef.current = p.activeSide ?? 'L';
+      setActiveSide(p.activeSide ?? 'L');
+      setSwitchCount(p.switchCount ?? 0);
+      setSessionStartEpoch(p.sessionStartEpoch);
 
-      if (persisted.status === 'FINISHED') {
-        // Don't auto-resume a finished session — go straight to summary
-        stopInterval();
-        segmentStartRef.current = null;
-        setSessionStatus('FINISHED');
-        setPhase('session'); // will show "session finished" state
-      } else if (persisted.status === 'ACTIVE' && persisted.segmentStartEpoch) {
-        // Was running when app closed — add elapsed gap to accumulated
-        const gap = Date.now() - persisted.segmentStartEpoch;
-        sideTimesRef.current = {
-          ...sideTimesRef.current,
-          [activeSideRef.current]: (sideTimesRef.current[activeSideRef.current] ?? 0) + gap,
-        };
-        // Resume as paused (safer — user can tap continue)
-        segmentStartRef.current = null;
-        setSessionStatus('PAUSED');
-        setPhase('session');
+      if (p.status === 'FINISHED') {
+        stopInterval(); segmentStartRef.current = null;
+        setSessionStatus('FINISHED'); setPhase('session');
+      } else if (p.status === 'ACTIVE' && p.segmentStartEpoch) {
+        const gap = Date.now() - p.segmentStartEpoch;
+        sideTimesRef.current = { ...sideTimesRef.current, [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + gap };
+        segmentStartRef.current = null; setSessionStatus('PAUSED'); setPhase('session');
       } else {
-        // PAUSED
-        segmentStartRef.current = null;
-        setSessionStatus('PAUSED');
-        setPhase('session');
+        segmentStartRef.current = null; setSessionStatus('PAUSED'); setPhase('session');
       }
     } else {
-      resetSessionState();
-      setPhase('suggest');
-      loadSuggestion(cid);
+      resetTimers(); setPhase('suggest'); loadSuggestion(cid);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, activeChildId]);
 
-  // ─── Helpers ───────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────
 
-  function resetSessionState() {
+  function resetTimers() {
     sideTimesRef.current = { L: 0, R: 0 };
     segmentStartRef.current = null;
     activeSideRef.current = 'L';
-    setActiveSide('L');
-    setSwitchCount(0);
-    setSessionStatus('ACTIVE');
-    setSessionStartEpoch(0);
-    stopInterval();
+    setActiveSide('L'); setSwitchCount(0); setSessionStatus('ACTIVE'); setSessionStartEpoch(0); stopInterval();
   }
 
-  function resetObsState() {
-    setObsOpen(false);
-    setObsTags([]);
-    setNotes('');
-    setIncludeInReport(false);
-    setFinishedData(null);
-    setSessionInsights([]);
-    setSaving(false);
-    setBottleAmount('');
-    setBottleMethod('bottle');
+  function resetObs() {
+    setObsOpen(false); setObsTags([]); setNotes(''); setIncludeInReport(false);
+    setFinishedData(null); setSessionInsight(null); setSaving(false);
+    setBottleAmount(''); setBottleMethod('bottle');
   }
 
   function toggleTag(id: string) {
     setObsTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   }
 
-  // ─── Session actions ────────────────────────────────────────────
+  // ─── Session actions ──────────────────────────────────────────
 
   function handleStart() {
     const n = Date.now();
     sideTimesRef.current = { L: 0, R: 0 };
     activeSideRef.current = selectedSide;
     segmentStartRef.current = n;
-    setActiveSide(selectedSide);
-    setSwitchCount(0);
-    setSessionStatus('ACTIVE');
-    setSessionStartEpoch(n);
-    setPhase('session');
+    setActiveSide(selectedSide); setSwitchCount(0);
+    setSessionStatus('ACTIVE'); setSessionStartEpoch(n); setPhase('session');
   }
 
   /** ✅ ONLY here switchCount increments */
   function handleSwitch() {
     const n = Date.now();
     const newSide: Side = activeSideRef.current === 'L' ? 'R' : 'L';
-
-    // Flush current segment into accumulated ms
     if (segmentStartRef.current !== null) {
       const elapsed = n - segmentStartRef.current;
-      sideTimesRef.current = {
-        ...sideTimesRef.current,
-        [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + elapsed,
-      };
+      sideTimesRef.current = { ...sideTimesRef.current, [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + elapsed };
     }
-
-    // Start new segment on other side
     segmentStartRef.current = n;
     activeSideRef.current = newSide;
     setActiveSide(newSide);
     setSwitchCount(c => c + 1); // ← ONLY here
-    setSessionStatus('ACTIVE'); // switch always resumes
+    setSessionStatus('ACTIVE');
     forceRender(n => n + 1);
   }
 
-  /** Pause — flush current segment, mark no running segment */
   function handlePause() {
     const n = Date.now();
     if (segmentStartRef.current !== null) {
-      const elapsed = n - segmentStartRef.current;
-      sideTimesRef.current = {
-        ...sideTimesRef.current,
-        [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + elapsed,
-      };
+      sideTimesRef.current = { ...sideTimesRef.current, [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + (n - segmentStartRef.current) };
       segmentStartRef.current = null;
     }
-    setSessionStatus('PAUSED');
-    // switchCount unchanged ✅
+    setSessionStatus('PAUSED'); // switchCount unchanged ✅
   }
 
-  /** Resume — restart segment on same side */
   function handleResume() {
     segmentStartRef.current = Date.now();
-    setSessionStatus('ACTIVE');
-    // switchCount unchanged ✅
+    setSessionStatus('ACTIVE'); // switchCount unchanged ✅
   }
 
-  /** Finish — freeze all values, go to summary */
   function handleFinish() {
     const n = Date.now();
-
-    // Flush any running segment
     if (segmentStartRef.current !== null) {
-      const elapsed = n - segmentStartRef.current;
-      sideTimesRef.current = {
-        ...sideTimesRef.current,
-        [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + elapsed,
-      };
+      sideTimesRef.current = { ...sideTimesRef.current, [activeSideRef.current]: sideTimesRef.current[activeSideRef.current] + (n - segmentStartRef.current) };
       segmentStartRef.current = null;
     }
     stopInterval();
-
     const tMs = sideTimesRef.current.L + sideTimesRef.current.R;
     const tSec = Math.floor(tMs / 1000);
-
-    const insights = computeInsights(tSec, switchCount, lastFeedTime, recentSessions);
-
     setFinishedData({
       totalSec: tSec,
       leftSec: Math.floor(sideTimesRef.current.L / 1000),
@@ -617,12 +541,12 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       end: new Date(n),
       lastSide: activeSideRef.current,
     });
-    setSessionInsights(insights);
+    setSessionInsight(computeInsight(tSec, switchCount, lastFeedTime, recentSessions));
     setSessionStatus('FINISHED');
     setPhase('summary');
   }
 
-  // ─── Save actions ───────────────────────────────────────────────
+  // ─── Save ─────────────────────────────────────────────────────
 
   async function handleSave() {
     if (!user || !childId || !finishedData) return;
@@ -638,11 +562,8 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         ...(obsTags.length > 0 && { tags: obsTags.join(',') }),
         ...(includeInReport && { include_in_report: true }),
       };
-
       const { error } = await supabase.from('routine_logs').insert({
-        child_id: childId,
-        author_id: user.id,
-        type: 'feed',
+        child_id: childId, author_id: user.id, type: 'feed',
         start_time: finishedData.start.toISOString(),
         end_time: finishedData.end.toISOString(),
         notes: makePayloadNotes(payload, notes),
@@ -650,13 +571,10 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       if (error) throw error;
       clearSession();
       toast({ title: 'Sessão salva! 🤱' });
-      onSaved();
-      doClose(true);
+      onSaved(); doClose(true);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function handleBottleSave() {
@@ -665,22 +583,13 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
     try {
       const payload: Record<string, unknown> = { feeding_method: bottleMethod };
       if (bottleAmount) payload.amount_ml = Number(bottleAmount);
-      const { error } = await supabase.from('routine_logs').insert({
-        child_id: childId,
-        author_id: user.id,
-        type: 'feed',
-        start_time: new Date().toISOString(),
-        notes: makePayloadNotes(payload, notes),
-      });
+      const { error } = await supabase.from('routine_logs').insert({ child_id: childId, author_id: user.id, type: 'feed', start_time: new Date().toISOString(), notes: makePayloadNotes(payload, notes) });
       if (error) throw error;
       toast({ title: bottleMethod === 'bottle' ? 'Mamadeira registrada! 🍼' : 'Fórmula registrada! 🥛' });
-      onSaved();
-      doClose(true);
+      onSaved(); doClose(true);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function handleManualSave() {
@@ -692,74 +601,41 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       const tSec = end ? Math.floor((end.getTime() - start.getTime()) / 1000) : 0;
       const lSec = manualSide === 'R' ? 0 : manualSide === 'both' ? Math.floor(tSec / 2) : tSec;
       const rSec = manualSide === 'L' ? 0 : manualSide === 'both' ? Math.ceil(tSec / 2) : tSec;
-
-      const { error } = await supabase.from('routine_logs').insert({
-        child_id: childId,
-        author_id: user.id,
-        type: 'feed',
-        start_time: start.toISOString(),
-        end_time: end?.toISOString() ?? null,
-        notes: makePayloadNotes({
-          session_type: 'breastfeed',
-          mode: 'manual',
-          total_seconds: tSec,
-          left_seconds: lSec,
-          right_seconds: rSec,
-          switches: manualSide === 'both' ? 1 : 0,
-          last_side: manualSide === 'L' ? 'L' : 'R',
-        }, notes),
-      });
+      const { error } = await supabase.from('routine_logs').insert({ child_id: childId, author_id: user.id, type: 'feed', start_time: start.toISOString(), end_time: end?.toISOString() ?? null, notes: makePayloadNotes({ session_type: 'breastfeed', mode: 'manual', total_seconds: tSec, left_seconds: lSec, right_seconds: rSec, switches: manualSide === 'both' ? 1 : 0, last_side: manualSide === 'L' ? 'L' : 'R' }, notes) });
       if (error) throw error;
       toast({ title: 'Amamentação registrada! 🤱' });
-      onSaved();
-      doClose(true);
+      onSaved(); doClose(true);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
-  // ─── Close logic ────────────────────────────────────────────────
+  // ─── Close logic ──────────────────────────────────────────────
 
   function handleSheetDismiss() {
     if (phase === 'summary' && sessionStatus === 'FINISHED') {
-      // Show unsaved dialog instead of closing
-      setShowUnsavedDialog(true);
-      return;
+      setShowUnsavedDialog(true); return;
     }
     if (phase === 'session' && (sessionStatus === 'ACTIVE' || sessionStatus === 'PAUSED')) {
-      // Session is running/paused — just close, session is persisted
-      onClose();
-      return;
+      onClose(); return; // session persisted, just close
     }
     doClose(false);
   }
 
   function doClose(fullReset: boolean) {
-    setShowUnsavedDialog(false);
-    onClose();
-    if (fullReset) {
-      resetSessionState();
-      resetObsState();
-      setPhase('suggest');
-      clearSession();
-    }
+    setShowUnsavedDialog(false); onClose();
+    if (fullReset) { resetTimers(); resetObs(); setPhase('suggest'); clearSession(); }
   }
 
   function handleDiscard() {
-    clearSession();
-    resetSessionState();
-    resetObsState();
-    setPhase('suggest');
-    setShowUnsavedDialog(false);
-    onClose();
+    clearSession(); resetTimers(); resetObs();
+    setPhase('suggest'); setShowUnsavedDialog(false); onClose();
     loadSuggestion(childId);
   }
 
-  // ─── Render ─────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────
 
-  const display = getCurrentDisplayMs();
+  const display = getDisplay();
   const isFullHeight = phase === 'session' || phase === 'summary';
 
   return (
@@ -772,36 +648,18 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         >
           <AnimatePresence mode="wait">
 
-            {/* ══════════════════════════════════════════════
-                SUGGEST PHASE
-            ══════════════════════════════════════════════ */}
+            {/* ══ SUGGEST ══════════════════════════════════════════ */}
             {phase === 'suggest' && (
-              <motion.div
-                key="suggest"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.18 }}
-                className="flex flex-col px-1 pt-2"
-              >
-                <div className="mb-5">
-                  <p className="text-xl font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-                    🤱 Amamentar
-                  </p>
-                  {activeChild && (
-                    <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-                      {activeChild.name}
-                    </p>
-                  )}
-                </div>
+              <motion.div key="suggest" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="flex flex-col px-1 pt-2">
+
+                {/* Child context header */}
+                <ChildHeader />
 
                 <ChildSelect value={childId} onChange={setChildId} />
 
+                {/* Last feed banner */}
                 {lastFeedTime && (
-                  <div
-                    className="rounded-2xl px-4 py-3 mb-5 flex items-center gap-3"
-                    style={{ backgroundColor: 'hsl(var(--ninho-sage) / 0.08)' }}
-                  >
+                  <div className="rounded-2xl px-4 py-3 mb-5 flex items-center gap-3" style={{ backgroundColor: 'hsl(var(--ninho-sage) / 0.08)' }}>
                     <span className="text-xl">⏰</span>
                     <div>
                       <p className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
@@ -814,148 +672,96 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   </div>
                 )}
 
-                <p className="text-xs font-bold uppercase tracking-wider mb-3"
-                  style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
                   Começar pelo lado
                 </p>
-
                 <div className="flex gap-3 mb-2">
                   <SideCard side="L" active={selectedSide === 'L'} onClick={() => setSelectedSide('L')} />
                   <SideCard side="R" active={selectedSide === 'R'} onClick={() => setSelectedSide('R')} />
                 </div>
+                {selectedSide === suggestedSide && lastFeedTime
+                  ? <p className="text-[11px] text-center mb-5" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Nunito, sans-serif' }}>✓ Sugerido com base na última sessão</p>
+                  : <div className="mb-5" />
+                }
 
-                {selectedSide === suggestedSide && lastFeedTime ? (
-                  <p className="text-[11px] text-center mb-5" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Nunito, sans-serif' }}>
-                    ✓ Sugerido com base na última sessão
-                  </p>
-                ) : <div className="mb-5" />}
-
-                <Button
-                  onClick={handleStart}
-                  disabled={!childId}
-                  className="w-full rounded-2xl h-14 text-base font-bold shadow-md"
-                  style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white' }}
-                >
+                <Button onClick={handleStart} disabled={!childId} className="w-full rounded-2xl h-14 text-base font-bold shadow-md"
+                  style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white' }}>
                   ▶ Iniciar amamentação
                 </Button>
 
                 <div className="grid grid-cols-2 gap-2 mt-3">
-                  <button
-                    onClick={() => setPhase('manual')}
-                    className="py-3 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
-                    style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-                  >
+                  <button onClick={() => setPhase('manual')} className="py-3 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
+                    style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
                     📝 Registrar manualmente
                   </button>
-                  <button
-                    onClick={() => setPhase('bottle')}
-                    className="py-3 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
-                    style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-                  >
+                  <button onClick={() => setPhase('bottle')} className="py-3 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
+                    style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
                     🍼 Mamadeira / Fórmula
                   </button>
                 </div>
               </motion.div>
             )}
 
-            {/* ══════════════════════════════════════════════
-                SESSION PHASE
-            ══════════════════════════════════════════════ */}
+            {/* ══ SESSION ══════════════════════════════════════════ */}
             {phase === 'session' && (
-              <motion.div
-                key="session"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex-1 flex flex-col"
-              >
-                {/* Top bar */}
+              <motion.div key="session" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
                 <div className="flex items-center justify-between px-1 pt-1 mb-5">
                   <div className="flex items-center gap-2">
-                    {sessionStatus === 'ACTIVE' && (
-                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }} />
-                    )}
+                    {sessionStatus === 'ACTIVE' && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'hsl(var(--ninho-sage))' }} />}
                     <p className="text-xs font-bold" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
                       {sessionStatus === 'ACTIVE' ? 'Sessão ativa' : sessionStatus === 'PAUSED' ? '⏸ Pausado' : '✓ Finalizado'}
                     </p>
                   </div>
-                  <button
-                    onClick={handleDiscard}
-                    className="text-xs font-semibold px-3 py-1 rounded-full"
-                    style={{ color: 'hsl(var(--destructive))', backgroundColor: 'hsl(var(--destructive) / 0.08)' }}
-                  >
+                  <button onClick={handleDiscard} className="text-xs font-semibold px-3 py-1 rounded-full"
+                    style={{ color: 'hsl(var(--destructive))', backgroundColor: 'hsl(var(--destructive) / 0.08)' }}>
                     Descartar
                   </button>
                 </div>
 
-                {/* Side cards */}
                 <div className="flex gap-3 px-1">
                   <SideCard side="L" active={activeSide === 'L'} totalMs={display.L} sessionStatus={sessionStatus} />
                   <SideCard side="R" active={activeSide === 'R'} totalMs={display.R} sessionStatus={sessionStatus} />
                 </div>
 
-                {/* Central total timer */}
                 <div className="flex-1 flex flex-col items-center justify-center">
-                  <p
-                    className="text-7xl font-bold tabular-nums"
-                    style={{
-                      color: sessionStatus === 'ACTIVE' ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))',
-                      fontFamily: 'Quicksand, sans-serif',
-                    }}
-                  >
+                  <p className="text-7xl font-bold tabular-nums"
+                    style={{ color: sessionStatus === 'ACTIVE' ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))', fontFamily: 'Quicksand, sans-serif' }}>
                     {fmtTimer(Math.floor(display.total / 1000))}
                   </p>
-                  <p className="text-xs mt-2 font-semibold" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-                    duração total
-                  </p>
+                  <p className="text-xs mt-2 font-semibold" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>duração total</p>
                   {switchCount > 0 && (
-                    <p
-                      className="text-[11px] mt-2 px-3 py-1 rounded-full"
-                      style={{ color: 'hsl(var(--ninho-mauve))', backgroundColor: 'hsl(var(--ninho-mauve) / 0.1)', fontFamily: 'Nunito, sans-serif', fontWeight: 600 }}
-                    >
+                    <p className="text-[11px] mt-2 px-3 py-1 rounded-full"
+                      style={{ color: 'hsl(var(--ninho-mauve))', backgroundColor: 'hsl(var(--ninho-mauve) / 0.1)', fontFamily: 'Nunito, sans-serif', fontWeight: 600 }}>
                       {switchCount} troca{switchCount > 1 ? 's' : ''} de lado
                     </p>
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="px-1 pb-4 space-y-3">
                   {sessionStatus !== 'FINISHED' && (
                     <>
                       <div className="flex gap-3">
-                        <button
-                          onClick={sessionStatus === 'PAUSED' ? handleResume : handlePause}
+                        <button onClick={sessionStatus === 'PAUSED' ? handleResume : handlePause}
                           className="flex-1 py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95"
-                          style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-                        >
+                          style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
                           {sessionStatus === 'PAUSED' ? '▶ Continuar' : '⏸ Pausar'}
                         </button>
-                        <button
-                          onClick={handleFinish}
+                        <button onClick={handleFinish}
                           className="flex-1 py-3.5 rounded-2xl text-sm font-bold transition-all active:scale-95"
-                          style={{ backgroundColor: 'hsl(var(--ninho-mauve) / 0.12)', color: 'hsl(var(--ninho-mauve))', fontFamily: 'Nunito, sans-serif' }}
-                        >
+                          style={{ backgroundColor: 'hsl(var(--ninho-mauve) / 0.12)', color: 'hsl(var(--ninho-mauve))', fontFamily: 'Nunito, sans-serif' }}>
                           ✓ Finalizar
                         </button>
                       </div>
-
-                      <button
-                        onClick={handleSwitch}
+                      <button onClick={handleSwitch}
                         className="w-full py-5 rounded-2xl text-base font-bold transition-all active:scale-[0.97] shadow-md"
-                        style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Nunito, sans-serif' }}
-                      >
+                        style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white', fontFamily: 'Nunito, sans-serif' }}>
                         ⟷ Trocar para lado {activeSide === 'L' ? 'direito →' : '← esquerdo'}
                       </button>
                     </>
                   )}
-
                   {sessionStatus === 'FINISHED' && (
-                    <Button
-                      onClick={() => setPhase('summary')}
-                      className="w-full rounded-2xl h-14 text-base font-bold"
-                      style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white' }}
-                    >
+                    <Button onClick={() => setPhase('summary')} className="w-full rounded-2xl h-14 text-base font-bold"
+                      style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white' }}>
                       Ver resumo →
                     </Button>
                   )}
@@ -963,28 +769,20 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
               </motion.div>
             )}
 
-            {/* ══════════════════════════════════════════════
-                SUMMARY PHASE
-            ══════════════════════════════════════════════ */}
+            {/* ══ SUMMARY ══════════════════════════════════════════ */}
             {phase === 'summary' && finishedData && (
-              <motion.div
-                key="summary"
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22 }}
-                className="flex-1 flex flex-col px-1 pt-2 overflow-y-auto"
-              >
-                <p className="text-xl font-bold text-center mb-1" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-                  Resumo
-                </p>
+              <motion.div key="summary" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}
+                className="flex-1 flex flex-col px-1 pt-2">
+
+                {/* Time range */}
+                <p className="text-xl font-bold text-center mb-0.5" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>Resumo</p>
                 <p className="text-xs text-center mb-5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
                   {finishedData.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} –{' '}
                   {finishedData.end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
 
-                {/* Total */}
-                <div className="text-center mb-5">
+                {/* Total duration — prominent */}
+                <div className="text-center mb-4">
                   <p className="text-5xl font-bold tabular-nums" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Quicksand, sans-serif' }}>
                     {fmtDurationShort(finishedData.totalSec)}
                   </p>
@@ -992,7 +790,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                 </div>
 
                 {/* E / Trocas / D */}
-                <div className="flex gap-2 mb-3">
+                <div className="flex gap-2 mb-2.5">
                   {[
                     { label: 'Esquerdo', value: fmtDurationShort(finishedData.leftSec), color: 'hsl(var(--ninho-sage))', bg: 'hsl(var(--ninho-sage) / 0.08)' },
                     { label: 'Trocas', value: String(finishedData.switches), color: 'hsl(var(--ninho-brown))', bg: 'hsl(var(--muted))' },
@@ -1005,147 +803,116 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   ))}
                 </div>
 
-                {/* E/D split bar */}
+                {/* E/D visual bar */}
                 {finishedData.totalSec > 0 && (
-                  <div className="h-2.5 rounded-full overflow-hidden flex mb-4" style={{ backgroundColor: 'hsl(var(--muted))' }}>
-                    <div
-                      className="h-full"
-                      style={{ width: `${(finishedData.leftSec / finishedData.totalSec) * 100}%`, background: 'linear-gradient(90deg, hsl(var(--ninho-sage)), hsl(var(--ninho-sage) / 0.7))', borderRadius: '9999px 0 0 9999px' }}
-                    />
+                  <div className="h-2 rounded-full overflow-hidden flex mb-4" style={{ backgroundColor: 'hsl(var(--muted))' }}>
+                    <div style={{ width: `${(finishedData.leftSec / finishedData.totalSec) * 100}%`, background: 'hsl(var(--ninho-sage))', borderRadius: '9999px 0 0 9999px' }} />
                     {finishedData.rightSec > 0 && (
-                      <div
-                        className="h-full"
-                        style={{ width: `${(finishedData.rightSec / finishedData.totalSec) * 100}%`, background: 'linear-gradient(90deg, hsl(var(--ninho-mauve) / 0.7), hsl(var(--ninho-mauve)))', borderRadius: '0 9999px 9999px 0' }}
-                      />
+                      <div style={{ width: `${(finishedData.rightSec / finishedData.totalSec) * 100}%`, background: 'hsl(var(--ninho-mauve))', borderRadius: '0 9999px 9999px 0' }} />
                     )}
                   </div>
                 )}
 
-                {/* Contextual insight */}
-                {sessionInsights.length > 0 && (
-                  <div
-                    className="rounded-2xl px-4 py-3 mb-3 flex items-center gap-2"
-                    style={{ backgroundColor: 'hsl(var(--ninho-sage) / 0.07)', border: '1px solid hsl(var(--ninho-sage) / 0.2)' }}
-                  >
+                {/* Insight — only when meaningful */}
+                {sessionInsight && (
+                  <div className="rounded-2xl px-4 py-2.5 mb-3 flex items-center gap-2"
+                    style={{ backgroundColor: 'hsl(var(--ninho-sage) / 0.07)', border: '1px solid hsl(var(--ninho-sage) / 0.2)' }}>
                     <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
-                      {sessionInsights[0]}
+                      {sessionInsight}
                     </p>
                   </div>
                 )}
 
-                {/* Educational tip (subtle, occasional) */}
-                {recentSessions.length <= 5 && (
+                {/* Educational tip — only for newer users */}
+                {recentSessions.length <= 5 && !sessionInsight && (
                   <p className="text-[11px] text-center mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
                     💡 {EDU_TIPS[tipIndex]}
                   </p>
                 )}
 
-                <div className="flex-1" />
+                <div className="flex-1 min-h-3" />
 
-                {/* Observations */}
+                {/* ── OBSERVATION SUBFLOW (progressive disclosure) ── */}
                 <AnimatePresence>
-                  {!obsOpen ? (
-                    <motion.button
-                      initial={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setObsOpen(true)}
-                      className="w-full py-3 rounded-2xl text-sm font-bold text-center mb-3 transition-all active:scale-95"
-                      style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-                    >
-                      + Adicionar observação
-                    </motion.button>
-                  ) : (
+                  {obsOpen && (
                     <motion.div
+                      key="obs"
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="mb-3 space-y-3"
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="mb-3 space-y-3 overflow-hidden"
                     >
+                      {/* Subflow header */}
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Como foi?</p>
-                        <button onClick={() => { setObsOpen(false); setObsTags([]); setNotes(''); }} className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Cancelar</button>
+                        <button onClick={() => { setObsOpen(false); setObsTags([]); setNotes(''); setIncludeInReport(false); }}
+                          className="text-xs font-semibold" style={{ color: 'hsl(var(--muted-foreground))' }}>Cancelar</button>
                       </div>
+
+                      {/* Quick tags */}
                       <div className="flex flex-wrap gap-2">
                         {QUICK_TAGS.map(tag => (
-                          <button
-                            key={tag.id}
-                            onClick={() => toggleTag(tag.id)}
+                          <button key={tag.id} onClick={() => toggleTag(tag.id)}
                             className="px-3 py-1.5 rounded-full text-sm font-semibold transition-all active:scale-95"
                             style={{
                               backgroundColor: obsTags.includes(tag.id) ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted))',
                               color: obsTags.includes(tag.id) ? 'white' : 'hsl(var(--ninho-brown))',
                               fontFamily: 'Nunito, sans-serif',
-                            }}
-                          >
+                            }}>
                             {tag.label}
                           </button>
                         ))}
                       </div>
-                      <Textarea
-                        value={notes}
-                        onChange={e => setNotes(e.target.value)}
-                        placeholder="Outras observações..."
-                        className="rounded-2xl border-border resize-none"
-                        rows={2}
-                      />
+
+                      {/* Free text */}
+                      <Textarea value={notes} onChange={e => setNotes(e.target.value)}
+                        placeholder="Outras observações..." className="rounded-2xl border-border resize-none" rows={2} />
+
+                      {/* Report toggle — ONLY inside obs subflow */}
+                      <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                        style={{ backgroundColor: 'hsl(var(--muted))' }}>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
+                            Incluir no relatório médico
+                          </p>
+                          <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                            Marca para inclusão futura
+                          </p>
+                        </div>
+                        <Switch checked={includeInReport} onCheckedChange={setIncludeInReport} />
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Include in medical report toggle */}
-                <div
-                  className="flex items-center justify-between px-4 py-3 rounded-2xl mb-3"
-                  style={{ backgroundColor: 'hsl(var(--muted))' }}
-                >
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
-                      Adicionar ao relatório médico
-                    </p>
-                    <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-                      Marca esta sessão para inclusão futura
-                    </p>
-                  </div>
-                  <Switch
-                    checked={includeInReport}
-                    onCheckedChange={setIncludeInReport}
-                  />
-                </div>
-
-                {/* Save */}
-                <Button
-                  onClick={handleSave}
-                  disabled={saving}
+                {/* ── PRIMARY ACTIONS — always visible, no scroll needed ── */}
+                <Button onClick={handleSave} disabled={saving}
                   className="w-full rounded-2xl h-14 text-base font-bold shadow-md mb-2"
-                  style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white' }}
-                >
+                  style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))', color: 'white' }}>
                   {saving ? 'Salvando...' : '✓ Salvar sessão'}
                 </Button>
 
-                <button
-                  onClick={handleDiscard}
-                  className="w-full py-2 text-xs font-semibold"
-                  style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}
-                >
+                {!obsOpen && (
+                  <button onClick={() => setObsOpen(true)}
+                    className="w-full py-3 rounded-2xl text-sm font-bold text-center mb-2 transition-all active:scale-95"
+                    style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}>
+                    + Adicionar observação
+                  </button>
+                )}
+
+                <button onClick={handleDiscard} className="w-full py-2 text-xs font-semibold"
+                  style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}>
                   Descartar sessão
                 </button>
               </motion.div>
             )}
 
-            {/* ══════════════════════════════════════════════
-                MANUAL PHASE
-            ══════════════════════════════════════════════ */}
+            {/* ══ MANUAL ═══════════════════════════════════════════ */}
             {phase === 'manual' && (
-              <motion.div
-                key="manual"
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                className="px-1 pt-2 space-y-4"
-              >
+              <motion.div key="manual" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="px-1 pt-2 space-y-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-lg font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-                    📝 Registro manual
-                  </p>
+                  <p className="text-lg font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>📝 Registro manual</p>
                   <button onClick={() => setPhase('suggest')} className="text-xs font-bold px-3 py-1.5 rounded-full"
                     style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))' }}>← Voltar</button>
                 </div>
@@ -1176,26 +943,16 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Observações (opcional)</Label>
                   <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Mamou bem..." className="rounded-2xl border-border resize-none" rows={2} />
                 </div>
-                <Button onClick={handleManualSave} disabled={saving || !childId || !manualStart}
-                  className="w-full rounded-2xl h-12 font-bold"
+                <Button onClick={handleManualSave} disabled={saving || !childId || !manualStart} className="w-full rounded-2xl h-12 font-bold"
                   style={{ backgroundColor: 'hsl(var(--ninho-sage))', color: 'white' }}>
                   {saving ? 'Salvando...' : 'Salvar'}
                 </Button>
               </motion.div>
             )}
 
-            {/* ══════════════════════════════════════════════
-                BOTTLE / FORMULA PHASE
-            ══════════════════════════════════════════════ */}
+            {/* ══ BOTTLE ═══════════════════════════════════════════ */}
             {phase === 'bottle' && (
-              <motion.div
-                key="bottle"
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                className="px-1 pt-2 space-y-4"
-              >
+              <motion.div key="bottle" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="px-1 pt-2 space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-lg font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
                     {bottleMethod === 'bottle' ? '🍼 Mamadeira' : '🥛 Fórmula'}
@@ -1221,24 +978,19 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
                   <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Observações (opcional)</Label>
                   <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="..." className="rounded-2xl border-border resize-none" rows={2} />
                 </div>
-                <Button onClick={handleBottleSave} disabled={saving || !childId}
-                  className="w-full rounded-2xl h-12 font-bold"
+                <Button onClick={handleBottleSave} disabled={saving || !childId} className="w-full rounded-2xl h-12 font-bold"
                   style={{ backgroundColor: 'hsl(var(--ninho-sage))', color: 'white' }}>
                   {saving ? 'Salvando...' : 'Salvar'}
                 </Button>
               </motion.div>
             )}
+
           </AnimatePresence>
         </SheetContent>
       </Sheet>
 
-      {/* Unsaved dialog — portal-level, outside Sheet */}
       {showUnsavedDialog && (
-        <UnsavedDialog
-          onSave={handleSave}
-          onDiscard={handleDiscard}
-          onContinue={() => setShowUnsavedDialog(false)}
-        />
+        <UnsavedDialog onSave={handleSave} onDiscard={handleDiscard} onContinue={() => setShowUnsavedDialog(false)} />
       )}
     </>
   );

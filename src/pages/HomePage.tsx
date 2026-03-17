@@ -105,7 +105,6 @@ export default function HomePage() {
   useEffect(() => { loadLogs(); loadNextVaccine(); }, [loadLogs, loadNextVaccine]);
 
   function handleTap(log: RoutineLog) {
-    const { parsePayload } = require('@/lib/routineUtils');
     const p = parsePayload(log.notes);
     if (log.type === 'feed' && p.session_type === 'breastfeed') {
       setDetailLog(log); setDetailKind('breastfeed');

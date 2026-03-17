@@ -1,15 +1,155 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSheets';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getLogMeta, getUserNotes, fmtTime, fmtTimeSince, type RoutineLog } from '@/lib/routineUtils';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import {
+  getLogMeta,
+  getUserNotes,
+  fmtTime,
+  fmtTimeSince,
+  fmtDurationShort,
+  parsePayload,
+  type RoutineLog,
+} from '@/lib/routineUtils';
+
+// ─── Session Detail Modal ─────────────────────────────────────────────────
+
+function FeedDetailSheet({ log, open, onClose }: { log: RoutineLog | null; open: boolean; onClose: () => void }) {
+  if (!log) return null;
+  const p = parsePayload(log.notes);
+  const totalSec = Number(p.total_seconds ?? 0);
+  const leftSec = Number(p.left_seconds ?? 0);
+  const rightSec = Number(p.right_seconds ?? 0);
+  const switches = Number(p.switches ?? 0);
+  const tags = String(p.tags ?? '').split(',').filter(Boolean);
+  const userNotes = getUserNotes(log.notes);
+  const includeInReport = Boolean(p.include_in_report);
+
+  const startTime = new Date(log.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const endTime = log.end_time ? new Date(log.end_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+
+  const TAG_LABELS: Record<string, string> = {
+    mamou_bem: '😊 Mamou bem',
+    inquieto: '😟 Inquieto',
+    dormiu: '😴 Dormiu durante',
+    desconforto: '😣 Desconforto',
+    pega_boa: '👍 Pega boa',
+    rejeitou_lado: '↩️ Rejeitou lado',
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <SheetContent side="bottom" className="rounded-t-3xl pb-safe" style={{ backgroundColor: 'hsl(var(--card))' }}>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="px-1 pt-2 space-y-4"
+        >
+          {/* Header */}
+          <div className="text-center">
+            <p className="text-xl" style={{ fontFamily: 'Quicksand, sans-serif', color: 'hsl(var(--ninho-brown))', fontWeight: 700 }}>
+              🤱 Amamentação
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+              {startTime}{endTime ? ` – ${endTime}` : ''}
+            </p>
+          </div>
+
+          {/* Total */}
+          {totalSec > 0 && (
+            <div className="text-center">
+              <p className="text-4xl font-bold tabular-nums" style={{ color: 'hsl(var(--ninho-sage))', fontFamily: 'Quicksand, sans-serif' }}>
+                {fmtDurationShort(totalSec)}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>duração total</p>
+            </div>
+          )}
+
+          {/* E / D breakdown */}
+          {(leftSec > 0 || rightSec > 0) && (
+            <>
+              <div className="flex gap-2">
+                {[
+                  { label: 'Esquerdo', value: fmtDurationShort(leftSec), color: 'hsl(var(--ninho-sage))', bg: 'hsl(var(--ninho-sage) / 0.08)' },
+                  { label: 'Trocas', value: String(switches), color: 'hsl(var(--ninho-brown))', bg: 'hsl(var(--muted))' },
+                  { label: 'Direito', value: fmtDurationShort(rightSec), color: 'hsl(var(--ninho-mauve))', bg: 'hsl(var(--ninho-mauve) / 0.08)' },
+                ].map(s => (
+                  <div key={s.label} className="flex-1 rounded-2xl p-3 text-center" style={{ backgroundColor: s.bg }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: s.color }}>{s.label}</p>
+                    <p className="text-lg font-bold mt-0.5" style={{ color: s.color, fontFamily: 'Quicksand, sans-serif' }}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Visual bar */}
+              {totalSec > 0 && (
+                <div className="h-2 rounded-full overflow-hidden flex" style={{ backgroundColor: 'hsl(var(--muted))' }}>
+                  <div style={{ width: `${(leftSec / totalSec) * 100}%`, background: 'hsl(var(--ninho-sage))', borderRadius: '9999px 0 0 9999px' }} />
+                  {rightSec > 0 && (
+                    <div style={{ width: `${(rightSec / totalSec) * 100}%`, background: 'hsl(var(--ninho-mauve))', borderRadius: '0 9999px 9999px 0' }} />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Tags */}
+          {tags.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                Observações
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {tags.map(t => (
+                  <span
+                    key={t}
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                    style={{ backgroundColor: 'hsl(var(--ninho-sage) / 0.1)', color: 'hsl(var(--ninho-sage))', fontFamily: 'Nunito, sans-serif' }}
+                  >
+                    {TAG_LABELS[t] ?? t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Free notes */}
+          {userNotes && (
+            <p className="text-sm" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+              💬 {userNotes}
+            </p>
+          )}
+
+          {/* Medical report flag */}
+          {includeInReport && (
+            <div
+              className="flex items-center gap-2 px-3 py-2.5 rounded-2xl"
+              style={{ backgroundColor: 'hsl(var(--ninho-mauve) / 0.08)', border: '1px solid hsl(var(--ninho-mauve) / 0.2)' }}
+            >
+              <span className="text-sm">📋</span>
+              <p className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-mauve))', fontFamily: 'Nunito, sans-serif' }}>
+                Incluída no relatório médico
+              </p>
+            </div>
+          )}
+        </motion.div>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
 // ─── Timeline Item ─────────────────────────────────────────────────────────
-function TimelineItem({ log, isLast }: { log: RoutineLog; isLast: boolean }) {
+
+function TimelineItem({ log, isLast, onTap }: { log: RoutineLog; isLast: boolean; onTap: () => void }) {
   const meta = getLogMeta(log);
   const userNotes = getUserNotes(log.notes);
+  const isFeed = log.type === 'feed';
+  const p = isFeed ? parsePayload(log.notes) : null;
+  const isBreastfeed = p?.session_type === 'breastfeed';
 
   return (
     <div className="flex items-stretch gap-3">
@@ -21,8 +161,15 @@ function TimelineItem({ log, isLast }: { log: RoutineLog; isLast: boolean }) {
         {!isLast && <div className="w-px flex-1 mt-1" style={{ backgroundColor: 'hsl(var(--border))' }} />}
       </div>
 
-      <div className="flex-1 rounded-2xl px-3 py-3 mb-3 flex items-center gap-3"
-        style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+      <button
+        onClick={isBreastfeed ? onTap : undefined}
+        className={`flex-1 rounded-2xl px-3 py-3 mb-3 flex items-center gap-3 text-left w-full ${isBreastfeed ? 'active:scale-[0.98] transition-transform' : ''}`}
+        style={{
+          backgroundColor: 'hsl(var(--card))',
+          border: `1px solid ${isBreastfeed ? 'hsl(var(--ninho-sage) / 0.25)' : 'hsl(var(--border))'}`,
+          cursor: isBreastfeed ? 'pointer' : 'default',
+        }}
+      >
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: meta.bgColor }}>
           <span className="text-lg">{meta.emoji}</span>
@@ -32,12 +179,17 @@ function TimelineItem({ log, isLast }: { log: RoutineLog; isLast: boolean }) {
             <p className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
               {meta.label}
             </p>
-            {meta.durationBadge && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: meta.bgColor, color: meta.color }}>
-                {meta.durationBadge}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {meta.durationBadge && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: meta.bgColor, color: meta.color }}>
+                  {meta.durationBadge}
+                </span>
+              )}
+              {isBreastfeed && (
+                <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>›</span>
+              )}
+            </div>
           </div>
           {meta.sub && (
             <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
@@ -50,7 +202,7 @@ function TimelineItem({ log, isLast }: { log: RoutineLog; isLast: boolean }) {
             </p>
           )}
         </div>
-      </div>
+      </button>
     </div>
   );
 }
@@ -100,20 +252,23 @@ function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () =>
     <>
       {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
       <div className="fixed bottom-24 right-5 z-50 flex flex-col items-end gap-2">
-        {open && actions.map((a, i) => (
-          <motion.div key={a.label} initial={{ opacity: 0, y: 12, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.16, delay: i * 0.05 }} className="flex items-center gap-2">
-            <span className="text-xs font-bold px-3 py-1.5 rounded-full"
-              style={{ backgroundColor: 'hsl(var(--card))', color: a.color, fontFamily: 'Nunito, sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
-              {a.label}
-            </span>
-            <button onClick={() => { a.onClick(); setOpen(false); }}
-              className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90"
-              style={{ backgroundColor: a.color }}>
-              <span className="text-xl">{a.emoji}</span>
-            </button>
-          </motion.div>
-        ))}
+        <AnimatePresence>
+          {open && actions.map((a, i) => (
+            <motion.div key={a.label} initial={{ opacity: 0, y: 12, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.9 }}
+              transition={{ duration: 0.16, delay: i * 0.05 }} className="flex items-center gap-2">
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full"
+                style={{ backgroundColor: 'hsl(var(--card))', color: a.color, fontFamily: 'Nunito, sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+                {a.label}
+              </span>
+              <button onClick={() => { a.onClick(); setOpen(false); }}
+                className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90"
+                style={{ backgroundColor: a.color }}>
+                <span className="text-xl">{a.emoji}</span>
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
         <button onClick={() => setOpen(v => !v)}
           className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90"
           style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-mauve)), hsl(var(--ninho-sage)))' }}>
@@ -133,8 +288,8 @@ export default function RotinaPage() {
   const [feedOpen, setFeedOpen] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [diaperOpen, setDiaperOpen] = useState(false);
+  const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
 
-  // Last feed for "Última mamada há X"
   const lastFeed = logs.find(l => l.type === 'feed');
 
   const loadLogs = useCallback(async () => {
@@ -210,7 +365,12 @@ export default function RotinaPage() {
             ) : (
               <div>
                 {logs.map((log, idx) => (
-                  <TimelineItem key={log.id} log={log} isLast={idx === logs.length - 1} />
+                  <TimelineItem
+                    key={log.id}
+                    log={log}
+                    isLast={idx === logs.length - 1}
+                    onTap={() => setDetailLog(log)}
+                  />
                 ))}
               </div>
             )}
@@ -225,6 +385,7 @@ export default function RotinaPage() {
       <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} onSaved={loadLogs} />
       <SleepSheet open={sleepOpen} onClose={() => setSleepOpen(false)} onSaved={loadLogs} />
       <DiaperSheet open={diaperOpen} onClose={() => setDiaperOpen(false)} onSaved={loadLogs} />
+      <FeedDetailSheet log={detailLog} open={!!detailLog} onClose={() => setDetailLog(null)} />
     </div>
   );
 }

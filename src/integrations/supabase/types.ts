@@ -380,6 +380,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_child: { Args: { _child_id: string }; Returns: boolean }
+      can_log_for_child: { Args: { _child_id: string }; Returns: boolean }
+      can_manage_child: { Args: { _child_id: string }; Returns: boolean }
+      has_family_role: {
+        Args: { _family_id: string; _roles: string[] }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -387,6 +394,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_family_member: { Args: { _family_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "monitor" | "viewer"

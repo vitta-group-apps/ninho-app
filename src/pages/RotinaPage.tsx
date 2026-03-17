@@ -4,62 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSheets';
 import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
+import { DiaperDetailSheet } from '@/components/routine/DiaperDetailSheet';
+import { EventCard } from '@/components/events/EventCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getLogMeta, getUserNotes, fmtTime, fmtTimeSince, parsePayload, type RoutineLog } from '@/lib/routineUtils';
-
-// ─── Timeline Item ─────────────────────────────────────────────────────────
-function TimelineItem({ log, isLast, onTap }: { log: RoutineLog; isLast: boolean; onTap: () => void }) {
-  const meta = getLogMeta(log);
-  const userNotes = getUserNotes(log.notes);
-  const isBreastfeed = log.type === 'feed' && parsePayload(log.notes).session_type === 'breastfeed';
-
-  return (
-    <div className="flex items-stretch gap-3">
-      <div className="flex flex-col items-center w-12 flex-shrink-0">
-        <span className="text-[11px] font-semibold text-center leading-tight pt-2.5"
-          style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-          {fmtTime(log.start_time)}
-        </span>
-        {!isLast && <div className="w-px flex-1 mt-1" style={{ backgroundColor: 'hsl(var(--border))' }} />}
-      </div>
-
-      <button
-        onClick={isBreastfeed ? onTap : undefined}
-        className={`flex-1 rounded-2xl px-3 py-3 mb-3 flex items-center gap-3 text-left w-full ${isBreastfeed ? 'active:scale-[0.98] transition-transform' : ''}`}
-        style={{
-          backgroundColor: 'hsl(var(--card))',
-          border: `1px solid ${isBreastfeed ? 'hsl(var(--ninho-sage) / 0.25)' : 'hsl(var(--border))'}`,
-          cursor: isBreastfeed ? 'pointer' : 'default',
-        }}
-      >
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: meta.bgColor }}>
-          <span className="text-lg">{meta.emoji}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-              {meta.label}
-            </p>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {meta.durationBadge && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: meta.bgColor, color: meta.color }}>
-                  {meta.durationBadge}
-                </span>
-              )}
-              {isBreastfeed && <span className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>›</span>}
-            </div>
-          </div>
-          {meta.sub && (
-            <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>{meta.sub}</p>
-          )}
-          {userNotes && (
-            <p className="text-xs mt-0.5 truncate" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>💬 {userNotes}</p>
-          )}
-        </div>
-      </button>
-    </div>
-  );
-}
+import { fmtTimeSince, parsePayload } from '@/lib/routineUtils';
+import type { RoutineLog } from '@/lib/eventSystem';
 
 // ─── Daily stats ───────────────────────────────────────────────────────────
 function DailyStats({ logs }: { logs: RoutineLog[] }) {
@@ -96,7 +45,7 @@ function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () =>
   const actions = [
     { emoji: '🤱', label: 'Amamentar', onClick: onFeed, color: 'hsl(152,15%,55%)' },
     { emoji: '😴', label: 'Sono', onClick: onSleep, color: 'hsl(270,12%,52%)' },
-    { emoji: '🧷', label: 'Troca', onClick: onDiaper, color: '#E8A045' },
+    { emoji: '🧷', label: 'Troca', onClick: onDiaper, color: 'hsl(32,80%,57%)' },
   ];
   return (
     <>
@@ -137,7 +86,9 @@ export default function RotinaPage() {
   const [feedOpen, setFeedOpen] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [diaperOpen, setDiaperOpen] = useState(false);
+
   const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
+  const [detailKind, setDetailKind] = useState<'breastfeed' | 'diaper' | null>(null);
 
   const lastFeed = logs.find(l => l.type === 'feed');
 
@@ -145,17 +96,27 @@ export default function RotinaPage() {
     if (!activeChild) return;
     setLogsLoading(true);
     try {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const { data, error } = await supabase
-        .from('routine_logs').select('*').eq('child_id', activeChild.id)
-        .gte('start_time', todayStart.toISOString()).order('start_time', { ascending: false });
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase.from('routine_logs').select('*')
+        .eq('child_id', activeChild.id).gte('start_time', todayStart.toISOString())
+        .order('start_time', { ascending: false });
       if (error) throw error;
       setLogs(data ?? []);
     } catch { /* silent */ } finally { setLogsLoading(false); }
   }, [activeChild]);
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  function handleTap(log: RoutineLog) {
+    const p = parsePayload(log.notes);
+    if (log.type === 'feed' && p.session_type === 'breastfeed') {
+      setDetailLog(log); setDetailKind('breastfeed');
+    } else if (log.type === 'diaper') {
+      setDetailLog(log); setDetailKind('diaper');
+    }
+  }
+
+  function closeDetail() { setDetailLog(null); setDetailKind(null); }
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
@@ -177,8 +138,8 @@ export default function RotinaPage() {
       <div className="px-5 pt-5">
         {childLoading ? (
           <div className="space-y-3">
-            <div className="flex gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="flex-1 h-20 rounded-2xl" />)}</div>
-            {[0, 1, 2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}
+            <div className="flex gap-2">{[0,1,2].map(i => <Skeleton key={i} className="flex-1 h-20 rounded-2xl" />)}</div>
+            {[0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}
           </div>
         ) : !activeChild ? (
           <div className="flex flex-col items-center justify-center pt-16 text-center">
@@ -192,9 +153,10 @@ export default function RotinaPage() {
               Eventos de hoje
             </p>
             {logsLoading ? (
-              <div className="space-y-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}</div>
+              <div className="space-y-3">{[0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}</div>
             ) : logs.length === 0 ? (
-              <div className="rounded-2xl px-5 py-10 text-center" style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+              <div className="rounded-2xl px-5 py-10 text-center"
+                style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
                 <p className="text-4xl mb-3">🌤️</p>
                 <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>Nenhum evento registrado hoje</p>
                 <p className="text-xs mt-1" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Toque no + para começar.</p>
@@ -202,7 +164,7 @@ export default function RotinaPage() {
             ) : (
               <div>
                 {logs.map((log, idx) => (
-                  <TimelineItem key={log.id} log={log} isLast={idx === logs.length - 1} onTap={() => setDetailLog(log)} />
+                  <EventCard key={log.id} log={log} isLast={idx === logs.length - 1} onTap={handleTap} />
                 ))}
               </div>
             )}
@@ -217,7 +179,8 @@ export default function RotinaPage() {
       <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} onSaved={loadLogs} />
       <SleepSheet open={sleepOpen} onClose={() => setSleepOpen(false)} onSaved={loadLogs} />
       <DiaperSheet open={diaperOpen} onClose={() => setDiaperOpen(false)} onSaved={loadLogs} />
-      <FeedDetailSheet log={detailLog} open={!!detailLog} onClose={() => setDetailLog(null)} onUpdated={loadLogs} />
+      <FeedDetailSheet log={detailKind === 'breastfeed' ? detailLog : null} open={detailKind === 'breastfeed' && !!detailLog} onClose={closeDetail} onUpdated={loadLogs} />
+      <DiaperDetailSheet log={detailKind === 'diaper' ? detailLog : null} open={detailKind === 'diaper' && !!detailLog} onClose={closeDetail} onUpdated={loadLogs} />
     </div>
   );
 }

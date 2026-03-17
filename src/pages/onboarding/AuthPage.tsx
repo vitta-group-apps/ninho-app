@@ -27,22 +27,31 @@ export default function AuthPage() {
 
     try {
       if (tab === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: { full_name: fullName },
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/onboarding/family`,
           },
         });
         if (error) throw error;
-        // After signup, go to family creation step
-        navigate('/onboarding/family');
+
+        // If email confirmation is required, the session will be null.
+        // Show a message and wait — the user will be redirected after confirming.
+        if (data.session) {
+          // Auto-confirmed (dev mode) — proceed straight to family creation
+          navigate('/onboarding/family');
+        } else {
+          // Email confirmation required — tell the user
+          setSuccess('Conta criada! Verifique seu e-mail e clique no link de confirmação para continuar.');
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // For login: let OnboardingGuard decide whether to skip to /home
-        navigate('/onboarding/family');
+        if (!data.session) throw new Error('Sessão não encontrada. Tente novamente.');
+        // Let OnboardingGuard decide: if family+child already exist → /home, else → family step
+        navigate('/onboarding');
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Algo deu errado');

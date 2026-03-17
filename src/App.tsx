@@ -97,63 +97,79 @@ function OnboardingGuard() {
   );
 }
 
+/**
+ * Root router: decides where unauthenticated vs authenticated users land.
+ * BrowserRouter lives here — always mounted, independent of splash.
+ */
+function AppRouter() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}
+      >
+        <div
+          className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: 'hsl(var(--ninho-sage))' }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      {/* Always-public */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Onboarding (public + partially guarded) */}
+      <Route path="/onboarding/*" element={<OnboardingGuard />} />
+
+      {/* Root redirect */}
+      <Route
+        path="/"
+        element={
+          user ? (
+            <Navigate to="/home" replace />
+          ) : (
+            <Navigate to="/onboarding" replace />
+          )
+        }
+      />
+
+      {/* Main app — auth required */}
+      <Route
+        path="/*"
+        element={
+          user ? (
+            <AuthedRoutes />
+          ) : (
+            <Navigate to="/onboarding" replace />
+          )
+        }
+      />
+    </Routes>
+  );
+}
+
 function NinhoApp() {
   const [splashDone, setSplashDone] = useState(false);
-  const { user, loading } = useAuth();
 
   const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   return (
-    <AnimatePresence mode="wait">
-      {!splashDone ? (
-        <SplashScreen key="splash" onFinish={handleSplashFinish} />
-      ) : loading ? (
-        <div
-          key="loading"
-          className="min-h-screen flex items-center justify-center"
-          style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}
-        >
-          <div
-            className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-            style={{ borderColor: 'hsl(var(--ninho-sage))' }}
-          />
-        </div>
-      ) : (
-        <BrowserRouter key="app">
-          <Routes>
-            {/* Public */}
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <>
+      {/* Splash overlays the app — does not block routing */}
+      <AnimatePresence>
+        {!splashDone && (
+          <SplashScreen key="splash" onFinish={handleSplashFinish} />
+        )}
+      </AnimatePresence>
 
-            {/* Onboarding (public + partially guarded) */}
-            <Route path="/onboarding/*" element={<OnboardingGuard />} />
-
-            {/* Root redirect */}
-            <Route
-              path="/"
-              element={
-                user ? (
-                  <Navigate to="/home" replace />
-                ) : (
-                  <Navigate to="/onboarding" replace />
-                )
-              }
-            />
-
-            {/* Main app — auth required */}
-            <Route
-              path="/*"
-              element={
-                user ? (
-                  <AuthedRoutes />
-                ) : (
-                  <Navigate to="/onboarding" replace />
-                )
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-      )}
-    </AnimatePresence>
+      {/* Router is always mounted regardless of splash state */}
+      <AppRouter />
+    </>
   );
 }
 
@@ -163,7 +179,9 @@ export default function App() {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <NinhoApp />
+        <BrowserRouter>
+          <NinhoApp />
+        </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );

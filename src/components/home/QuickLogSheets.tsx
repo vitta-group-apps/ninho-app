@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { makePayloadNotes, fmtTimer } from '@/lib/routineUtils';
 
 export { FeedSheet } from '@/components/routine/FeedSheet';
+export { DiaperSheet } from '@/components/routine/DiaperSheet';
 
 function ChildSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { children } = useActiveChild();

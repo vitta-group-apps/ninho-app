@@ -8,7 +8,7 @@
  *  - colored
  *  - detailed
  *
- * Adding a new event type? Add one entry to EVENT_REGISTRY.
+ * Adding a new event type? Add one entry here.
  * Nothing else needs to change for it to appear correctly
  * in Home timeline, Rotina timeline, and detail views.
  */
@@ -50,52 +50,98 @@ export interface EventPresentation {
   tappable: boolean;
 }
 
-// ─── Diaper helpers ────────────────────────────────────────────────────────
+// ─── Diaper label dictionaries ─────────────────────────────────────────────
 
-const DIAPER_KIND_LABEL: Record<string, string> = {
-  pee: 'Xixi 💛',
+export const DIAPER_KIND_LABEL: Record<string, string> = {
+  pee:  'Xixi 💛',
   poop: 'Cocô 💩',
   both: 'Xixi + Cocô',
 };
 
-const DIAPER_QUANTITY_LABEL: Record<string, string> = {
-  little: 'pouca',
+export const DIAPER_QUANTITY_LABEL: Record<string, string> = {
+  small:  'pouca',
   medium: 'média',
-  large: 'grande',
+  large:  'grande',
 };
 
-const DIAPER_COLOR_LABEL: Record<string, string> = {
+/** Pee color — mild palette, no alarming labels */
+export const DIAPER_PEE_COLOR_LABEL: Record<string, string> = {
+  clear:       'transparente',
+  pale_yellow: 'amarelo claro',
+  dark_yellow: 'amarelo escuro',
+  other:       'outra cor',
+};
+
+/** Poop color — full palette including medically notable ones */
+export const DIAPER_POOP_COLOR_LABEL: Record<string, string> = {
   yellow: 'amarelo',
-  green: 'verde',
-  brown: 'marrom',
-  dark: 'escuro',
-  other: 'outra cor',
+  green:  'verde',
+  brown:  'marrom',
+  dark:   'escuro',
+  red:    'avermelhado',
+  black:  'preto',
+  white:  'branco',
+  other:  'outra cor',
 };
 
-const DIAPER_TEXTURE_LABEL: Record<string, string> = {
-  liquid: 'líquido',
-  pasty: 'pastoso',
-  firm: 'firme',
+export const DIAPER_TEXTURE_LABEL: Record<string, string> = {
+  liquid:     'líquido',
+  pasty:      'pastoso',
+  soft:       'macio',
+  firm:       'firme',
+  mucus_like: 'com muco',
+  other:      'outro',
 };
+
+// ─── Significance classification (no UI — for future insight engine) ───────
+
+/** Returns true when the payload contains a medically notable signal. */
+export function isDiaperSignificant(p: Record<string, string | number>): boolean {
+  const poopColor   = String(p.poop_color ?? '');
+  const peeColor    = String(p.pee_color ?? '');
+  const texture     = String(p.poop_texture ?? '');
+  const notableColors = ['red', 'black', 'white'];
+  const notableTextures = ['mucus_like'];
+  const notablePeeColors = ['dark_yellow'];
+  return (
+    notableColors.includes(poopColor) ||
+    notableTextures.includes(texture) ||
+    notablePeeColors.includes(peeColor)
+  );
+}
+
+// ─── Diaper summary builders ───────────────────────────────────────────────
 
 export function buildDiaperSummary(p: Record<string, string | number>): string {
-  const kind = DIAPER_KIND_LABEL[String(p.kind ?? p.diaper_type ?? '')] ?? '';
-  const parts: string[] = [kind].filter(Boolean);
+  const kind = p.kind ?? p.diaper_type ?? '';
+  const kindLabel: Record<string, string> = { pee: 'Xixi', poop: 'Cocô', both: 'Xixi + Cocô' };
+  const base = kindLabel[String(kind)] ?? 'Troca';
+
+  const parts: string[] = [base];
   const qty = DIAPER_QUANTITY_LABEL[String(p.quantity ?? '')];
   if (qty) parts.push(qty);
-  return parts.join(' · ') || 'Troca';
+  return parts.join(' · ');
 }
 
-export function buildDiaperObservationPreview(p: Record<string, string | number>): string | null {
+export function buildDiaperDetail(p: Record<string, string | number>): string | null {
   const details: string[] = [];
-  const color = DIAPER_COLOR_LABEL[String(p.color ?? '')];
-  const texture = DIAPER_TEXTURE_LABEL[String(p.texture ?? '')];
-  if (color) details.push(color);
-  if (texture) details.push(texture);
+  const kind = String(p.kind ?? p.diaper_type ?? '');
+
+  const showPee  = kind === 'pee'  || kind === 'both';
+  const showPoop = kind === 'poop' || kind === 'both';
+
+  if (showPee) {
+    const peeColor = DIAPER_PEE_COLOR_LABEL[String(p.pee_color ?? '')];
+    if (peeColor) details.push(peeColor);
+  }
+  if (showPoop) {
+    const poopColor = DIAPER_POOP_COLOR_LABEL[String(p.poop_color ?? '')];
+    const texture   = DIAPER_TEXTURE_LABEL[String(p.poop_texture ?? '')];
+    if (poopColor) details.push(poopColor);
+    if (texture)   details.push(texture);
+  }
   return details.length > 0 ? details.join(' · ') : null;
 }
-
-export { DIAPER_KIND_LABEL, DIAPER_QUANTITY_LABEL, DIAPER_COLOR_LABEL, DIAPER_TEXTURE_LABEL };
 
 // ─── Feed helpers ──────────────────────────────────────────────────────────
 
@@ -157,14 +203,15 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         badge: duration,
         observationPreview: userNotes ? `💬 ${userNotes.slice(0, 40)}` : null,
         detailKind: 'sleep',
-        tappable: false, // sleep detail coming in future flow
+        tappable: false,
       };
     }
 
     // ── DIAPER ────────────────────────────────────────────────────────────
     case 'diaper': {
       const summary = buildDiaperSummary(p);
-      const obsPreview = buildDiaperObservationPreview(p);
+      const detail  = buildDiaperDetail(p);
+      const obsPreview = detail ?? (userNotes ? `💬 ${userNotes.slice(0, 40)}` : null);
       return {
         title: 'Troca',
         emoji: '🧷',
@@ -172,7 +219,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         bgColor: 'hsl(32,80%,57%,0.12)',
         summary,
         badge: null,
-        observationPreview: obsPreview ?? (userNotes ? `💬 ${userNotes.slice(0, 40)}` : null),
+        observationPreview: obsPreview,
         detailKind: 'diaper',
         tappable: true,
       };

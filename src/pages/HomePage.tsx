@@ -172,6 +172,7 @@ export default function HomePage() {
   const [feedOpen, setFeedOpen] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [diaperOpen, setDiaperOpen] = useState(false);
+  const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
 
   // ── Load today's routine logs ──
   const loadLogs = useCallback(async () => {

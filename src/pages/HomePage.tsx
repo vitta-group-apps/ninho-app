@@ -387,7 +387,7 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="pb-2">
-                {logs.map(log => <TimelineItem key={log.id} log={log} />)}
+                {logs.map(log => <TimelineItem key={log.id} log={log} onTap={() => setDetailLog(log)} />)}
               </div>
             )}
           </div>
@@ -398,6 +398,7 @@ export default function HomePage() {
       <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} onSaved={loadLogs} />
       <SleepSheet open={sleepOpen} onClose={() => setSleepOpen(false)} onSaved={loadLogs} />
       <DiaperSheet open={diaperOpen} onClose={() => setDiaperOpen(false)} onSaved={loadLogs} />
+      <FeedDetailSheet log={detailLog} open={!!detailLog} onClose={() => setDetailLog(null)} />
     </div>
   );
 }

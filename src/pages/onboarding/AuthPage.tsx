@@ -36,11 +36,12 @@ export default function AuthPage() {
           },
         });
         if (error) throw error;
-        // After signup, session is auto-set — navigate to family creation
+        // After signup, go to family creation step
         navigate('/onboarding/family');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        // For login: let OnboardingGuard decide whether to skip to /home
         navigate('/onboarding/family');
       }
     } catch (err: unknown) {

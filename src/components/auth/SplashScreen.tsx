@@ -7,7 +7,7 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onFinish }: SplashScreenProps) {
   useEffect(() => {
-    const timer = setTimeout(onFinish, 2800);
+    const timer = setTimeout(onFinish, 2400);
     return () => clearTimeout(timer);
   }, [onFinish]);
 
@@ -17,7 +17,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       style={{ backgroundColor: 'hsl(var(--ninho-mauve))' }}
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.04 }}
-      transition={{ duration: 0.5, ease: 'easeInOut' }}
+      transition={{ duration: 0.45, ease: 'easeInOut' }}
     >
       {/* Ninho Nest Logo */}
       <motion.div
@@ -27,8 +27,8 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         className="mb-8"
       >
         <svg
-          width="100"
-          height="100"
+          width="96"
+          height="96"
           viewBox="0 0 100 100"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -42,7 +42,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
             fill="none"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ duration: 1.2, ease: 'easeInOut', delay: 0.1 }}
+            transition={{ duration: 1.0, ease: 'easeInOut', delay: 0.1 }}
           />
           {/* Middle arc */}
           <motion.path
@@ -53,7 +53,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
             fill="none"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ duration: 1.0, ease: 'easeInOut', delay: 0.4 }}
+            transition={{ duration: 0.85, ease: 'easeInOut', delay: 0.3 }}
           />
           {/* Center egg */}
           <motion.circle
@@ -63,7 +63,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
             fill="white"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1], delay: 1.0 }}
+            transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1], delay: 0.85 }}
           />
           {/* Side eggs */}
           <motion.circle
@@ -73,7 +73,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
             fill="rgba(255,255,255,0.65)"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3, delay: 1.1 }}
+            transition={{ duration: 0.3, delay: 0.95 }}
           />
           <motion.circle
             cx="63"
@@ -82,7 +82,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
             fill="rgba(255,255,255,0.65)"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3, delay: 1.15 }}
+            transition={{ duration: 0.3, delay: 1.0 }}
           />
         </svg>
       </motion.div>
@@ -93,7 +93,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         style={{ color: 'white', fontFamily: 'Quicksand, sans-serif' }}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.9 }}
+        transition={{ duration: 0.5, delay: 0.75 }}
       >
         ninho
       </motion.h1>
@@ -104,7 +104,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         style={{ color: 'rgba(255,255,255,0.75)', fontFamily: 'Nunito, sans-serif' }}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 1.2 }}
+        transition={{ duration: 0.5, delay: 1.0 }}
       >
         Sua rede de apoio em cada fase do bebê.
       </motion.p>

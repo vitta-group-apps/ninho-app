@@ -49,21 +49,34 @@ function AuthedRoutes() {
 }
 
 /**
- * Guard: if user already completed onboarding (has family + child),
- * redirect straight to /home. Otherwise render the onboarding routes.
+ * Guard: routes within /onboarding/*.
+ * - No user            → show welcome/auth freely
+ * - Has family + child → skip to /home
+ * - Has family, no child → skip directly to child step
+ * - Has neither        → normal onboarding flow
  */
 function OnboardingGuard() {
   const { user } = useAuth();
-  const { loading, hasFamily, hasChild } = useOnboardingStatus(user?.id ?? null);
+  const { loading, hasFamily, hasChild, familyId } = useOnboardingStatus(user?.id ?? null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && hasFamily && hasChild) {
-      navigate('/home', { replace: true });
-    }
-  }, [loading, hasFamily, hasChild, navigate]);
+    if (loading || !user) return;
 
-  if (loading) {
+    if (hasFamily && hasChild) {
+      console.log('[OnboardingGuard] User has family+child → /home');
+      navigate('/home', { replace: true });
+    } else if (hasFamily && !hasChild) {
+      // Family exists but no child yet — jump to child step
+      // Store the family id so ChildPage can find it
+      if (familyId) sessionStorage.setItem('onboarding_family_id', familyId);
+      console.log('[OnboardingGuard] User has family, no child → /onboarding/child');
+      navigate('/onboarding/child', { replace: true });
+    }
+    // else: no family → let the user flow through normally
+  }, [loading, user, hasFamily, hasChild, familyId, navigate]);
+
+  if (loading && user) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"

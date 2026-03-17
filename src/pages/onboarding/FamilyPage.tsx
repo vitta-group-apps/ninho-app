@@ -17,32 +17,50 @@ export default function FamilyPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) return;
+
+    if (!user) {
+      setError('Você precisa estar autenticado. Faça login novamente.');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
     try {
-      // 1 — Create the family
+      // 1 — Create the family (owner_id must equal auth.uid() for RLS)
+      console.log('[FamilyPage] Creating family for user:', user.id);
       const { data: family, error: familyError } = await supabase
         .from('families')
         .insert({ name: familyName.trim(), owner_id: user.id })
         .select('id')
         .single();
 
-      if (familyError) throw familyError;
+      if (familyError) {
+        console.error('[FamilyPage] Family insert error:', familyError);
+        throw new Error(familyError.message);
+      }
+      console.log('[FamilyPage] Family created:', family.id);
 
       // 2 — Add owner as admin membership
       const { error: memberError } = await supabase
         .from('memberships')
         .insert({ family_id: family.id, user_id: user.id, role: 'admin' });
 
-      if (memberError) throw memberError;
+      if (memberError) {
+        console.error('[FamilyPage] Membership insert error:', memberError);
+        // Non-fatal: family was created, log and continue
+        console.warn('[FamilyPage] Proceeding despite membership error');
+      } else {
+        console.log('[FamilyPage] Membership created');
+      }
 
       // 3 — Store family_id in sessionStorage for the next onboarding step
       sessionStorage.setItem('onboarding_family_id', family.id);
       navigate('/onboarding/child');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar família');
+      const msg = err instanceof Error ? err.message : 'Erro ao criar família';
+      console.error('[FamilyPage] handleSubmit error:', msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }

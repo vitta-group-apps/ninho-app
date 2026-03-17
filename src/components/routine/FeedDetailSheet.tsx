@@ -38,7 +38,7 @@ export function FeedDetailSheet({ log, open, onClose }: FeedDetailSheetProps) {
   const switches = Number(p.switches ?? 0);
   const tags = String(p.tags ?? '').split(',').filter(Boolean);
   const userNotes = getUserNotes(log.notes);
-  const includeInReport = p.include_in_report === true || p.include_in_report === 'true';
+  const includeInReport = String(p.include_in_report) === 'true';
   const isManual = p.mode === 'manual';
 
   const startTime = fmtTime(log.start_time);

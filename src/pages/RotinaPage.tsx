@@ -451,12 +451,7 @@ export default function RotinaPage() {
         />
       )}
 
-      <FeedDetailSheet
-        log={detailKind === 'breastfeed' ? detailLog : null}
-        open={detailKind === 'breastfeed' && !!detailLog}
-        onClose={() => { setDetailLog(null); setDetailKind(null); }}
-        onUpdated={loadLogs}
-      />
+      {/* All event navigation is handled by EventCard → detail screens. No modal needed. */}
     </div>
   );
 }

@@ -409,7 +409,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         observationPreview: userNotes ? userNotes.slice(0, 50) : null,
         detailKind: 'diaper',
         tappable: true,
-        editPath: `/diaper/edit/${log.id}`,
+        editPath: `/diaper/detail/${log.id}`,
         isSignificant: significant,
         hint: hintLabel ? { label: hintLabel, variant: 'info' } : null,
         includeInReport,

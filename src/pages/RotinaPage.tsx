@@ -16,7 +16,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PlusIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
 import { EventCard } from '@/components/events/EventCard';
 import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';

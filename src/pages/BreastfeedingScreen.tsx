@@ -876,10 +876,12 @@ export default function BreastfeedingScreen() {
       )}
       {phase === 'ended' && (
         <StickyFooterCTA
-          primaryLabel={saving ? 'Salvando...' : 'Salvar mamada'}
+          primaryLabel="Salvar registro"
           onPrimary={handleSave}
           primaryLoading={saving}
           primaryColor={FEED_COLOR}
+          tertiaryLabel="Descartar e voltar"
+          onTertiary={handleConfirmDiscard}
         />
       )}
 

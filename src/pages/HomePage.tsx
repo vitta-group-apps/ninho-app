@@ -334,7 +334,6 @@ export default function HomePage() {
                       key={log.id}
                       log={log}
                       isLast={idx === previewLogs.length - 1}
-                      onTap={handleTap}
                     />
                   ))}
                   {logs.length > 5 && (
@@ -355,13 +354,6 @@ export default function HomePage() {
           </div>
         </motion.div>
       )}
-
-      <FeedDetailSheet
-        log={detailKind === 'breastfeed' ? detailLog : null}
-        open={detailKind === 'breastfeed' && !!detailLog}
-        onClose={() => { setDetailLog(null); setDetailKind(null); }}
-        onUpdated={loadLogs}
-      />
     </div>
   );
 }

@@ -1,9 +1,13 @@
 /**
- * BreastfeedingScreen — Full-screen breastfeeding session flow.
- * DS v2: uses ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle, InlineStatusPill.
+ * BreastfeedingScreen — Gold-standard full-screen breastfeeding flow.
  *
- * No gradient buttons. Solid primary (sage). Chips always wrap.
- * Back-guard preserved.
+ * Phases:
+ *  1. suggest  — side select + secondary actions (Registrar manualmente / Mamadeira)
+ *  2. session  — large total timer + side cards + pause/end controls
+ *  3. ended    — review form (tags, notes, report toggle) + save/discard
+ *
+ * DS: ScreenHeader · InlineStatusPill · StickyFooterCTA · SectionLabel · ChipGroup · ReportToggle
+ * Back guard: BackConfirmSheet prevents silent data loss.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -24,7 +28,7 @@ import {
   InlineStatusPill,
 } from '@/components/ds';
 
-// ─── Constants ─────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 export const FEED_SESSION_KEY = 'ninho_feed_session_v6';
 const FEED_COLOR = 'hsl(var(--color-feed))';
@@ -63,7 +67,7 @@ const QUICK_TAGS = [
   { id: 'rejeitou_lado', label: '↩️ Rejeitou lado' },
 ];
 
-// ─── Persistence ───────────────────────────────────────────────────────────
+// ─── Persistence ─────────────────────────────────────────────────────────────
 
 export function saveFeedSession(d: FeedSession) {
   try { localStorage.setItem(FEED_SESSION_KEY, JSON.stringify(d)); } catch { /* noop */ }
@@ -78,7 +82,7 @@ export function loadFeedSession(): FeedSession | null {
   catch { return null; }
 }
 
-// ─── SideCard ──────────────────────────────────────────────────────────────
+// ─── SideCard ─────────────────────────────────────────────────────────────────
 
 function SideCard({
   side, active, totalMs, status, onClick,
@@ -108,7 +112,6 @@ function SideCard({
           : 'none',
       }}
     >
-      {/* Side indicator */}
       <div
         className="w-11 h-11 rounded-full mx-auto flex items-center justify-center text-[18px] font-bold"
         style={{
@@ -128,7 +131,7 @@ function SideCard({
         {label}
       </p>
 
-      {/* Timer — stable fixed height so layout never jumps */}
+      {/* Timer — stable fixed height to prevent layout jump */}
       <div className="h-10 flex items-center justify-center mt-1">
         <p
           className="text-[28px] font-bold tabular-nums font-quicksand leading-none"
@@ -154,7 +157,7 @@ function SideCard({
   );
 }
 
-// ─── Back-confirm sheet ────────────────────────────────────────────────────
+// ─── Back-confirm sheet ───────────────────────────────────────────────────────
 
 function BackConfirmSheet({
   open, durationSec, onContinue, onSaveReview, onDiscard,
@@ -176,7 +179,8 @@ function BackConfirmSheet({
         initial={{ y: 60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-        className="w-full max-w-md rounded-t-3xl px-5 pb-safe pt-6 space-y-3 bg-card"
+        className="w-full max-w-md rounded-t-3xl px-5 pt-6 space-y-3 bg-card"
+        style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
       >
         <p className="text-base font-bold text-center font-quicksand text-foreground">
@@ -187,7 +191,7 @@ function BackConfirmSheet({
             ? `Você tem ${fmtDurationShort(durationSec)} registrados.`
             : 'Sessão muito curta. O que deseja fazer?'}
         </p>
-        <div className="space-y-2 pb-4">
+        <div className="space-y-2 pb-2">
           <button
             onClick={onContinue}
             className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito text-white"
@@ -215,7 +219,7 @@ function BackConfirmSheet({
   );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BreastfeedingScreen() {
   const navigate = useNavigate();
@@ -242,7 +246,7 @@ export default function BreastfeedingScreen() {
   const [includeInReport, setIncludeInReport] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load existing session
+  // Load existing session on mount
   useEffect(() => {
     const existing = loadFeedSession();
     if (existing && existing.childId === activeChildId) {
@@ -413,7 +417,6 @@ export default function BreastfeedingScreen() {
   const display = getDisplay();
   const totalSec = getCurrentTotalSec();
 
-  // Status pill for header
   const statusPill = phase === 'session' ? (
     <InlineStatusPill
       label={sessionStatus === 'ACTIVE' ? 'Em andamento' : 'Pausada'}
@@ -435,12 +438,13 @@ export default function BreastfeedingScreen() {
       {/* Scrollable body */}
       <div className="ds-form-body">
 
-        {/* ── SUGGEST ─────────────────────────────────────────────── */}
+        {/* ── SUGGEST ───────────────────────────────────────────────── */}
         {phase === 'suggest' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-8 pt-6"
+            className="flex flex-col items-center gap-7 pt-6"
           >
+            {/* Hero icon */}
             <div
               className="w-32 h-32 rounded-full flex items-center justify-center"
               style={{
@@ -450,12 +454,15 @@ export default function BreastfeedingScreen() {
             >
               <span className="text-[52px]">🤱</span>
             </div>
+
             <div className="text-center space-y-1.5">
               <p className="text-[18px] font-bold font-quicksand text-foreground">Pronta para mamar?</p>
               <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
                 Escolha o lado e inicie o cronômetro
               </p>
             </div>
+
+            {/* Side selector */}
             <div className="w-full">
               <SectionLabel>Por qual lado começar?</SectionLabel>
               <div className="flex gap-3">
@@ -465,10 +472,35 @@ export default function BreastfeedingScreen() {
                 ))}
               </div>
             </div>
+
+            {/* Secondary actions — link-style, not a separate CTA area */}
+            <div className="w-full flex flex-col gap-2 pt-2 border-t border-border">
+              <button
+                onClick={() => navigate('/bottle')}
+                className="w-full py-3 rounded-2xl text-[13px] font-semibold font-nunito text-center transition-all active:scale-95 bg-muted text-foreground"
+              >
+                🍼 Registrar mamadeira / fórmula
+              </button>
+              <button
+                onClick={() => {
+                  // Manual log: open ended phase directly with 0-sec session
+                  const now = Date.now();
+                  sideTimesRef.current = { L: 0, R: 0 };
+                  activeSideRef.current = selectedSide;
+                  setSessionStartEpoch(now);
+                  setSwitchCount(0);
+                  setFinishedData({ totalSec: 0, leftSec: 0, rightSec: 0, switches: 0, start: new Date(now), end: new Date(now), lastSide: selectedSide });
+                  setPhase('ended');
+                }}
+                className="w-full py-2.5 text-[12px] font-medium font-nunito text-center text-muted-foreground"
+              >
+                Registrar manualmente (sem cronômetro)
+              </button>
+            </div>
           </motion.div>
         )}
 
-        {/* ── SESSION ─────────────────────────────────────────────── */}
+        {/* ── SESSION ───────────────────────────────────────────────── */}
         {phase === 'session' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
             {/* Total timer — dominant visual element */}
@@ -522,6 +554,21 @@ export default function BreastfeedingScreen() {
               )}
             </div>
 
+            {/* Trocar de lado — explicit button when active */}
+            {sessionStatus === 'ACTIVE' && (
+              <button
+                onClick={handleSwitch}
+                className="w-full py-3.5 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
+                  color: FEED_COLOR,
+                  border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 25%, transparent)`,
+                }}
+              >
+                ⇄ Trocar de lado
+              </button>
+            )}
+
             {/* Controls */}
             <div className="flex gap-3">
               {sessionStatus === 'ACTIVE' ? (
@@ -555,7 +602,7 @@ export default function BreastfeedingScreen() {
           </motion.div>
         )}
 
-        {/* ── ENDED ───────────────────────────────────────────────── */}
+        {/* ── ENDED ─────────────────────────────────────────────────── */}
         {phase === 'ended' && finishedData && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
@@ -574,15 +621,22 @@ export default function BreastfeedingScreen() {
                 🤱
               </div>
               <div>
-                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">Sessão encerrada</p>
-                <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
-                  {[
-                    finishedData.leftSec  > 0 ? `Esq: ${fmtDurationShort(finishedData.leftSec)}`  : null,
-                    finishedData.rightSec > 0 ? `Dir: ${fmtDurationShort(finishedData.rightSec)}` : null,
-                    finishedData.switches > 0
-                      ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
-                  ].filter(Boolean).join(' · ')}
+                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
+                  {finishedData.totalSec > 0 ? 'Sessão encerrada' : 'Registro manual'}
                 </p>
+                {finishedData.totalSec > 0 ? (
+                  <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
+                    {[
+                      finishedData.leftSec  > 0 ? `Esq: ${fmtDurationShort(finishedData.leftSec)}`  : null,
+                      finishedData.rightSec > 0 ? `Dir: ${fmtDurationShort(finishedData.rightSec)}` : null,
+                      finishedData.switches > 0 ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
+                    ].filter(Boolean).join(' · ')}
+                  </p>
+                ) : (
+                  <p className="text-[12px] mt-0.5 font-nunito text-muted-foreground">
+                    Adicione observações se quiser
+                  </p>
+                )}
               </div>
             </div>
 
@@ -615,6 +669,14 @@ export default function BreastfeedingScreen() {
 
             {/* Medical report */}
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
+
+            {/* Discard — tertiary */}
+            <button
+              onClick={handleConfirmDiscard}
+              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
+            >
+              Descartar e voltar
+            </button>
           </motion.div>
         )}
       </div>
@@ -625,6 +687,7 @@ export default function BreastfeedingScreen() {
           primaryLabel={`▶ Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
           onPrimary={handleStart}
           primaryColor={FEED_COLOR}
+          primaryDisabled={!activeChildId}
         />
       )}
       {phase === 'session' && (
@@ -643,7 +706,7 @@ export default function BreastfeedingScreen() {
         />
       )}
 
-      {/* Back nav confirmation */}
+      {/* Back nav guard */}
       <AnimatePresence>
         {showBackConfirm && (
           <BackConfirmSheet

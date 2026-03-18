@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSheets';
+import { FeedSheet } from '@/components/home/QuickLogSheets';
 import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
-import { DiaperDetailSheet } from '@/components/routine/DiaperDetailSheet';
 import { EventCard } from '@/components/events/EventCard';
+import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fmtTimeSince, parsePayload } from '@/lib/routineUtils';
 import type { RoutineLog } from '@/lib/eventSystem';
@@ -43,9 +44,9 @@ function DailyStats({ logs }: { logs: RoutineLog[] }) {
 function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () => void; onDiaper: () => void }) {
   const [open, setOpen] = useState(false);
   const actions = [
-    { emoji: '🤱', label: 'Amamentar', onClick: onFeed, color: 'hsl(152,15%,55%)' },
-    { emoji: '😴', label: 'Sono', onClick: onSleep, color: 'hsl(270,12%,52%)' },
-    { emoji: '🧷', label: 'Fralda', onClick: onDiaper, color: 'hsl(32,80%,57%)' },
+    { emoji: '🤱', label: 'Amamentar', onClick: onFeed,   color: 'hsl(152,15%,55%)' },
+    { emoji: '😴', label: 'Sono',      onClick: onSleep,  color: 'hsl(270,12%,52%)' },
+    { emoji: '🧷', label: 'Fralda',    onClick: onDiaper, color: 'hsl(32,80%,57%)' },
   ];
   return (
     <>
@@ -54,7 +55,8 @@ function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () =>
         <AnimatePresence>
           {open && actions.map((a, i) => (
             <motion.div key={a.label} initial={{ opacity: 0, y: 12, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.9 }} transition={{ duration: 0.16, delay: i * 0.05 }} className="flex items-center gap-2">
+              exit={{ opacity: 0, y: 8, scale: 0.9 }} transition={{ duration: 0.16, delay: i * 0.05 }}
+              className="flex items-center gap-2">
               <span className="text-xs font-bold px-3 py-1.5 rounded-full"
                 style={{ backgroundColor: 'hsl(var(--card))', color: a.color, fontFamily: 'Nunito, sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
                 {a.label}
@@ -80,15 +82,14 @@ function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () =>
 
 // ─── Main RotinaPage ───────────────────────────────────────────────────────
 export default function RotinaPage() {
+  const navigate = useNavigate();
   const { activeChild, loading: childLoading } = useActiveChild();
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
-  const [sleepOpen, setSleepOpen] = useState(false);
-  const [diaperOpen, setDiaperOpen] = useState(false);
 
   const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
-  const [detailKind, setDetailKind] = useState<'breastfeed' | 'diaper' | null>(null);
+  const [detailKind, setDetailKind] = useState<'breastfeed' | null>(null);
 
   const lastFeed = logs.find(l => l.type === 'feed');
 
@@ -112,7 +113,7 @@ export default function RotinaPage() {
     if (log.type === 'feed' && p.session_type === 'breastfeed') {
       setDetailLog(log); setDetailKind('breastfeed');
     } else if (log.type === 'diaper') {
-      setDetailLog(log); setDetailKind('diaper');
+      navigate(`/diaper/edit/${log.id}`);
     }
   }
 
@@ -120,7 +121,9 @@ export default function RotinaPage() {
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
-      <div className="px-5 pt-14 pb-5" style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))' }}>
+      {/* Header */}
+      <div className="px-5 pt-14 pb-5"
+        style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-sage)), hsl(var(--ninho-mauve)))' }}>
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Quicksand, sans-serif' }}>Rotina</h1>
         <p className="text-sm text-white/70 mt-0.5" style={{ fontFamily: 'Nunito, sans-serif' }}>
           {activeChild ? activeChild.name : 'Hoje'}
@@ -135,7 +138,10 @@ export default function RotinaPage() {
         )}
       </div>
 
-      <div className="px-5 pt-5">
+      {/* Active session surface */}
+      <ActiveSessionBanner />
+
+      <div className="px-5 pt-4">
         {childLoading ? (
           <div className="space-y-3">
             <div className="flex gap-2">{[0,1,2].map(i => <Skeleton key={i} className="flex-1 h-20 rounded-2xl" />)}</div>
@@ -149,7 +155,8 @@ export default function RotinaPage() {
         ) : (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             {logs.length > 0 && <DailyStats logs={logs} />}
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3"
+              style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
               Eventos de hoje
             </p>
             {logsLoading ? (
@@ -173,14 +180,20 @@ export default function RotinaPage() {
       </div>
 
       {activeChild && (
-        <FAB onFeed={() => setFeedOpen(true)} onSleep={() => setSleepOpen(true)} onDiaper={() => setDiaperOpen(true)} />
+        <FAB
+          onFeed={() => setFeedOpen(true)}
+          onSleep={() => navigate('/sleep')}
+          onDiaper={() => navigate('/diaper/new')}
+        />
       )}
 
       <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} onSaved={loadLogs} />
-      <SleepSheet open={sleepOpen} onClose={() => setSleepOpen(false)} onSaved={loadLogs} />
-      <DiaperSheet open={diaperOpen} onClose={() => setDiaperOpen(false)} onSaved={loadLogs} />
-      <FeedDetailSheet log={detailKind === 'breastfeed' ? detailLog : null} open={detailKind === 'breastfeed' && !!detailLog} onClose={closeDetail} onUpdated={loadLogs} />
-      <DiaperDetailSheet log={detailKind === 'diaper' ? detailLog : null} open={detailKind === 'diaper' && !!detailLog} onClose={closeDetail} onUpdated={loadLogs} />
+      <FeedDetailSheet
+        log={detailKind === 'breastfeed' ? detailLog : null}
+        open={detailKind === 'breastfeed' && !!detailLog}
+        onClose={closeDetail}
+        onUpdated={loadLogs}
+      />
     </div>
   );
 }

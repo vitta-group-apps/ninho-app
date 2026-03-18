@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MoonIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { ChildSwitcher } from '@/components/home/ChildSwitcher';
-import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSheets';
+import { FeedSheet } from '@/components/home/QuickLogSheets';
 import { parsePayload, fmtRangeDuration } from '@/lib/routineUtils';
 import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
 import { DiaperDetailSheet } from '@/components/routine/DiaperDetailSheet';
 import { EventCard } from '@/components/events/EventCard';
+import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { RoutineLog } from '@/lib/eventSystem';
 
@@ -51,6 +53,7 @@ function QuickAction({ emoji, label, onClick, color }: { emoji: string; label: s
 
 // ─── Main HomePage ─────────────────────────────────────────────────────────
 export default function HomePage() {
+  const navigate = useNavigate();
   const { activeChild, loading: childLoading, error: childError } = useActiveChild();
 
   const [logs, setLogs] = useState<RoutineLog[]>([]);
@@ -58,9 +61,8 @@ export default function HomePage() {
   const [logsError, setLogsError] = useState<string | null>(null);
 
   const [feedOpen, setFeedOpen] = useState(false);
-  const [sleepOpen, setSleepOpen] = useState(false);
-  const [diaperOpen, setDiaperOpen] = useState(false);
 
+  // Detail state for feed detail sheet only (diaper now uses full-screen)
   const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
   const [detailKind, setDetailKind] = useState<'breastfeed' | 'diaper' | null>(null);
 
@@ -85,7 +87,8 @@ export default function HomePage() {
     if (log.type === 'feed' && p.session_type === 'breastfeed') {
       setDetailLog(log); setDetailKind('breastfeed');
     } else if (log.type === 'diaper') {
-      setDetailLog(log); setDetailKind('diaper');
+      // Navigate to full-screen edit
+      navigate(`/diaper/edit/${log.id}`);
     }
   }
 
@@ -101,9 +104,13 @@ export default function HomePage() {
   const sleepH = Math.floor(sleepSec / 3600);
   const sleepM = Math.floor((sleepSec % 3600) / 60);
   const sleepLabel = sleepSec > 0 ? (sleepH > 0 ? `${sleepH}h ${sleepM}m` : `${sleepM}m`) : null;
-
-  const lastSleep = logs.find(l => l.type === 'sleep');
   const ongoingSleep = logs.find(l => l.type === 'sleep' && !l.end_time);
+  const lastSleep = logs.find(l => l.type === 'sleep');
+  const lastSleepSub = ongoingSleep
+    ? 'em andamento'
+    : lastSleep?.end_time
+    ? `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`
+    : undefined;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
@@ -112,16 +119,11 @@ export default function HomePage() {
   const mauveHex  = 'hsl(270,12%,52%)';
   const orangeHex = 'hsl(32,80%,57%)';
 
-  // Last sleep duration string
-  const lastSleepSub = ongoingSleep
-    ? 'em andamento'
-    : lastSleep?.end_time
-    ? `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`
-    : undefined;
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
-      <div className="px-5 pt-12 pb-5" style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-mauve)), hsl(var(--ninho-sage)))' }}>
+      {/* Hero header */}
+      <div className="px-5 pt-12 pb-5"
+        style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-mauve)), hsl(var(--ninho-sage)))' }}>
         <p className="text-sm text-white/70 mb-3" style={{ fontFamily: 'Nunito, sans-serif' }}>{greeting} 👋</p>
         <ChildSwitcher />
       </div>
@@ -148,78 +150,83 @@ export default function HomePage() {
           <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Complete o cadastro para ver o painel.</p>
         </div>
       ) : (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="px-5 pt-5 pb-8 space-y-5">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+          className="pb-8 space-y-5">
 
-          {/* Summary cards — real data */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Resumo do dia</p>
-            <div className="grid grid-cols-2 gap-3">
-              <SummaryCard emoji="🤱" label="Mamadas" color={sageHex}
-                value={logsLoading ? '...' : feedCount > 0 ? `${feedCount}x` : 'Nenhuma'}
-                sub={feedCount > 0 ? `hoje` : undefined}
-                empty={!logsLoading && feedCount === 0} />
-              <SummaryCard emoji="🧷" label="Fraldas" color={orangeHex}
-                value={logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}x` : 'Nenhuma'}
-                sub={diaperCount > 0 ? 'hoje' : undefined}
-                empty={!logsLoading && diaperCount === 0} />
-              <SummaryCard
-                emoji="😴"
-                label="Sono"
-                color={mauveHex}
-                value={logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : 'Nenhum')}
-                sub={lastSleepSub}
-                empty={!logsLoading && !sleepLabel && !ongoingSleep}
-              />
-              <SummaryCard emoji="📅" label="Próxima consulta" color="#9B6B9B"
-                value="Nenhuma agendada" empty />
+          {/* Active session surface */}
+          <ActiveSessionBanner />
+
+          <div className="px-5 space-y-5">
+            {/* Summary cards */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider mb-3"
+                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Resumo do dia</p>
+              <div className="grid grid-cols-2 gap-3">
+                <SummaryCard emoji="🤱" label="Mamadas" color={sageHex}
+                  value={logsLoading ? '...' : feedCount > 0 ? `${feedCount}x` : 'Nenhuma'}
+                  sub={feedCount > 0 ? 'hoje' : undefined} empty={!logsLoading && feedCount === 0} />
+                <SummaryCard emoji="🧷" label="Fraldas" color={orangeHex}
+                  value={logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}x` : 'Nenhuma'}
+                  sub={diaperCount > 0 ? 'hoje' : undefined} empty={!logsLoading && diaperCount === 0} />
+                <SummaryCard emoji="😴" label="Sono" color={mauveHex}
+                  value={logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : 'Nenhum')}
+                  sub={lastSleepSub} empty={!logsLoading && !sleepLabel && !ongoingSleep} />
+                <SummaryCard emoji="📅" label="Próxima consulta" color="#9B6B9B"
+                  value="Nenhuma agendada" empty />
+              </div>
             </div>
-          </div>
 
-          {/* Quick actions */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Registrar agora</p>
-            <div className="flex gap-3">
-              <QuickAction emoji="🤱" label="Mamada" onClick={() => setFeedOpen(true)} color={sageHex} />
-              <QuickAction emoji="😴" label="Sono" onClick={() => setSleepOpen(true)} color={mauveHex} />
-              <QuickAction emoji="🧷" label="Fralda" onClick={() => setDiaperOpen(true)} color={orangeHex} />
+            {/* Quick actions */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider mb-3"
+                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Registrar agora</p>
+              <div className="flex gap-3">
+                <QuickAction emoji="🤱" label="Mamada"  onClick={() => setFeedOpen(true)}         color={sageHex} />
+                <QuickAction emoji="😴" label="Sono"    onClick={() => navigate('/sleep')}          color={mauveHex} />
+                <QuickAction emoji="🧷" label="Fralda"  onClick={() => navigate('/diaper/new')}     color={orangeHex} />
+              </div>
             </div>
-          </div>
 
-          {/* Daily timeline */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Hoje</p>
-            {logsError && (
-              <div className="px-4 py-3 rounded-2xl mb-3 flex items-center gap-2"
-                style={{ backgroundColor: 'hsl(var(--destructive) / 0.08)', border: '1px solid hsl(var(--destructive) / 0.15)' }}>
-                <ExclamationCircleIcon className="w-4 h-4" style={{ color: 'hsl(var(--destructive))' }} />
-                <p className="text-xs" style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}>{logsError}</p>
-              </div>
-            )}
-            {logsLoading ? (
-              <div className="space-y-2">{[0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}</div>
-            ) : logs.length === 0 ? (
-              <div className="rounded-2xl px-5 py-8 text-center"
-                style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
-                <p className="text-3xl mb-2">🌤️</p>
-                <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>Nenhum evento registrado hoje</p>
-                <p className="text-xs mt-1" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Use os botões acima para começar.</p>
-              </div>
-            ) : (
-              <div className="pb-2">
-                {logs.map((log, idx) => (
-                  <EventCard key={log.id} log={log} isLast={idx === logs.length - 1} onTap={handleTap} />
-                ))}
-              </div>
-            )}
+            {/* Daily timeline */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider mb-3"
+                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Hoje</p>
+              {logsError && (
+                <div className="px-4 py-3 rounded-2xl mb-3 flex items-center gap-2"
+                  style={{ backgroundColor: 'hsl(var(--destructive) / 0.08)', border: '1px solid hsl(var(--destructive) / 0.15)' }}>
+                  <ExclamationCircleIcon className="w-4 h-4" style={{ color: 'hsl(var(--destructive))' }} />
+                  <p className="text-xs" style={{ color: 'hsl(var(--destructive))', fontFamily: 'Nunito, sans-serif' }}>{logsError}</p>
+                </div>
+              )}
+              {logsLoading ? (
+                <div className="space-y-2">{[0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}</div>
+              ) : logs.length === 0 ? (
+                <div className="rounded-2xl px-5 py-8 text-center"
+                  style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+                  <p className="text-3xl mb-2">🌤️</p>
+                  <p className="text-sm font-semibold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>Nenhum evento registrado hoje</p>
+                  <p className="text-xs mt-1" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Use os botões acima para começar.</p>
+                </div>
+              ) : (
+                <div className="pb-2">
+                  {logs.map((log, idx) => (
+                    <EventCard key={log.id} log={log} isLast={idx === logs.length - 1} onTap={handleTap} />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </motion.div>
       )}
 
       <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} onSaved={loadLogs} />
-      <SleepSheet open={sleepOpen} onClose={() => setSleepOpen(false)} onSaved={loadLogs} />
-      <DiaperSheet open={diaperOpen} onClose={() => setDiaperOpen(false)} onSaved={loadLogs} />
-      <FeedDetailSheet log={detailKind === 'breastfeed' ? detailLog : null} open={detailKind === 'breastfeed' && !!detailLog} onClose={closeDetail} onUpdated={loadLogs} />
-      <DiaperDetailSheet log={detailKind === 'diaper' ? detailLog : null} open={detailKind === 'diaper' && !!detailLog} onClose={closeDetail} onUpdated={loadLogs} />
+      <FeedDetailSheet
+        log={detailKind === 'breastfeed' ? detailLog : null}
+        open={detailKind === 'breastfeed' && !!detailLog}
+        onClose={closeDetail}
+        onUpdated={loadLogs}
+      />
+      {/* Diaper detail now uses full-screen route (/diaper/edit/:logId) */}
     </div>
   );
 }

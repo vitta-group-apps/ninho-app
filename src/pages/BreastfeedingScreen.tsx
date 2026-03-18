@@ -439,20 +439,20 @@ export default function BreastfeedingScreen() {
         {phase === 'suggest' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-6 pt-6"
+            className="flex flex-col items-center gap-8 pt-6"
           >
             <div
-              className="w-28 h-28 rounded-full flex items-center justify-center"
+              className="w-32 h-32 rounded-full flex items-center justify-center"
               style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)`,
-                border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
+                border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
               }}
             >
-              <span className="text-5xl">🤱</span>
+              <span className="text-[52px]">🤱</span>
             </div>
-            <div className="text-center">
-              <p className="text-base font-bold font-quicksand text-foreground">Pronta para mamar?</p>
-              <p className="text-sm mt-1 text-muted-foreground font-nunito">
+            <div className="text-center space-y-1.5">
+              <p className="text-[18px] font-bold font-quicksand text-foreground">Pronta para mamar?</p>
+              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
                 Escolha o lado e inicie o cronômetro
               </p>
             </div>
@@ -471,23 +471,36 @@ export default function BreastfeedingScreen() {
         {/* ── SESSION ─────────────────────────────────────────────── */}
         {phase === 'session' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-            {/* Total timer */}
+            {/* Total timer — dominant visual element */}
             <div
-              className="flex flex-col items-center py-5 px-4 rounded-2xl"
+              className="flex flex-col items-center py-6 px-4 rounded-2xl"
               style={{
-                backgroundColor: 'hsl(var(--card))',
-                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 28%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 7%, hsl(var(--card)))`,
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
               }}
             >
-              <p className="text-xs font-bold uppercase tracking-wider mb-1 text-muted-foreground font-nunito">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-2 text-muted-foreground font-nunito">
                 Tempo total
               </p>
               <p
-                className="text-5xl font-bold tabular-nums font-quicksand"
+                className="text-[52px] font-bold tabular-nums font-quicksand leading-none"
                 style={{ color: FEED_COLOR }}
               >
                 {fmtTimer(Math.floor(display.total / 1000))}
               </p>
+              {sessionStatus === 'ACTIVE' && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />
+                  <p className="text-[11px] font-semibold font-nunito" style={{ color: FEED_COLOR }}>
+                    Sessão em andamento
+                  </p>
+                </div>
+              )}
+              {sessionStatus === 'PAUSED' && (
+                <p className="text-[11px] font-semibold font-nunito mt-2 text-muted-foreground">
+                  Sessão pausada
+                </p>
+              )}
             </div>
 
             {/* Side cards */}
@@ -503,7 +516,7 @@ export default function BreastfeedingScreen() {
                 ))}
               </div>
               {switchCount > 0 && (
-                <p className="text-center text-xs mt-2 text-muted-foreground font-nunito">
+                <p className="text-center text-[12px] mt-2 text-muted-foreground font-nunito">
                   {switchCount} troca{switchCount > 1 ? 's' : ''} de lado
                 </p>
               )}
@@ -514,18 +527,18 @@ export default function BreastfeedingScreen() {
               {sessionStatus === 'ACTIVE' ? (
                 <button
                   onClick={handlePause}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 bg-muted text-foreground"
+                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 bg-secondary text-foreground"
                 >
                   ⏸ Pausar
                 </button>
               ) : (
                 <button
                   onClick={handleResume}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95"
+                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
                     color: FEED_COLOR,
-                    border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`,
+                    border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
                   }}
                 >
                   ▶ Continuar

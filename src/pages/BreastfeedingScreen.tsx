@@ -572,7 +572,7 @@ export default function BreastfeedingScreen() {
                   onClick={handlePause}
                   className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 bg-secondary text-foreground"
                 >
-                  ⏸ Pausar
+                  Pausar
                 </button>
               ) : (
                 <button
@@ -584,7 +584,7 @@ export default function BreastfeedingScreen() {
                     border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
                   }}
                 >
-                  ▶ Continuar
+                  Continuar
                 </button>
               )}
               <button
@@ -592,7 +592,7 @@ export default function BreastfeedingScreen() {
                 className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 text-white"
                 style={{ backgroundColor: FEED_COLOR }}
               >
-                ⏹ Encerrar
+                Encerrar
               </button>
             </div>
           </motion.div>

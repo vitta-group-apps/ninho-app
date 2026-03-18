@@ -5,8 +5,13 @@
  *  - titled / summarized / badged / colored / detailed
  *  - analyzed for anomalies (pattern intelligence)
  *
- * Intelligence is SUBTLE — never alarmist.
- * Anomalies surface as InlineStatusPill hints, not error states.
+ * Intelligence rules (LOCKED):
+ *  - Hints only show when GENUINELY relevant — not on every event
+ *  - Never alarming — supportive and quiet
+ *  - Feed: short < 5min, long > 45min (only breastfeed)
+ *  - Sleep: short < 20min, long > 4h (only completed sessions)
+ *  - Diaper: notable colors only (red, black, white poop; dark yellow pee)
+ *  - NO hints for normal events
  */
 
 import type { Tables } from '@/integrations/supabase/types';
@@ -17,11 +22,7 @@ export type EventType = 'feed' | 'sleep' | 'diaper' | 'note';
 
 // ─── Detail behavior ───────────────────────────────────────────────────────
 
-export type DetailKind =
-  | 'breastfeed'
-  | 'diaper'
-  | 'sleep'
-  | 'none';
+export type DetailKind = 'breastfeed' | 'diaper' | 'sleep' | 'none';
 
 // ─── Event presentation ────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ export interface EventPresentation {
   observationPreview: string | null;
   detailKind: DetailKind;
   tappable: boolean;
-  /** Intelligence hint — shown as InlineStatusPill if present */
+  /** Intelligence hint — shown as InlineStatusPill ONLY when genuinely notable */
   hint?: { label: string; variant: 'active' | 'paused' | 'info' } | null;
   /** Whether this event was flagged as medically notable */
   isSignificant?: boolean;
@@ -85,22 +86,16 @@ export const DIAPER_TEXTURE_LABEL: Record<string, string> = {
 };
 
 // ─── Intelligence: anomaly detection ───────────────────────────────────────
+// Rules are conservative — only trigger on clear anomalies.
 
-/**
- * Returns a subtle hint label if this diaper has medically notable signals.
- * Only surface, never alarm.
- */
 export function isDiaperSignificant(p: Record<string, string | number>): boolean {
-  const poopColor   = String(p.poop_color ?? '');
-  const peeColor    = String(p.pee_color ?? '');
-  const texture     = String(p.poop_texture ?? '');
-  const notableColors = ['red', 'black', 'white'];
-  const notableTextures = ['mucus_like'];
-  const notablePeeColors = ['dark_yellow'];
+  const poopColor = String(p.poop_color ?? '');
+  const peeColor  = String(p.pee_color ?? '');
+  const texture   = String(p.poop_texture ?? '');
   return (
-    notableColors.includes(poopColor) ||
-    notableTextures.includes(texture) ||
-    notablePeeColors.includes(peeColor)
+    ['red', 'black', 'white'].includes(poopColor) ||
+    texture === 'mucus_like' ||
+    peeColor === 'dark_yellow'
   );
 }
 
@@ -108,27 +103,31 @@ function getDiaperHint(p: Record<string, string | number>): string | null {
   const poopColor = String(p.poop_color ?? '');
   const peeColor  = String(p.pee_color ?? '');
   const texture   = String(p.poop_texture ?? '');
-
+  // Only surface genuinely notable signals
   if (['red', 'black', 'white'].includes(poopColor)) return 'Cor incomum';
   if (texture === 'mucus_like') return 'Com muco';
   if (peeColor === 'dark_yellow') return 'Xixi escuro';
-  return null;
+  return null; // Normal diaper — no hint
 }
 
 function getSleepHint(log: RoutineLog): string | null {
-  if (!log.end_time) return null;
-  const sec = Math.floor((new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000);
-  if (sec > 4 * 3600) return 'Sono longo'; // > 4h
-  if (sec < 20 * 60 && sec > 0) return 'Soneca curta'; // < 20min
-  return null;
+  if (!log.end_time) return null; // Ongoing — no hint yet
+  const sec = Math.floor(
+    (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
+  );
+  if (sec <= 0) return null;
+  if (sec > 4 * 3600) return 'Sono longo';       // > 4h
+  if (sec < 20 * 60)  return 'Soneca curta';     // < 20min
+  return null; // Normal range — no hint
 }
 
 function getFeedHint(p: Record<string, string | number>): string | null {
-  if (p.session_type !== 'breastfeed') return null;
+  if (p.session_type !== 'breastfeed') return null; // Only for breastfeeding
   const totalSec = Number(p.total_seconds ?? 0);
-  if (totalSec > 45 * 60) return 'Mamada longa';
-  if (totalSec > 0 && totalSec < 5 * 60) return 'Mamada curta';
-  return null;
+  if (totalSec <= 0) return null; // Manual entry — no hint
+  if (totalSec > 45 * 60) return 'Mamada longa';  // > 45min
+  if (totalSec < 5 * 60)  return 'Mamada curta';  // < 5min
+  return null; // Normal range — no hint
 }
 
 // ─── Diaper summary builders ───────────────────────────────────────────────
@@ -170,12 +169,12 @@ export function buildDiaperDetail(p: Record<string, string | number>): string | 
   return details.length > 0 ? details.join(' · ') : null;
 }
 
-// ─── Feed helpers ──────────────────────────────────────────────────────────
+// ─── Feed summary builder ──────────────────────────────────────────────────
 
 function buildFeedSummary(p: Record<string, string | number>): string {
   if (p.session_type === 'breastfeed') {
-    const l = Number(p.left_seconds ?? 0);
-    const r = Number(p.right_seconds ?? 0);
+    const l  = Number(p.left_seconds ?? 0);
+    const r  = Number(p.right_seconds ?? 0);
     const sw = Number(p.switches ?? 0);
     const parts: string[] = [];
     if (l > 0) parts.push(`Esq: ${fmtDurationShort(l)}`);
@@ -184,8 +183,10 @@ function buildFeedSummary(p: Record<string, string | number>): string {
     return parts.join(' · ') || 'Amamentação';
   }
   const method = String(p.feeding_method ?? '');
-  const methodMap: Record<string, string> = { breast: 'Seio', bottle: 'Mamadeira', formula: 'Fórmula' };
-  const label = methodMap[method] ?? 'Mamada';
+  const methodMap: Record<string, string> = {
+    breast: 'Seio', bottle: 'Mamadeira', formula: 'Fórmula',
+  };
+  const label  = methodMap[method] ?? 'Mamada';
   const amount = p.amount_ml ? ` · ${p.amount_ml}ml` : '';
   return `${label}${amount}`;
 }
@@ -203,17 +204,15 @@ export function getTimeOfDay(isoString: string): TimeOfDay {
 }
 
 export const TIME_OF_DAY_EMOJI: Record<TimeOfDay, string> = {
-  Manhã: '🌅',
-  Tarde: '☀️',
-  Noite: '🌙',
+  Manhã:     '🌅',
+  Tarde:     '☀️',
+  Noite:     '🌙',
   Madrugada: '🌃',
 };
 
-/**
- * Group logs by time of day, newest-first within each group.
- * Returns ordered groups: Madrugada → Manhã → Tarde → Noite.
- */
-export function groupLogsByTimeOfDay(logs: RoutineLog[]): { group: TimeOfDay; logs: RoutineLog[] }[] {
+export function groupLogsByTimeOfDay(
+  logs: RoutineLog[],
+): { group: TimeOfDay; logs: RoutineLog[] }[] {
   const order: TimeOfDay[] = ['Manhã', 'Tarde', 'Noite', 'Madrugada'];
   const map = new Map<TimeOfDay, RoutineLog[]>();
 
@@ -228,75 +227,64 @@ export function groupLogsByTimeOfDay(logs: RoutineLog[]): { group: TimeOfDay; lo
     .map(g => ({ group: g, logs: map.get(g)! }));
 }
 
-// ─── Pattern analysis across multiple logs ────────────────────────────────
+// ─── Pattern analysis ─────────────────────────────────────────────────────
 
 export interface DayInsights {
-  /** Average minutes between feeds */
   avgFeedIntervalMin: number | null;
-  /** Whether feeding frequency seems irregular */
   feedingIrregular: boolean;
-  /** Total sleep seconds today */
   totalSleepSec: number;
-  /** Whether there's an unusually long sleep */
   hasLongSleep: boolean;
-  /** Whether diaper count is unusually low */
   diaperCountLow: boolean;
 }
 
 export function analyzeDayPatterns(logs: RoutineLog[]): DayInsights {
-  const feedLogs = logs.filter(l => l.type === 'feed').sort(
-    (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-  );
-  const sleepLogs = logs.filter(l => l.type === 'sleep' && !!l.end_time);
-  const diaperLogs = logs.filter(l => l.type === 'diaper');
+  const feedLogs = logs
+    .filter(l => l.type === 'feed')
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  const sleepLogs   = logs.filter(l => l.type === 'sleep' && !!l.end_time);
+  const diaperLogs  = logs.filter(l => l.type === 'diaper');
 
-  // Feed interval analysis
   let avgFeedIntervalMin: number | null = null;
   let feedingIrregular = false;
   if (feedLogs.length >= 2) {
     const intervals: number[] = [];
     for (let i = 1; i < feedLogs.length; i++) {
-      const diffMin = (new Date(feedLogs[i].start_time).getTime() - new Date(feedLogs[i - 1].start_time).getTime()) / 60000;
+      const diffMin = (
+        new Date(feedLogs[i].start_time).getTime() -
+        new Date(feedLogs[i - 1].start_time).getTime()
+      ) / 60000;
       intervals.push(diffMin);
     }
     avgFeedIntervalMin = Math.round(intervals.reduce((a, b) => a + b, 0) / intervals.length);
-    // Irregular = any interval > 2x average or < 0.5x average
     const avg = avgFeedIntervalMin;
     feedingIrregular = intervals.some(iv => iv > avg * 2.5 || iv < avg * 0.3);
   }
 
-  // Sleep analysis
   const totalSleepSec = sleepLogs.reduce((acc, l) => {
-    return acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000);
+    return acc + Math.floor(
+      (new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000
+    );
   }, 0);
+
   const hasLongSleep = sleepLogs.some(l => {
-    const sec = Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000);
+    const sec = Math.floor(
+      (new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000
+    );
     return sec > 4 * 3600;
   });
 
-  // Diaper count — for newborns < 6 per day is low
   const diaperCountLow = diaperLogs.length < 4 && new Date().getHours() >= 18;
 
-  return {
-    avgFeedIntervalMin,
-    feedingIrregular,
-    totalSleepSec,
-    hasLongSleep,
-    diaperCountLow,
-  };
+  return { avgFeedIntervalMin, feedingIrregular, totalSleepSec, hasLongSleep, diaperCountLow };
 }
 
 // ─── Age-based priority ────────────────────────────────────────────────────
 
 export interface AgeContext {
   months: number;
-  /** Primary focus for this age */
   primaryFocus: 'feeding' | 'sleep' | 'development';
-  /** Hint text for Home header */
   phaseHint: string;
-  /** Ideal feed interval in minutes (null = not applicable) */
   idealFeedIntervalMin: number | null;
-  /** Max sleep stretch expected in hours */
   maxSleepStretchHours: number;
 }
 
@@ -308,21 +296,21 @@ export function getAgeContext(birthDate: string): AgeContext {
     months,
     primaryFocus: 'feeding',
     phaseHint: 'Recém-nascido · alimentação frequente',
-    idealFeedIntervalMin: 120, // 2h
+    idealFeedIntervalMin: 120,
     maxSleepStretchHours: 3,
   };
   if (months < 3) return {
     months,
     primaryFocus: 'feeding',
     phaseHint: `${months}m · crescimento acelerado`,
-    idealFeedIntervalMin: 150, // 2.5h
+    idealFeedIntervalMin: 150,
     maxSleepStretchHours: 4,
   };
   if (months < 6) return {
     months,
     primaryFocus: 'feeding',
     phaseHint: `${months}m · explorando o mundo`,
-    idealFeedIntervalMin: 180, // 3h
+    idealFeedIntervalMin: 180,
     maxSleepStretchHours: 6,
   };
   if (months < 12) return {
@@ -349,7 +337,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
   const includeInReport = Boolean(p.include_in_report);
 
   switch (log.type) {
-    // ── FEED ──────────────────────────────────────────────────────────────
+    // ── FEED ────────────────────────────────────────────────────────────────
     case 'feed': {
       const isBreastfeed = p.session_type === 'breastfeed';
       const totalSec = Number(p.total_seconds ?? 0);
@@ -358,7 +346,9 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
       const hintLabel = getFeedHint(p);
 
       return {
-        title: isBreastfeed ? 'Amamentação' : (String(p.feeding_method ?? '') === 'formula' ? 'Fórmula' : 'Mamadeira'),
+        title: isBreastfeed
+          ? 'Amamentação'
+          : (String(p.feeding_method ?? '') === 'formula' ? 'Fórmula' : 'Mamadeira'),
         emoji: isBreastfeed ? '🤱' : '🍼',
         color: 'hsl(152,15%,55%)',
         bgColor: 'color-mix(in srgb, hsl(152,15%,55%) 12%, transparent)',
@@ -372,7 +362,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
       };
     }
 
-    // ── SLEEP ─────────────────────────────────────────────────────────────
+    // ── SLEEP ───────────────────────────────────────────────────────────────
     case 'sleep': {
       const duration = log.end_time ? fmtRangeDuration(log.start_time, log.end_time) : null;
       const ongoing = !log.end_time;
@@ -393,7 +383,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
       };
     }
 
-    // ── DIAPER ────────────────────────────────────────────────────────────
+    // ── DIAPER ──────────────────────────────────────────────────────────────
     case 'diaper': {
       const kind = String(p.kind ?? p.diaper_type ?? '');
       const summary = buildDiaperSummary({ ...p, kind });
@@ -416,7 +406,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
       };
     }
 
-    // ── NOTE ──────────────────────────────────────────────────────────────
+    // ── NOTE ────────────────────────────────────────────────────────────────
     default:
       return {
         title: 'Nota',

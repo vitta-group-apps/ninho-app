@@ -1,12 +1,15 @@
 /**
  * AuthPage — Production-ready authentication.
  *
- * Inline validation:
- * - Full name: at least 2 words, min 3 chars each
- * - Email: valid format
- * - Password: min 6 chars, helper hint shown before submit
- * - Submit disabled until form is valid (or shows inline errors)
- * - Loading state on CTA
+ * Password rules (signup):
+ * - minimum 6 characters
+ * - at least 1 uppercase letter
+ * - at least 1 number
+ * - at least 1 special character
+ *
+ * Full name: at least 2 words, each ≥ 2 chars
+ * Email: valid format
+ * Helper text visible BEFORE first submit attempt
  */
 
 import { useState, useMemo } from 'react';
@@ -16,7 +19,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeftIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, EyeIcon, EyeSlashIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 
 type Tab = 'login' | 'signup';
 
@@ -29,6 +33,49 @@ function isValidEmail(v: string) {
 function isValidFullName(v: string) {
   const parts = v.trim().split(/\s+/).filter(Boolean);
   return parts.length >= 2 && parts.every(p => p.length >= 2);
+}
+
+interface PasswordStrength {
+  minLength: boolean;
+  hasUppercase: boolean;
+  hasNumber: boolean;
+  hasSpecial: boolean;
+}
+
+function checkPasswordStrength(password: string): PasswordStrength {
+  return {
+    minLength: password.length >= 6,
+    hasUppercase: /[A-Z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecial: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password),
+  };
+}
+
+function isPasswordValid(strength: PasswordStrength): boolean {
+  return strength.minLength && strength.hasUppercase && strength.hasNumber && strength.hasSpecial;
+}
+
+// ─── Password Rule Row ────────────────────────────────────────────────────────
+
+function PasswordRule({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {ok ? (
+        <CheckCircleSolidIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'hsl(var(--ninho-sage))' }} />
+      ) : (
+        <CheckCircleIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'hsl(var(--muted-foreground))' }} />
+      )}
+      <span
+        className="text-[11px]"
+        style={{
+          fontFamily: 'Nunito, sans-serif',
+          color: ok ? 'hsl(var(--ninho-sage))' : 'hsl(var(--muted-foreground))',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
 }
 
 export default function AuthPage() {
@@ -57,21 +104,26 @@ export default function AuthPage() {
     return '';
   }, [email, touched.email]);
 
+  const passwordStrength = useMemo(() => checkPasswordStrength(password), [password]);
+
   const passwordError = useMemo(() => {
     if (!touched.password || !password) return '';
-    if (password.length < 6) return 'A senha deve ter pelo menos 6 caracteres';
+    if (tab === 'signup' && !isPasswordValid(passwordStrength)) {
+      return 'A senha não atende todos os requisitos';
+    }
+    if (tab === 'login' && password.length < 6) {
+      return 'A senha deve ter pelo menos 6 caracteres';
+    }
     return '';
-  }, [password, touched.password]);
+  }, [password, touched.password, tab, passwordStrength]);
 
-  const passwordHint = useMemo(() => {
-    if (!touched.password || password.length >= 6) return '';
-    return `${password.length}/6 caracteres mínimos`;
-  }, [password, touched.password]);
+  // Show password rules in signup if field was touched OR if there's a password value
+  const showPasswordRules = tab === 'signup' && (touched.password || password.length > 0);
 
   // Form validity
   const isSignupValid = useMemo(() => {
-    return isValidFullName(fullName) && isValidEmail(email) && password.length >= 6;
-  }, [fullName, email, password]);
+    return isValidFullName(fullName) && isValidEmail(email) && isPasswordValid(passwordStrength);
+  }, [fullName, email, passwordStrength]);
 
   const isLoginValid = useMemo(() => {
     return isValidEmail(email) && password.length >= 6;
@@ -125,7 +177,6 @@ export default function AuthPage() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Algo deu errado';
-      // Friendlier error messages
       if (msg.includes('Invalid login credentials')) {
         setError('E-mail ou senha incorretos. Verifique e tente novamente.');
       } else if (msg.includes('Email not confirmed')) {
@@ -133,7 +184,7 @@ export default function AuthPage() {
       } else if (msg.includes('User already registered')) {
         setError('Este e-mail já tem uma conta. Tente entrar.');
       } else {
-        setError(msg);
+        setError('Algo deu errado. Tente novamente.');
       }
     } finally {
       setLoading(false);
@@ -215,8 +266,13 @@ export default function AuthPage() {
                 className="h-12 rounded-2xl border-border"
                 style={{ fontFamily: 'Nunito, sans-serif' }}
               />
+              {!touched.fullName && (
+                <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                  Digite seu nome e sobrenome
+                </p>
+              )}
               {nameError && (
-                <p className="text-[11px] text-destructive font-nunito">{nameError}</p>
+                <p className="text-[11px] text-destructive" style={{ fontFamily: 'Nunito, sans-serif' }}>{nameError}</p>
               )}
             </div>
           )}
@@ -239,7 +295,7 @@ export default function AuthPage() {
               style={{ fontFamily: 'Nunito, sans-serif' }}
             />
             {emailError && (
-              <p className="text-[11px] text-destructive font-nunito">{emailError}</p>
+              <p className="text-[11px] text-destructive" style={{ fontFamily: 'Nunito, sans-serif' }}>{emailError}</p>
             )}
           </div>
 
@@ -272,16 +328,27 @@ export default function AuthPage() {
                   : <EyeIcon className="w-4 h-4" />}
               </button>
             </div>
-            {passwordHint && !passwordError && (
-              <p className="text-[11px] text-muted-foreground font-nunito">{passwordHint}</p>
+
+            {/* Password rules — shown in signup as soon as user starts typing */}
+            {showPasswordRules && (
+              <div className="pt-1 space-y-1">
+                <PasswordRule ok={passwordStrength.minLength} label="Mínimo 6 caracteres" />
+                <PasswordRule ok={passwordStrength.hasUppercase} label="Pelo menos 1 letra maiúscula" />
+                <PasswordRule ok={passwordStrength.hasNumber} label="Pelo menos 1 número" />
+                <PasswordRule ok={passwordStrength.hasSpecial} label="Pelo menos 1 caractere especial (!@#...)" />
+              </div>
             )}
-            {passwordError && (
-              <p className="text-[11px] text-destructive font-nunito">{passwordError}</p>
-            )}
-            {tab === 'signup' && !touched.password && (
-              <p className="text-[11px] text-muted-foreground font-nunito">
-                Mínimo 6 caracteres
+
+            {/* Pre-touch helper for signup */}
+            {tab === 'signup' && !touched.password && password.length === 0 && (
+              <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
+                Mínimo 6 caracteres com maiúscula, número e símbolo
               </p>
+            )}
+
+            {/* Login-only password error */}
+            {tab === 'login' && passwordError && (
+              <p className="text-[11px] text-destructive" style={{ fontFamily: 'Nunito, sans-serif' }}>{passwordError}</p>
             )}
           </div>
 
@@ -334,8 +401,8 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={() => navigate('/reset-password')}
-              className="w-full text-center text-[12px] font-semibold font-nunito pt-1"
-              style={{ color: 'hsl(var(--muted-foreground))' }}
+              className="w-full text-center text-[12px] font-semibold pt-1"
+              style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
             >
               Esqueceu a senha?
             </button>

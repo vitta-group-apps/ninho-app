@@ -10,7 +10,7 @@ import { UserGroupIcon } from '@heroicons/react/24/outline';
 
 export default function FamilyPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [familyName, setFamilyName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,16 +19,18 @@ export default function FamilyPage() {
     e.preventDefault();
 
     if (!user) {
-      setError('Você precisa estar autenticado. Faça login novamente.');
+      setError('Sua sessão expirou. Por favor, faça login novamente.');
+      setTimeout(() => navigate('/onboarding/auth'), 1500);
       return;
     }
+
+    if (!familyName.trim()) return;
 
     setError('');
     setLoading(true);
 
     try {
-      // 1 — Create the family (owner_id must equal auth.uid() for RLS)
-      console.log('[FamilyPage] Creating family for user:', user.id);
+      // 1 — Create the family; owner_id must equal auth.uid() for RLS
       const { data: family, error: familyError } = await supabase
         .from('families')
         .insert({ name: familyName.trim(), owner_id: user.id })
@@ -37,9 +39,8 @@ export default function FamilyPage() {
 
       if (familyError) {
         console.error('[FamilyPage] Family insert error:', familyError);
-        throw new Error(familyError.message);
+        throw familyError;
       }
-      console.log('[FamilyPage] Family created:', family.id);
 
       // 2 — Add owner as admin membership
       const { error: memberError } = await supabase
@@ -47,24 +48,23 @@ export default function FamilyPage() {
         .insert({ family_id: family.id, user_id: user.id, role: 'admin' });
 
       if (memberError) {
-        console.error('[FamilyPage] Membership insert error:', memberError);
-        // Non-fatal: family was created, log and continue
-        console.warn('[FamilyPage] Proceeding despite membership error');
-      } else {
-        console.log('[FamilyPage] Membership created');
+        // Non-fatal: log and continue — family was created successfully
+        console.warn('[FamilyPage] Membership insert error (non-fatal):', memberError);
       }
 
-      // 3 — Store family_id in sessionStorage for the next onboarding step
+      // 3 — Store family_id for next onboarding step
       sessionStorage.setItem('onboarding_family_id', family.id);
       navigate('/onboarding/child');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao criar família';
-      console.error('[FamilyPage] handleSubmit error:', msg);
-      setError(msg);
+      console.error('[FamilyPage] handleSubmit error:', err);
+      setError('Não conseguimos criar sua família agora. Tente novamente.');
     } finally {
       setLoading(false);
     }
   }
+
+  // Show nothing while checking auth
+  if (authLoading) return null;
 
   return (
     <div
@@ -131,9 +131,17 @@ export default function FamilyPage() {
           </div>
 
           {error && (
-            <p className="text-xs text-destructive font-medium" style={{ fontFamily: 'Nunito, sans-serif' }}>
-              {error}
-            </p>
+            <div
+              className="px-3 py-2.5 rounded-xl"
+              style={{
+                backgroundColor: 'hsl(var(--destructive) / 0.08)',
+                border: '1px solid hsl(var(--destructive) / 0.2)',
+              }}
+            >
+              <p className="text-xs text-destructive font-medium" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                {error}
+              </p>
+            </div>
           )}
 
           <div className="flex-1" />

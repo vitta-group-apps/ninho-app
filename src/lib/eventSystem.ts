@@ -1,9 +1,10 @@
 /**
- * Ninho Unified Event System v2 — Intelligence Layer
+ * Ninho Unified Event System v3 — Intelligence + Navigation Layer
  *
  * Single source of truth for how every routine event is:
  *  - titled / summarized / badged / colored / detailed
  *  - analyzed for anomalies (pattern intelligence)
+ *  - navigated to (every event type is now tappable)
  *
  * Intelligence rules (LOCKED):
  *  - Hints only show when GENUINELY relevant — not on every event
@@ -12,6 +13,9 @@
  *  - Sleep: short < 20min, long > 4h (only completed sessions)
  *  - Diaper: notable colors only (red, black, white poop; dark yellow pee)
  *  - NO hints for normal events
+ *
+ * Edit rule (v3): ALL event types are tappable and navigate to a detail screen.
+ * No modals for editing.
  */
 
 import type { Tables } from '@/integrations/supabase/types';
@@ -22,7 +26,7 @@ export type EventType = 'feed' | 'sleep' | 'diaper' | 'note';
 
 // ─── Detail behavior ───────────────────────────────────────────────────────
 
-export type DetailKind = 'breastfeed' | 'diaper' | 'sleep' | 'none';
+export type DetailKind = 'breastfeed' | 'diaper' | 'sleep' | 'bottle' | 'none';
 
 // ─── Event presentation ────────────────────────────────────────────────────
 
@@ -36,6 +40,8 @@ export interface EventPresentation {
   observationPreview: string | null;
   detailKind: DetailKind;
   tappable: boolean;
+  /** Navigation path for this event (all events navigate, no modals) */
+  editPath: string;
   /** Intelligence hint — shown as InlineStatusPill ONLY when genuinely notable */
   hint?: { label: string; variant: 'active' | 'paused' | 'info' } | null;
   /** Whether this event was flagged as medically notable */
@@ -330,6 +336,7 @@ export function getAgeContext(birthDate: string): AgeContext {
 }
 
 // ─── Main presentation builder ─────────────────────────────────────────────
+// v3: ALL events are tappable and navigate via editPath — no modals.
 
 export function getEventPresentation(log: RoutineLog): EventPresentation {
   const p = parsePayload(log.notes);
@@ -355,8 +362,9 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         summary: buildFeedSummary(p),
         badge: isBreastfeed && totalSec > 0 ? fmtDurationShort(totalSec) : null,
         observationPreview: hasObs && userNotes ? userNotes.slice(0, 50) : null,
-        detailKind: isBreastfeed ? 'breastfeed' : 'none',
-        tappable: isBreastfeed,
+        detailKind: isBreastfeed ? 'breastfeed' : 'bottle',
+        tappable: true,
+        editPath: isBreastfeed ? `/feed/detail/${log.id}` : `/bottle/edit/${log.id}`,
         hint: hintLabel ? { label: hintLabel, variant: 'info' } : null,
         includeInReport,
       };
@@ -377,7 +385,8 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         badge: duration,
         observationPreview: userNotes ? userNotes.slice(0, 50) : null,
         detailKind: 'sleep',
-        tappable: false,
+        tappable: true,
+        editPath: `/sleep/detail/${log.id}`,
         hint: hintLabel ? { label: hintLabel, variant: 'info' } : null,
         includeInReport,
       };
@@ -400,6 +409,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         observationPreview: userNotes ? userNotes.slice(0, 50) : null,
         detailKind: 'diaper',
         tappable: true,
+        editPath: `/diaper/edit/${log.id}`,
         isSignificant: significant,
         hint: hintLabel ? { label: hintLabel, variant: 'info' } : null,
         includeInReport,
@@ -418,6 +428,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         observationPreview: null,
         detailKind: 'none',
         tappable: false,
+        editPath: '',
       };
   }
 }

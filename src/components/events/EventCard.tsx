@@ -1,22 +1,23 @@
 /**
- * EventCard — Ninho DS v2 unified timeline card.
+ * EventCard — Ninho DS v3 unified timeline card.
  *
  * SINGLE SOURCE OF TRUTH for event presentation across:
  *   - Home "Hoje" preview
  *   - Rotina full timeline
  *   - Família recent activity
  *
- * Rules:
+ * Rules (v3):
+ *  - ALL events are tappable and navigate (no modals for editing)
  *  - Same anatomy in every context (only contextual reductions allowed)
  *  - Insight hints (InlineStatusPill) only show when genuinely relevant
- *  - Observation preview and author label are optional context
- *  - Ongoing sleep pulses the spine dot
- *  - Tappable events show chevron + subtle accent border
+ *  - Fixed card height via consistent padding — no height variation by content
+ *  - Anatomy: icon → title + time/chevron → summary → hint/obs
  *
  * IDENTICAL in Home and Rotina — do NOT fork.
  * Uses semantic tokens only.
  */
 
+import { useNavigate } from 'react-router-dom';
 import type { RoutineLog } from '@/lib/eventSystem';
 import { getEventPresentation } from '@/lib/eventSystem';
 import { fmtTime } from '@/lib/routineUtils';
@@ -26,14 +27,26 @@ import { InlineStatusPill } from '@/components/ds/InlineStatusPill';
 interface EventCardProps {
   log: RoutineLog;
   isLast?: boolean;
-  onTap: (log: RoutineLog) => void;
+  /** @deprecated Use navigation — onTap is no longer needed for routing */
+  onTap?: (log: RoutineLog) => void;
   /** Optional: show who registered this event (Família context) */
   authorLabel?: string;
 }
 
 export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
+  const navigate = useNavigate();
   const ev = getEventPresentation(log);
   const isOngoing = log.type === 'sleep' && !log.end_time;
+
+  function handleClick() {
+    if (!ev.tappable) return;
+    // v3: always navigate — no modals
+    if (ev.editPath) {
+      navigate(ev.editPath);
+    } else if (onTap) {
+      onTap(log); // fallback for legacy callers
+    }
+  }
 
   return (
     <div className="flex items-stretch gap-3 mb-2.5">
@@ -51,21 +64,21 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
         )}
       </div>
 
-      {/* Card */}
+      {/* Card — consistent anatomy, fixed min-height */}
       <button
-        onClick={ev.tappable ? () => onTap(log) : undefined}
+        onClick={ev.tappable ? handleClick : undefined}
         className={[
           'flex-1 rounded-2xl px-4 py-3.5 flex items-start gap-3 text-left w-full bg-card border border-border',
-          ev.tappable ? 'active:scale-[0.985] transition-transform' : '',
+          'min-h-[72px]', // lock minimum height for visual consistency
+          ev.tappable ? 'active:scale-[0.985] transition-transform cursor-pointer' : 'cursor-default',
         ].join(' ')}
         style={{
           borderColor: ev.tappable
             ? `color-mix(in srgb, ${ev.color} 25%, hsl(var(--border)))`
             : 'hsl(var(--border))',
-          cursor: ev.tappable ? 'pointer' : 'default',
         }}
       >
-        {/* Icon */}
+        {/* Icon — fixed 40×40 */}
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-[18px]"
           style={{ backgroundColor: ev.bgColor }}
@@ -76,7 +89,7 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
         {/* Text block */}
         <div className="min-w-0 flex-1">
 
-          {/* Row 1: title + time + chevron */}
+          {/* Row 1: title + time + chevron — always present */}
           <div className="flex items-center justify-between gap-2">
             <p className="text-[14px] font-bold leading-tight text-foreground font-quicksand truncate">
               {ev.title}
@@ -115,7 +128,7 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
             </div>
           </div>
 
-          {/* Row 2: summary */}
+          {/* Row 2: summary — always present */}
           {ev.summary && (
             <p
               className="text-[12px] mt-1 font-medium leading-snug font-nunito"
@@ -125,7 +138,7 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
             </p>
           )}
 
-          {/* Row 3: intelligence hint — only when genuinely relevant (set in eventSystem) */}
+          {/* Row 3: intelligence hint — only when genuinely relevant */}
           {ev.hint && (
             <div className="mt-1.5">
               <InlineStatusPill

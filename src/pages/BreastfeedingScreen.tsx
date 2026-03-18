@@ -775,13 +775,6 @@ export default function BreastfeedingScreen() {
 
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
-            {/* Discard — tertiary */}
-            <button
-              onClick={() => setPhase('suggest')}
-              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
-            >
-              Cancelar
-            </button>
           </motion.div>
         )}
 

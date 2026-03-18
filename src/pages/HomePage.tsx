@@ -177,8 +177,8 @@ export default function HomePage() {
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: '—',
-      sub: 'Sem consulta agendada',
+      value: 'Nenhuma',
+      sub: 'Agende a próxima consulta',
       empty: true,
       color: 'hsl(var(--primary))',
     },
@@ -208,8 +208,8 @@ export default function HomePage() {
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: '—',
-      sub: 'Sem consulta agendada',
+      value: 'Nenhuma',
+      sub: 'Agende a próxima consulta',
       empty: true,
       color: 'hsl(var(--primary))',
     },

@@ -134,12 +134,13 @@
            focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring;
   }
 
-  /* Scrollable form body — always safe-bottom padded */
+  /* Scrollable form body — always safe-bottom padded.
+     120px accounts for sticky footer with optional tertiary action row. */
   .ds-form-body {
     flex: 1;
     overflow-y: auto;
     padding: 24px 16px;
-    padding-bottom: max(96px, calc(env(safe-area-inset-bottom) + 96px));
+    padding-bottom: max(120px, calc(env(safe-area-inset-bottom) + 120px));
   }
 
   /* Form section spacer */

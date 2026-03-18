@@ -469,7 +469,7 @@ export default function BreastfeedingScreen() {
               </div>
             </div>
 
-            {/* Secondary actions — link-style, not a separate CTA area */}
+          {/* Secondary actions */}
             <div className="w-full flex flex-col gap-2 pt-2 border-t border-border">
               <button
                 onClick={() => navigate('/bottle')}

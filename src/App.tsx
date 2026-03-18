@@ -18,6 +18,7 @@ import SaudePage from '@/pages/SaudePage';
 import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';
+import DiaperDetailScreen from '@/pages/DiaperDetailScreen';
 import SleepScreen from '@/pages/SleepScreen';
 import SleepDetailScreen from '@/pages/SleepDetailScreen';
 import FeedDetailScreen from '@/pages/FeedDetailScreen';

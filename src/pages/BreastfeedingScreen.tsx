@@ -677,20 +677,13 @@ export default function BreastfeedingScreen() {
         )}
       </div>
 
-      {/* DS Sticky CTA */}
+      {/* DS Sticky CTA — only on suggest and ended phases */}
       {phase === 'suggest' && (
         <StickyFooterCTA
-          primaryLabel={`▶ Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
+          primaryLabel={`Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
           onPrimary={handleStart}
           primaryColor={FEED_COLOR}
           primaryDisabled={!activeChildId}
-        />
-      )}
-      {phase === 'session' && (
-        <StickyFooterCTA
-          primaryLabel="⏹ Encerrar e revisar"
-          onPrimary={handleEnd}
-          primaryColor={FEED_COLOR}
         />
       )}
       {phase === 'ended' && (

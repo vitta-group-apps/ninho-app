@@ -18,6 +18,7 @@ import SaudePage from '@/pages/SaudePage';
 import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';
+import DiaperDetailScreen from '@/pages/DiaperDetailScreen';
 import SleepScreen from '@/pages/SleepScreen';
 import SleepDetailScreen from '@/pages/SleepDetailScreen';
 import FeedDetailScreen from '@/pages/FeedDetailScreen';
@@ -43,6 +44,7 @@ function AuthedRoutes() {
       <Routes>
         {/* Full-screen flows — no AppShell (no bottom nav) */}
         <Route path="/diaper/new"              element={<DiaperScreen />} />
+        <Route path="/diaper/detail/:logId"    element={<DiaperDetailScreen />} />
         <Route path="/diaper/edit/:logId"      element={<DiaperScreen />} />
         <Route path="/sleep/detail/:logId"     element={<SleepDetailScreen />} />
         <Route path="/feed/detail/:logId"      element={<FeedDetailScreen />} />

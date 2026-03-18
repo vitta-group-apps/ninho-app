@@ -16,11 +16,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PlusIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
 import { EventCard } from '@/components/events/EventCard';
 import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fmtTimeSince, parsePayload } from '@/lib/routineUtils';
+import { fmtTimeSince } from '@/lib/routineUtils';
 import { SummaryMetricCard, SectionLabel } from '@/components/ds';
 import { ChipGroup } from '@/components/ds/ChipGroup';
 import type { RoutineLog } from '@/lib/eventSystem';
@@ -168,8 +167,7 @@ export default function RotinaPage() {
   const [allLogs, setAllLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
-  const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
-  const [detailKind, setDetailKind] = useState<'breastfeed' | null>(null);
+  // EventCards navigate directly — no modal state needed
 
   // ─ Filters ────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -219,24 +217,17 @@ export default function RotinaPage() {
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
-      const p = parsePayload(log.notes);
-      const notes = String(log.notes ?? '').toLowerCase();
+      const notesStr = String(log.notes ?? '').toLowerCase();
       const typeMatch = log.type.includes(q);
-      const notesMatch = notes.includes(q);
-      const kindMatch = String(p.kind ?? p.diaper_type ?? '').includes(q);
-      if (!typeMatch && !notesMatch && !kindMatch) return false;
+      const notesMatch = notesStr.includes(q);
+      if (!typeMatch && !notesMatch) return false;
     }
     return true;
   });
 
-  function handleTap(log: RoutineLog) {
-    const p = parsePayload(log.notes);
-    if (log.type === 'feed' && p.session_type === 'breastfeed') {
-      setDetailLog(log); setDetailKind('breastfeed');
-    } else if (log.type === 'diaper') {
-      navigate(`/diaper/edit/${log.id}`);
-    }
-  }
+  // EventCard navigation is handled by EventCard itself via eventSystem editPath.
+  // handleTap is kept as legacy prop signature for GroupedSection but does nothing.
+  function handleTap(_log: RoutineLog) { /* navigation handled by EventCard */ }
 
   const hasActiveFilters = typeFilter !== 'all' || !!todFilter || !!search || period !== 'today';
 
@@ -458,12 +449,7 @@ export default function RotinaPage() {
         />
       )}
 
-      <FeedDetailSheet
-        log={detailKind === 'breastfeed' ? detailLog : null}
-        open={detailKind === 'breastfeed' && !!detailLog}
-        onClose={() => { setDetailLog(null); setDetailKind(null); }}
-        onUpdated={loadLogs}
-      />
+      {/* All event navigation is handled by EventCard → detail screens. No modal needed. */}
     </div>
   );
 }

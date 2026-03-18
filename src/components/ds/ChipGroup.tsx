@@ -1,14 +1,11 @@
 /**
  * ChipGroup — Ninho DS v2 selectable chip group.
  *
- * Polish v2.1:
- * - Chips have more horizontal padding (px-4.5) and slightly taller (46px min)
- * - Unselected chip text is foreground/70 for better hierarchy
- * - Selected state uses a subtle inner shadow for tactile depth
- * - Gap between chips is consistent (gap-2.5)
- *
- * Rules:
- * - ALWAYS wraps. Never horizontal scroll.
+ * SYSTEM RULES (LOCKED):
+ * - Always wraps. NEVER horizontal scroll.
+ * - Selected: filled accent bg + white text (high contrast)
+ * - Unselected: card bg + muted foreground + 1.5px border
+ * - Same visual logic in ALL contexts: filters, sleep, diaper, bottle, breastfeeding
  * - Single-select: one active at a time (toggle off = deselect)
  * - Multi-select: multiple can be active
  */
@@ -25,7 +22,7 @@ interface ChipGroupProps {
   /** For multi-select: pass array of selected values */
   values?: string[];
   onToggle: (v: string) => void;
-  /** Accent color (hsl string) used for selected state */
+  /** Accent color (hsl string) used for selected state. Defaults to --primary. */
   accentColor?: string;
   multiSelect?: boolean;
 }
@@ -53,19 +50,12 @@ export function ChipGroup({
           <button
             key={opt.value}
             onClick={() => onToggle(opt.value)}
-            className="py-2.5 px-4 rounded-2xl text-[13px] font-semibold transition-all active:scale-95 font-nunito"
+            className="py-2.5 px-4 rounded-2xl text-[13px] font-semibold transition-all duration-150 active:scale-95 font-nunito whitespace-nowrap"
             style={{
-              backgroundColor: selected
-                ? accent
-                : 'hsl(var(--card))',
-              color: selected
-                ? 'white'
-                : 'hsl(var(--foreground) / 0.75)',
+              backgroundColor: selected ? accent : 'hsl(var(--card))',
+              color: selected ? 'white' : 'hsl(var(--foreground) / 0.65)',
               border: `1.5px solid ${selected ? accent : 'hsl(var(--border))'}`,
-              minHeight: '44px',
-              boxShadow: selected
-                ? `inset 0 1px 2px rgba(0,0,0,0.15)`
-                : 'none',
+              minHeight: '40px',
             }}
           >
             {opt.label}

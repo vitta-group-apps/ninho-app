@@ -1,33 +1,37 @@
 /**
  * SleepScreen — Full-screen sleep session flow.
+ * DS v2: uses ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle, InlineStatusPill.
  *
- * States: idle → active (with timer) → ended (with enrichment) → saved
- *
- * Persists active session in localStorage.
- * If a session is already running, reopening resumes it.
- *
- * Route: /sleep
+ * No gradient buttons. Solid primary (mauve). Chips always wrap.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { motion } from 'framer-motion';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import { makePayloadNotes, fmtTimer } from '@/lib/routineUtils';
+import {
+  ScreenHeader,
+  StickyFooterCTA,
+  SectionLabel,
+  ChipGroup,
+  ReportToggle,
+  InlineStatusPill,
+} from '@/components/ds';
 
-// ─── Persistence key ──────────────────────────────────────────────────────────
+// ─── Persistence ──────────────────────────────────────────────────────────────
+
 export const SLEEP_SESSION_KEY = 'ninho_sleep_v2';
 
 export interface SleepSession {
   childId: string;
   startIso: string;
-  pausedAt: string | null;   // ISO if currently paused
-  accumulatedSec: number;    // total seconds before current segment
+  pausedAt: string | null;
+  accumulatedSec: number;
 }
 
 export function loadSleepSession(): SleepSession | null {
@@ -44,22 +48,22 @@ export function clearSleepSession() {
   localStorage.removeItem('ninho_sleep_start'); // legacy
 }
 
-// ─── Chip options ─────────────────────────────────────────────────────────────
+// ─── Options ──────────────────────────────────────────────────────────────────
 
 const SLEEP_LOCATION_OPTIONS = [
-  { value: 'berco',      label: '🛏 Berço' },
-  { value: 'colo',       label: '🤱 Colo' },
-  { value: 'carrinho',   label: '🛒 Carrinho' },
-  { value: 'cama',       label: '🛌 Cama' },
-  { value: 'outro',      label: '📦 Outro' },
+  { value: 'berco',    label: '🛏 Berço' },
+  { value: 'colo',     label: '🤱 Colo' },
+  { value: 'carrinho', label: '🛒 Carrinho' },
+  { value: 'cama',     label: '🛌 Cama' },
+  { value: 'outro',    label: '📦 Outro' },
 ];
 
 const SLEEP_HOW_OPTIONS = [
-  { value: 'sozinho',    label: 'Sozinho' },
-  { value: 'mamando',    label: 'Mamando' },
-  { value: 'colo',       label: 'No colo' },
-  { value: 'embalo',     label: 'No embalo' },
-  { value: 'outro',      label: 'Outro' },
+  { value: 'sozinho', label: 'Sozinho' },
+  { value: 'mamando', label: 'Mamando' },
+  { value: 'colo',    label: 'No colo' },
+  { value: 'embalo',  label: 'No embalo' },
+  { value: 'outro',   label: 'Outro' },
 ];
 
 const AWAKENINGS_OPTIONS = [
@@ -69,47 +73,7 @@ const AWAKENINGS_OPTIONS = [
   { value: '3+', label: '3+' },
 ];
 
-const MAUVE = 'hsl(270,12%,52%)';
-const font = 'Nunito, sans-serif';
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs font-bold uppercase tracking-wider mb-2"
-      style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-      {children}
-    </p>
-  );
-}
-
-function ChipRow({
-  options, value, onToggle,
-}: {
-  options: { value: string; label: string }[];
-  value: string;
-  onToggle: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map(opt => (
-        <button
-          key={opt.value}
-          onClick={() => onToggle(opt.value)}
-          className="py-2.5 px-4 rounded-2xl text-sm font-semibold transition-all active:scale-95 whitespace-nowrap flex-shrink-0"
-          style={{
-            backgroundColor: value === opt.value ? MAUVE : 'hsl(var(--card))',
-            color: value === opt.value ? 'white' : 'hsl(var(--ninho-brown))',
-            border: `1.5px solid ${value === opt.value ? MAUVE : 'hsl(var(--border))'}`,
-            fontFamily: font,
-          }}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+const SLEEP_COLOR = 'hsl(var(--color-sleep))';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -126,13 +90,14 @@ export default function SleepScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Enrichment
+  // Enrichment fields
   const [location, setLocation] = useState('');
   const [howFellAsleep, setHowFellAsleep] = useState('');
   const [awakenings, setAwakenings] = useState('');
   const [notes, setNotes] = useState('');
+  const [includeInReport, setIncludeInReport] = useState(false);
 
-  // ─── Load existing session on mount ────────────────────────────
+  // Load existing session on mount
   useEffect(() => {
     const existing = loadSleepSession();
     if (existing && existing.childId === activeChildId) {
@@ -146,22 +111,16 @@ export default function SleepScreen() {
     }
   }, [activeChildId]);
 
-  // ─── Timer tick ─────────────────────────────────────────────────
+  // Timer tick
   const tick = useCallback(() => {
-    if (!session) return;
-    const sinceSec = session.pausedAt
-      ? session.accumulatedSec
-      : session.accumulatedSec + Math.floor((Date.now() - new Date(session.startIso).getTime()) / 1000 - (
-          // subtract time before any previous segments
-          0
-        ));
-    // Simpler: compute elapsed from start minus accumulated pause time
-    if (!session.pausedAt) {
-      const startMs = new Date(session.startIso).getTime();
-      const totalSec = session.accumulatedSec + Math.floor((Date.now() - startMs) / 1000);
+    setSession(prev => {
+      if (!prev || prev.pausedAt) return prev;
+      const startMs = new Date(prev.startIso).getTime();
+      const totalSec = prev.accumulatedSec + Math.floor((Date.now() - startMs) / 1000);
       setElapsed(totalSec);
-    }
-  }, [session]);
+      return prev;
+    });
+  }, []);
 
   useEffect(() => {
     if (phase === 'active') {
@@ -172,13 +131,11 @@ export default function SleepScreen() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [phase, tick]);
 
-  // ─── Actions ────────────────────────────────────────────────────
-
+  // Actions
   function handleStart() {
-    const childId = activeChildId ?? '';
     const now = new Date().toISOString();
     const newSession: SleepSession = {
-      childId,
+      childId: activeChildId ?? '',
       startIso: now,
       pausedAt: null,
       accumulatedSec: 0,
@@ -191,10 +148,9 @@ export default function SleepScreen() {
 
   function handlePause() {
     if (!session) return;
-    const now = new Date().toISOString();
     const startMs = new Date(session.startIso).getTime();
     const accumulated = session.accumulatedSec + Math.floor((Date.now() - startMs) / 1000);
-    const paused: SleepSession = { ...session, pausedAt: now, accumulatedSec: accumulated };
+    const paused: SleepSession = { ...session, pausedAt: new Date().toISOString(), accumulatedSec: accumulated };
     saveSleepSession(paused);
     setSession(paused);
     setElapsed(accumulated);
@@ -203,17 +159,14 @@ export default function SleepScreen() {
 
   function handleResume() {
     if (!session) return;
-    const now = new Date().toISOString();
-    const resumed: SleepSession = { ...session, startIso: now, pausedAt: null };
+    const resumed: SleepSession = { ...session, startIso: new Date().toISOString(), pausedAt: null };
     saveSleepSession(resumed);
     setSession(resumed);
     setPhase('active');
   }
 
   function handleEnd() {
-    if (session && !session.pausedAt) {
-      handlePause();
-    }
+    if (session && !session.pausedAt) handlePause();
     setPhase('ended');
   }
 
@@ -222,15 +175,14 @@ export default function SleepScreen() {
     setSaving(true);
     try {
       const startIso = session.startIso;
-      const totalSec = phase === 'ended'
-        ? session.accumulatedSec
-        : elapsed;
+      const totalSec = session.accumulatedSec;
       const endTime = new Date(new Date(startIso).getTime() + totalSec * 1000).toISOString();
 
       const payload: Record<string, unknown> = {};
-      if (location)       payload.location      = location;
-      if (howFellAsleep)  payload.how_fell_asleep = howFellAsleep;
-      if (awakenings)     payload.awakenings    = awakenings;
+      if (location)      payload.location        = location;
+      if (howFellAsleep) payload.how_fell_asleep  = howFellAsleep;
+      if (awakenings)    payload.awakenings       = awakenings;
+      if (includeInReport) payload.include_in_report = true;
 
       const { error } = await supabase.from('routine_logs').insert({
         child_id: activeChildId,
@@ -263,61 +215,51 @@ export default function SleepScreen() {
     navigate(-1);
   }
 
-  // ─── Render helpers ─────────────────────────────────────────────
-
   const sessionStartLabel = session
     ? new Date(session.startIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : null;
 
+  // Status pill for header
+  const statusPill = (phase === 'active' || phase === 'paused') ? (
+    <InlineStatusPill
+      label={phase === 'active' ? 'Em andamento' : 'Pausado'}
+      variant={phase === 'active' ? 'active' : 'paused'}
+      color={SLEEP_COLOR}
+    />
+  ) : null;
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
-      {/* Header */}
-      <div
-        className="flex-shrink-0 px-5 flex items-center gap-3"
-        style={{
-          paddingTop: 'max(52px, env(safe-area-inset-top))',
-          paddingBottom: '16px',
-          backgroundColor: 'hsl(var(--card))',
-          borderBottom: '1px solid hsl(var(--border))',
-        }}
-      >
-        <button
-          onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all active:scale-90"
-          style={{ backgroundColor: 'hsl(var(--muted))' }}
-        >
-          <ArrowLeftIcon className="w-5 h-5" style={{ color: 'hsl(var(--ninho-brown))' }} />
-        </button>
-        <div>
-          <p className="text-lg font-bold leading-tight"
-            style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-            Registrar sono
-          </p>
-          {activeChild && (
-            <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-              {activeChild.name}
-            </p>
-          )}
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* DS Header */}
+      <ScreenHeader
+        title="Registrar sono"
+        childName={activeChild?.name}
+        statusSlot={statusPill}
+      />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-6"
-        style={{ paddingBottom: 'max(96px, calc(env(safe-area-inset-bottom) + 96px))' }}>
+      <div className="ds-form-body">
 
-        {/* IDLE — not yet started */}
+        {/* IDLE */}
         {phase === 'idle' && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center pt-10 gap-6">
-            <div className="w-32 h-32 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: `${MAUVE}15`, border: `2px dashed ${MAUVE}40` }}>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center pt-10 gap-6"
+          >
+            <div
+              className="w-32 h-32 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 12%, transparent)`,
+                border: `2px dashed color-mix(in srgb, ${SLEEP_COLOR} 35%, transparent)`,
+              }}
+            >
               <span className="text-5xl">😴</span>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+              <p className="text-lg font-bold font-quicksand text-foreground">
                 Pronto para dormir?
               </p>
-              <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+              <p className="text-sm mt-1 text-muted-foreground font-nunito">
                 Inicie o cronômetro quando colocar para dormir
               </p>
             </div>
@@ -326,56 +268,71 @@ export default function SleepScreen() {
 
         {/* ACTIVE or PAUSED */}
         {(phase === 'active' || phase === 'paused') && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-6 pt-6">
-            {/* Timer display */}
-            <div className="w-44 h-44 rounded-full flex flex-col items-center justify-center"
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="flex flex-col items-center gap-6 pt-6"
+          >
+            {/* Timer circle */}
+            <div
+              className="w-44 h-44 rounded-full flex flex-col items-center justify-center"
               style={{
-                backgroundColor: `${MAUVE}12`,
-                border: `3px solid ${phase === 'active' ? MAUVE : `${MAUVE}50`}`,
-              }}>
-              <span className="text-5xl mb-1">😴</span>
-              <p className="text-2xl font-bold tabular-nums"
-                style={{ color: MAUVE, fontFamily: 'Quicksand, sans-serif' }}>
+                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 10%, transparent)`,
+                border: `3px solid ${phase === 'active' ? SLEEP_COLOR : `color-mix(in srgb, ${SLEEP_COLOR} 40%, transparent)`}`,
+              }}
+            >
+              <span className="text-4xl mb-1">😴</span>
+              <p
+                className="text-2xl font-bold tabular-nums font-quicksand"
+                style={{ color: SLEEP_COLOR }}
+              >
                 {fmtTimer(elapsed)}
               </p>
             </div>
 
-            {/* Status */}
+            {/* Status label */}
             <div className="text-center">
               <div className="flex items-center gap-2 justify-center">
                 {phase === 'active' && (
-                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: MAUVE }} />
+                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: SLEEP_COLOR }} />
                 )}
-                <p className="text-sm font-semibold"
-                  style={{ color: MAUVE, fontFamily: font }}>
+                <p className="text-sm font-semibold font-nunito" style={{ color: SLEEP_COLOR }}>
                   {phase === 'active' ? 'Sono em andamento' : 'Sono pausado'}
                 </p>
               </div>
               {sessionStartLabel && (
-                <p className="text-xs mt-0.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+                <p className="text-xs mt-0.5 text-muted-foreground font-nunito">
                   Iniciado às {sessionStartLabel}
                 </p>
               )}
             </div>
 
-            {/* Session controls */}
+            {/* Session controls — DS Secondary + Primary pattern */}
             <div className="w-full flex gap-3">
               {phase === 'active' ? (
-                <button onClick={handlePause}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold"
-                  style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: font }}>
+                <button
+                  onClick={handlePause}
+                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 bg-muted text-foreground"
+                >
                   ⏸ Pausar
                 </button>
               ) : (
-                <button onClick={handleResume}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold"
-                  style={{ backgroundColor: `${MAUVE}15`, color: MAUVE, border: `1.5px solid ${MAUVE}40`, fontFamily: font }}>
+                <button
+                  onClick={handleResume}
+                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 12%, transparent)`,
+                    color: SLEEP_COLOR,
+                    border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 35%, transparent)`,
+                  }}
+                >
                   ▶ Continuar
                 </button>
               )}
-              <button onClick={handleEnd}
-                className="flex-1 py-4 rounded-2xl text-sm font-bold"
-                style={{ backgroundColor: MAUVE, color: 'white', fontFamily: font }}>
+              <button
+                onClick={handleEnd}
+                className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 text-white"
+                style={{ backgroundColor: SLEEP_COLOR }}
+              >
                 ⏹ Encerrar
               </button>
             </div>
@@ -384,48 +341,59 @@ export default function SleepScreen() {
 
         {/* ENDED — enrichment form */}
         {phase === 'ended' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            {/* Summary pill */}
-            <div className="flex items-center gap-3 p-4 rounded-2xl"
-              style={{ backgroundColor: `${MAUVE}12`, border: `1.5px solid ${MAUVE}30` }}>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="ds-section"
+          >
+            {/* Summary */}
+            <div
+              className="flex items-center gap-3 p-4 rounded-2xl"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 10%, transparent)`,
+                border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 25%, transparent)`,
+              }}
+            >
               <span className="text-2xl">😴</span>
               <div>
-                <p className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+                <p className="text-sm font-bold font-quicksand text-foreground">
                   Sono encerrado
                 </p>
-                <p className="text-xs font-semibold" style={{ color: MAUVE, fontFamily: font }}>
+                <p className="text-xs font-semibold font-nunito" style={{ color: SLEEP_COLOR }}>
                   Duração: {fmtTimer(session?.accumulatedSec ?? 0)}
                 </p>
               </div>
             </div>
 
-            {/* Location */}
+            {/* Where slept */}
             <div>
               <SectionLabel>Onde dormiu?</SectionLabel>
-              <ChipRow
+              <ChipGroup
                 options={SLEEP_LOCATION_OPTIONS}
                 value={location}
                 onToggle={v => setLocation(p => p === v ? '' : v)}
+                accentColor={SLEEP_COLOR}
               />
             </div>
 
             {/* How fell asleep */}
             <div>
               <SectionLabel>Como adormeceu?</SectionLabel>
-              <ChipRow
+              <ChipGroup
                 options={SLEEP_HOW_OPTIONS}
                 value={howFellAsleep}
                 onToggle={v => setHowFellAsleep(p => p === v ? '' : v)}
+                accentColor={SLEEP_COLOR}
               />
             </div>
 
             {/* Awakenings */}
             <div>
               <SectionLabel>Despertares</SectionLabel>
-              <ChipRow
+              <ChipGroup
                 options={AWAKENINGS_OPTIONS}
                 value={awakenings}
                 onToggle={v => setAwakenings(p => p === v ? '' : v)}
+                accentColor={SLEEP_COLOR}
               />
             </div>
 
@@ -436,17 +404,21 @@ export default function SleepScreen() {
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Dormiu tranquilo, acordou uma vez..."
-                className="rounded-2xl border-border resize-none min-h-[80px]"
+                className="ds-textarea"
                 rows={3}
-                style={{ fontFamily: font }}
               />
             </div>
 
-            {/* Discard */}
+            {/* Medical report */}
+            <ReportToggle
+              checked={includeInReport}
+              onCheckedChange={setIncludeInReport}
+            />
+
+            {/* Discard — tertiary link action */}
             <button
               onClick={handleDiscard}
-              className="w-full py-2 text-xs font-semibold text-center"
-              style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}
+              className="w-full py-2 text-xs font-semibold text-center text-muted-foreground font-nunito"
             >
               Descartar sessão
             </button>
@@ -454,43 +426,33 @@ export default function SleepScreen() {
         )}
       </div>
 
-      {/* Fixed bottom action */}
-      <div
-        className="fixed bottom-0 left-0 right-0 flex justify-center"
-        style={{
-          padding: `16px 20px max(24px, env(safe-area-inset-bottom))`,
-          backgroundColor: 'hsl(var(--card))',
-          borderTop: '1px solid hsl(var(--border))',
-        }}
-      >
-        <div className="w-full max-w-md">
-          {phase === 'idle' && (
-            <button
-              onClick={handleStart}
-              disabled={!activeChildId}
-              className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-98 disabled:opacity-50"
-              style={{ backgroundColor: MAUVE, color: 'white', fontFamily: font }}
-            >
-              ▶ Iniciar sono
-            </button>
-          )}
-          {(phase === 'active' || phase === 'paused') && (
-            <p className="text-center text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-              Encerre o sono para salvar o registro
-            </p>
-          )}
-          {phase === 'ended' && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-98 disabled:opacity-50"
-              style={{ backgroundColor: MAUVE, color: 'white', fontFamily: font }}
-            >
-              {saving ? 'Salvando...' : 'Salvar sono'}
-            </button>
-          )}
+      {/* DS Sticky CTA */}
+      {phase === 'idle' && (
+        <StickyFooterCTA
+          primaryLabel="▶ Iniciar sono"
+          onPrimary={handleStart}
+          primaryDisabled={!activeChildId}
+          primaryColor={SLEEP_COLOR}
+        />
+      )}
+      {(phase === 'active' || phase === 'paused') && (
+        <div
+          className="fixed bottom-0 left-0 right-0 flex justify-center bg-card border-t border-border z-30"
+          style={{ padding: '12px 16px', paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+        >
+          <p className="text-xs text-center text-muted-foreground font-nunito">
+            Encerre o sono para salvar o registro
+          </p>
         </div>
-      </div>
+      )}
+      {phase === 'ended' && (
+        <StickyFooterCTA
+          primaryLabel="Salvar sono"
+          onPrimary={handleSave}
+          primaryLoading={saving}
+          primaryColor={SLEEP_COLOR}
+        />
+      )}
     </div>
   );
 }

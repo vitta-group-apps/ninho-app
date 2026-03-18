@@ -239,6 +239,14 @@ export default function BreastfeedingScreen() {
   const [includeInReport, setIncludeInReport] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Manual mode fields
+  const [manualSide, setManualSide] = useState<'L' | 'R' | 'both'>('L');
+  const [manualDurationMin, setManualDurationMin] = useState('');
+  const [manualStartTime, setManualStartTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  });
+
   // Load existing session on mount
   useEffect(() => {
     const existing = loadFeedSession();

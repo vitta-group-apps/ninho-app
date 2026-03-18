@@ -475,7 +475,7 @@ export default function BreastfeedingScreen() {
                 onClick={() => navigate('/bottle')}
                 className="w-full py-3 rounded-2xl text-[13px] font-semibold font-nunito text-center transition-all active:scale-95 bg-muted text-foreground"
               >
-                🍼 Registrar mamadeira / fórmula
+                🍼 Mamadeira / Fórmula
               </button>
               <button
                 onClick={() => {
@@ -488,9 +488,9 @@ export default function BreastfeedingScreen() {
                   setFinishedData({ totalSec: 0, leftSec: 0, rightSec: 0, switches: 0, start: new Date(now), end: new Date(now), lastSide: selectedSide });
                   setPhase('ended');
                 }}
-                className="w-full py-2.5 text-[12px] font-medium font-nunito text-center text-muted-foreground"
+                className="w-full py-2.5 text-[12px] font-semibold font-nunito text-center text-muted-foreground"
               >
-                Registrar manualmente (sem cronômetro)
+                Adicionar manualmente (sem cronômetro)
               </button>
             </div>
           </motion.div>

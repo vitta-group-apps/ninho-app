@@ -45,7 +45,7 @@ function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () =>
   const actions = [
     { emoji: '🤱', label: 'Amamentar', onClick: onFeed, color: 'hsl(152,15%,55%)' },
     { emoji: '😴', label: 'Sono', onClick: onSleep, color: 'hsl(270,12%,52%)' },
-    { emoji: '🧷', label: 'Troca', onClick: onDiaper, color: 'hsl(32,80%,57%)' },
+    { emoji: '🧷', label: 'Fralda', onClick: onDiaper, color: 'hsl(32,80%,57%)' },
   ];
   return (
     <>

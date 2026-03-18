@@ -183,8 +183,8 @@ function buildFeedSummary(p: Record<string, string | number>): string {
     const r  = Number(p.right_seconds ?? 0);
     const sw = Number(p.switches ?? 0);
     const parts: string[] = [];
-    if (l > 0) parts.push(`Esq: ${fmtDurationShort(l)}`);
-    if (r > 0) parts.push(`Dir: ${fmtDurationShort(r)}`);
+    if (l > 0) parts.push(`Esquerdo: ${fmtDurationShort(l)}`);
+    if (r > 0) parts.push(`Direito: ${fmtDurationShort(r)}`);
     if (sw > 0) parts.push(`${sw} troca${sw > 1 ? 's' : ''}`);
     return parts.join(' · ') || 'Amamentação';
   }

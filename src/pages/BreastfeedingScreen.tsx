@@ -469,13 +469,13 @@ export default function BreastfeedingScreen() {
               </div>
             </div>
 
-            {/* Secondary actions — link-style, not a separate CTA area */}
+          {/* Secondary actions */}
             <div className="w-full flex flex-col gap-2 pt-2 border-t border-border">
               <button
                 onClick={() => navigate('/bottle')}
                 className="w-full py-3 rounded-2xl text-[13px] font-semibold font-nunito text-center transition-all active:scale-95 bg-muted text-foreground"
               >
-                🍼 Registrar mamadeira / fórmula
+                🍼 Mamadeira / Fórmula
               </button>
               <button
                 onClick={() => {
@@ -488,9 +488,9 @@ export default function BreastfeedingScreen() {
                   setFinishedData({ totalSec: 0, leftSec: 0, rightSec: 0, switches: 0, start: new Date(now), end: new Date(now), lastSide: selectedSide });
                   setPhase('ended');
                 }}
-                className="w-full py-2.5 text-[12px] font-medium font-nunito text-center text-muted-foreground"
+                className="w-full py-2.5 text-[12px] font-semibold font-nunito text-center text-muted-foreground"
               >
-                Registrar manualmente (sem cronômetro)
+                Adicionar manualmente (sem cronômetro)
               </button>
             </div>
           </motion.div>
@@ -572,7 +572,7 @@ export default function BreastfeedingScreen() {
                   onClick={handlePause}
                   className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 bg-secondary text-foreground"
                 >
-                  ⏸ Pausar
+                  Pausar
                 </button>
               ) : (
                 <button
@@ -584,7 +584,7 @@ export default function BreastfeedingScreen() {
                     border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
                   }}
                 >
-                  ▶ Continuar
+                  Continuar
                 </button>
               )}
               <button
@@ -592,7 +592,7 @@ export default function BreastfeedingScreen() {
                 className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 text-white"
                 style={{ backgroundColor: FEED_COLOR }}
               >
-                ⏹ Encerrar
+                Encerrar
               </button>
             </div>
           </motion.div>
@@ -677,20 +677,13 @@ export default function BreastfeedingScreen() {
         )}
       </div>
 
-      {/* DS Sticky CTA */}
+      {/* DS Sticky CTA — only on suggest and ended phases */}
       {phase === 'suggest' && (
         <StickyFooterCTA
-          primaryLabel={`▶ Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
+          primaryLabel={`Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
           onPrimary={handleStart}
           primaryColor={FEED_COLOR}
           primaryDisabled={!activeChildId}
-        />
-      )}
-      {phase === 'session' && (
-        <StickyFooterCTA
-          primaryLabel="⏹ Encerrar e revisar"
-          onPrimary={handleEnd}
-          primaryColor={FEED_COLOR}
         />
       )}
       {phase === 'ended' && (

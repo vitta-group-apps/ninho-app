@@ -100,6 +100,37 @@ export default function HomePage() {
     weekday: 'long', day: 'numeric', month: 'long',
   });
 
+  // ─── Contextual next-action suggestion ─────────────────────────────────────
+  // Only shown when there's genuinely useful guidance — not as noise
+  const nextActionSuggestion = (() => {
+    if (logsLoading || !activeChild) return null;
+
+    // If there's an active sleep session, don't suggest anything else
+    if (ongoingSleep) return null;
+
+    const lastFeed = logs.find(l => l.type === 'feed');
+    if (lastFeed && ageCtx?.idealFeedIntervalMin) {
+      const minSinceLastFeed = Math.floor(
+        (Date.now() - new Date(lastFeed.start_time).getTime()) / 60000
+      );
+      const ideal = ageCtx.idealFeedIntervalMin;
+      // Suggest feeding if past 80% of ideal interval
+      if (minSinceLastFeed >= ideal * 0.8) {
+        const h = Math.floor(minSinceLastFeed / 60);
+        const m = minSinceLastFeed % 60;
+        const label = h > 0 ? `${h}h${m > 0 ? `${m}m` : ''} desde a última mamada` : `${m}min desde a última mamada`;
+        return { emoji: '🤱', text: label, path: '/breastfeeding' };
+      }
+    }
+
+    // If no events at all today, suggest starting
+    if (logs.length === 0) {
+      return { emoji: '👶', text: 'Nenhum registro hoje ainda', path: null };
+    }
+
+    return null;
+  })();
+
   // ─── Age-adapted metric cards (locked 4-card grid) ─────────────────────────
   const FEED_COLOR   = 'hsl(152,15%,55%)';
   const SLEEP_COLOR  = 'hsl(270,12%,42%)';
@@ -252,6 +283,31 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* ── Próxima ação sugerida — only when relevant ─────────────── */}
+            {nextActionSuggestion && !logsLoading && (
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+                style={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1.5px solid hsl(var(--border))',
+                }}
+              >
+                <span className="text-[20px]">{nextActionSuggestion.emoji}</span>
+                <p className="flex-1 text-[13px] font-semibold font-nunito text-foreground">
+                  {nextActionSuggestion.text}
+                </p>
+                {nextActionSuggestion.path && (
+                  <button
+                    onClick={() => navigate(nextActionSuggestion.path!)}
+                    className="text-[12px] font-bold font-nunito px-3 py-1.5 rounded-xl text-white transition-all active:scale-95"
+                    style={{ backgroundColor: 'hsl(152,15%,55%)' }}
+                  >
+                    Registrar
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* ── Registrar agora — locked 4-tile grid ───────────────────── */}
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
@@ -302,10 +358,10 @@ export default function HomePage() {
                 <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
                   <p className="text-4xl mb-3">🌤️</p>
                   <p className="text-[15px] font-bold font-quicksand text-foreground">
-                    Nenhum evento ainda hoje
+                    Dia ainda em branco
                   </p>
                   <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
-                    Use os botões acima para começar a registrar.
+                    Toque em um dos atalhos acima para começar.
                   </p>
                 </div>
               ) : (

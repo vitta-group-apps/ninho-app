@@ -400,13 +400,30 @@ export default function RotinaPage() {
               </div>
             ) : filteredLogs.length === 0 ? (
               <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
-                <p className="text-4xl mb-3">{search ? '🔍' : '🌤️'}</p>
+                <p className="text-4xl mb-3">{search || hasActiveFilters ? '🔍' : '🌤️'}</p>
                 <p className="text-[15px] font-bold font-quicksand text-foreground">
-                  {search ? 'Nenhum resultado' : 'Nenhum evento'}
+                  {search
+                    ? 'Nenhum resultado encontrado'
+                    : hasActiveFilters
+                    ? 'Nenhum evento com esses filtros'
+                    : 'Nenhum evento registrado'}
                 </p>
                 <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
-                  {search ? `Sem resultados para "${search}"` : 'Toque no + para registrar.'}
+                  {search
+                    ? `Sem resultados para "${search}". Tente outra busca.`
+                    : hasActiveFilters
+                    ? 'Tente ajustar os filtros para ver mais eventos.'
+                    : 'Toque no + para registrar o primeiro evento do dia.'}
                 </p>
+                {hasActiveFilters && (
+                  <button
+                    onClick={() => { setSearch(''); setTypeFilter('all'); setTodFilter(''); setPeriod('today'); }}
+                    className="mt-4 text-[12px] font-bold font-nunito px-4 py-2 rounded-xl"
+                    style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
+                  >
+                    Limpar filtros
+                  </button>
+                )}
               </div>
             ) : groupByTod && !search ? (
               // Grouped view

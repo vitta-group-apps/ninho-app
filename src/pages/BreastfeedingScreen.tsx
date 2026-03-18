@@ -853,13 +853,6 @@ export default function BreastfeedingScreen() {
             {/* Medical report */}
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
-            {/* Discard — tertiary */}
-            <button
-              onClick={handleConfirmDiscard}
-              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
-            >
-              Descartar e voltar
-            </button>
           </motion.div>
         )}
       </div>

@@ -189,7 +189,6 @@ export default function RotinaPage() {
         />
       )}
 
-      <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} onSaved={loadLogs} />
       <FeedDetailSheet
         log={detailKind === 'breastfeed' ? detailLog : null}
         open={detailKind === 'breastfeed' && !!detailLog}

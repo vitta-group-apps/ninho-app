@@ -167,8 +167,7 @@ export default function RotinaPage() {
   const [allLogs, setAllLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
-  const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
-  const [detailKind, setDetailKind] = useState<'breastfeed' | null>(null);
+  // EventCards navigate directly — no modal state needed
 
   // ─ Filters ────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');

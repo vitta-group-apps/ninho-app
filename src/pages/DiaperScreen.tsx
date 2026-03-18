@@ -62,20 +62,19 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function ChipRow({
-  options, value, onToggle, wrap = false,
+  options, value, onToggle,
 }: {
   options: { value: string; label: string }[];
   value: string;
   onToggle: (v: string) => void;
-  wrap?: boolean;
 }) {
   return (
-    <div className={`flex gap-2 ${wrap ? 'flex-wrap' : 'overflow-x-auto pb-1'}`}>
+    <div className="flex flex-wrap gap-2">
       {options.map(opt => (
         <button
           key={opt.value}
           onClick={() => onToggle(opt.value)}
-          className="py-2.5 px-4 rounded-2xl text-sm font-semibold transition-all active:scale-95 whitespace-nowrap flex-shrink-0"
+          className="py-2.5 px-4 rounded-2xl text-sm font-semibold transition-all active:scale-95"
           style={{
             backgroundColor: value === opt.value ? ORANGE : 'hsl(var(--card))',
             color: value === opt.value ? 'white' : 'hsl(var(--ninho-brown))',
@@ -302,7 +301,6 @@ export default function DiaperScreen() {
                     options={POOP_COLOR_OPTIONS}
                     value={poopColor}
                     onToggle={v => setPoopColor(p => p === v ? '' : v)}
-                    wrap
                   />
                 </div>
               )}
@@ -315,7 +313,6 @@ export default function DiaperScreen() {
                     options={TEXTURE_OPTIONS}
                     value={texture}
                     onToggle={v => setTexture(p => p === v ? '' : v)}
-                    wrap
                   />
                 </div>
               )}

@@ -218,7 +218,9 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
 
     // ── DIAPER ────────────────────────────────────────────────────────────
     case 'diaper': {
-      const summary = buildDiaperSummary(p);
+      // Support both new `kind` and legacy `diaper_type` field names
+      const kind = String(p.kind ?? p.diaper_type ?? '');
+      const summary = buildDiaperSummary({ ...p, kind });
       const obsPreview = userNotes ? `💬 ${userNotes.slice(0, 40)}` : null;
       return {
         title: 'Fralda',

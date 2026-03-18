@@ -77,16 +77,16 @@ export function ActiveSessionBanner() {
         const raw = localStorage.getItem(FEED_SESSION_KEY);
         if (raw) {
           const feed = JSON.parse(raw);
-          if (feed && feed.status === 'ACTIVE') {
+          if (feed && (feed.status === 'ACTIVE' || feed.status === 'PAUSED')) {
             next.push({
               id: 'feed',
               emoji: '🤱',
               label: 'Amamentação em andamento',
-              sub: 'Ativo',
+              sub: feed.status === 'PAUSED' ? 'Pausado' : 'Ativo',
               color: SAGE,
               bgColor: `${SAGE}15`,
               elapsed: Math.floor((Date.now() - feed.sessionStartEpoch) / 1000),
-              onClick: () => { /* feed sheet opens via setFeedOpen in parent */ },
+              onClick: () => navigate('/breastfeeding'),
             });
           }
         }

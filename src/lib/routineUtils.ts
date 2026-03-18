@@ -1,6 +1,11 @@
 /**
  * Shared utilities for routine log parsing, formatting, and display metadata.
  * Used by HomePage, RotinaPage, and all log sheets.
+ *
+ * Backward compatibility:
+ *  - Old breastfeed events: notes = "__payload:{...}" with feeding_method/mode/side
+ *  - Old diaper events:     notes = "__payload:{...}" with diaper_type (not kind)
+ *  - Very old events:       notes = plain text string (no payload prefix)
  */
 
 import type { Tables } from '@/integrations/supabase/types';
@@ -14,6 +19,7 @@ export function parsePayload(notes: string | null): Record<string, string | numb
   try {
     if (notes.startsWith('__payload:')) return JSON.parse(notes.slice('__payload:'.length));
   } catch { /* noop */ }
+  // Plain-text notes have no payload — return empty (user notes handled by getUserNotes)
   return {};
 }
 
@@ -34,7 +40,8 @@ export function getUserNotes(notes: string | null): string | null {
       return obj._notes ?? null;
     } catch { return null; }
   }
-  return notes;
+  // Plain-text notes are themselves user notes
+  return notes.trim() || null;
 }
 
 // ─── Time formatters ───────────────────────────────────────────────────────
@@ -79,12 +86,14 @@ export function fmtRangeDuration(start: string, end: string): string {
 }
 
 // ─── Display metadata ──────────────────────────────────────────────────────
+// Legacy compatibility layer used by non-EventCard consumers.
+// EventCard uses getEventPresentation from eventSystem.ts instead.
 
 export interface LogMeta {
   emoji: string;
   label: string;
   sub: string;
-  detail: string | null;   // e.g. "E: 10min · D: 8min"
+  detail: string | null;
   color: string;
   bgColor: string;
   durationBadge: string | null;
@@ -95,7 +104,7 @@ export function getLogMeta(log: RoutineLog): LogMeta {
 
   switch (log.type) {
     case 'feed': {
-      // Breastfeed session (new format)
+      // New breastfeed session format (session_type = 'breastfeed')
       if (p.session_type === 'breastfeed') {
         const total = Number(p.total_seconds ?? 0);
         const left = Number(p.left_seconds ?? 0);
@@ -115,19 +124,21 @@ export function getLogMeta(log: RoutineLog): LogMeta {
           durationBadge: total > 0 ? fmtDurationShort(total) : null,
         };
       }
-      // Legacy/bottle/formula
+      // Legacy format / bottle / formula
       const methodMap: Record<string, string> = {
         breast: 'Seio',
         bottle: 'Mamadeira',
         formula: 'Fórmula',
       };
-      const method = String(p.feeding_method ?? '');
+      const method = String(p.feeding_method ?? p.session_type ?? '');
       const modeLabel = p.mode === 'timer' ? ' · cronômetro' : '';
       const sideLabel = p.side === 'left' ? ' (esq)' : p.side === 'right' ? ' (dir)' : '';
+      const amountLabel = p.amount_ml ? ` · ${p.amount_ml}ml` : '';
+      const displayMethod = method === 'formula' ? 'Fórmula' : method === 'bottle' ? 'Mamadeira' : 'Amamentação';
       return {
-        emoji: method === 'breast' ? '🤱' : '🍼',
-        label: method === 'formula' ? 'Fórmula' : method === 'bottle' ? 'Mamadeira' : 'Amamentação',
-        sub: `${methodMap[method] ?? 'Seio'}${sideLabel}${modeLabel}`,
+        emoji: method === 'formula' || method === 'bottle' ? '🍼' : '🤱',
+        label: displayMethod,
+        sub: `${methodMap[method] ?? 'Seio'}${sideLabel}${modeLabel}${amountLabel}`,
         detail: null,
         color: 'hsl(152,15%,55%)',
         bgColor: 'hsl(152,15%,55%,0.12)',
@@ -147,18 +158,20 @@ export function getLogMeta(log: RoutineLog): LogMeta {
       };
     }
     case 'diaper': {
-      const dMap: Record<string, string> = {
-        pee: 'Xixi 💛',
+      // Support both new `kind` and legacy `diaper_type` field
+      const kind = String(p.kind ?? p.diaper_type ?? '');
+      const kindMap: Record<string, string> = {
+        pee:  'Xixi 💛',
         poop: 'Cocô 💩',
-        both: 'Xixi e Cocô 🔄',
+        both: 'Xixi + Cocô 🔄',
       };
       return {
         emoji: '🧷',
-        label: 'Troca',
-        sub: dMap[String(p.diaper_type ?? '')] ?? '',
+        label: 'Fralda', // was "Troca" — fixed
+        sub: kindMap[kind] ?? '',
         detail: null,
-        color: '#E8A045',
-        bgColor: '#E8A04520',
+        color: 'hsl(32,80%,57%)',
+        bgColor: 'hsl(32,80%,57%,0.12)',
         durationBadge: null,
       };
     }
@@ -166,7 +179,7 @@ export function getLogMeta(log: RoutineLog): LogMeta {
       return {
         emoji: '📝',
         label: 'Nota',
-        sub: '',
+        sub: getUserNotes(log.notes) ?? '',
         detail: null,
         color: 'hsl(var(--ninho-brown))',
         bgColor: 'hsl(var(--muted))',

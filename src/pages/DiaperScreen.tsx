@@ -1,8 +1,6 @@
 /**
  * DiaperScreen — Full-screen diaper registration and edit flow.
- * DS v2: uses ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle.
- *
- * No gradient buttons. Solid primary. Chips always wrap.
+ * DS v2.1: Polish pass — better section separation, kind cards, chip spacing.
  */
 
 import { useState, useEffect } from 'react';
@@ -34,10 +32,10 @@ import {
 
 type DiaperKind = 'pee' | 'poop' | 'both';
 
-const KIND_OPTIONS: { kind: DiaperKind; emoji: string; label: string }[] = [
-  { kind: 'pee',  emoji: '💛', label: 'Xixi' },
-  { kind: 'poop', emoji: '💩', label: 'Cocô' },
-  { kind: 'both', emoji: '🔄', label: 'Xixi + Cocô' },
+const KIND_OPTIONS: { kind: DiaperKind; emoji: string; label: string; desc: string }[] = [
+  { kind: 'pee',  emoji: '💛', label: 'Xixi',          desc: 'Urina' },
+  { kind: 'poop', emoji: '💩', label: 'Cocô',          desc: 'Fezes' },
+  { kind: 'both', emoji: '🔄', label: 'Xixi + Cocô',   desc: 'Ambos' },
 ];
 
 const QUANTITY_OPTIONS = Object.entries(DIAPER_QUANTITY_LABEL).map(([v, l]) => ({ value: v, label: l }));
@@ -45,7 +43,6 @@ const PEE_COLOR_OPTIONS = Object.entries(DIAPER_PEE_COLOR_LABEL).map(([v, l]) =>
 const POOP_COLOR_OPTIONS = Object.entries(DIAPER_POOP_COLOR_LABEL).map(([v, l]) => ({ value: v, label: l }));
 const TEXTURE_OPTIONS = Object.entries(DIAPER_TEXTURE_LABEL).map(([v, l]) => ({ value: v, label: l }));
 
-// DS token for diaper accent
 const DIAPER_COLOR = 'hsl(var(--color-diaper))';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -113,10 +110,10 @@ export default function DiaperScreen() {
       if (isEdit && existingLog) {
         const existing = parsePayload(existingLog.notes);
         const merged = { ...existing, ...payload };
-        if (!quantity)      delete merged.quantity;
-        if (!peeColor)      delete merged.pee_color;
-        if (!poopColor)     delete merged.poop_color;
-        if (!texture)       delete merged.poop_texture;
+        if (!quantity)        delete merged.quantity;
+        if (!peeColor)        delete merged.pee_color;
+        if (!poopColor)       delete merged.poop_color;
+        if (!texture)         delete merged.poop_texture;
         if (!includeInReport) delete merged.include_in_report;
 
         const { error } = await supabase
@@ -174,7 +171,7 @@ export default function DiaperScreen() {
 
       {/* Scrollable form */}
       <div className="ds-form-body">
-        <div className="ds-section">
+        <div className="space-y-6">
 
           {/* Kind selection — 3-column grid */}
           <div>
@@ -186,22 +183,36 @@ export default function DiaperScreen() {
                   <button
                     key={opt.kind}
                     onClick={() => setKind(opt.kind)}
-                    className="flex flex-col items-center gap-2 py-5 rounded-2xl font-bold transition-all active:scale-95 font-nunito"
+                    className="flex flex-col items-center gap-2.5 py-5 px-2 rounded-2xl font-bold transition-all active:scale-95 font-nunito"
                     style={{
-                      backgroundColor: isActive ? `color-mix(in srgb, ${DIAPER_COLOR} 12%, transparent)` : 'hsl(var(--card))',
+                      backgroundColor: isActive
+                        ? `color-mix(in srgb, ${DIAPER_COLOR} 10%, hsl(var(--card)))`
+                        : 'hsl(var(--card))',
                       border: `2px solid ${isActive ? DIAPER_COLOR : 'hsl(var(--border))'}`,
-                      color: isActive ? DIAPER_COLOR : 'hsl(var(--foreground))',
+                      boxShadow: isActive
+                        ? `0 2px 8px color-mix(in srgb, ${DIAPER_COLOR} 20%, transparent)`
+                        : 'none',
                     }}
                   >
-                    <span className="text-2xl">{opt.emoji}</span>
-                    <span className="text-xs font-bold">{opt.label}</span>
+                    <span className="text-[26px]">{opt.emoji}</span>
+                    <div className="text-center">
+                      <p
+                        className="text-[12px] font-bold leading-tight"
+                        style={{ color: isActive ? DIAPER_COLOR : 'hsl(var(--foreground))' }}
+                      >
+                        {opt.label}
+                      </p>
+                      <p className="text-[10px] mt-0.5 text-muted-foreground font-nunito font-normal">
+                        {opt.desc}
+                      </p>
+                    </div>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Conditional fields — appear after kind selected */}
+          {/* Conditional fields */}
           <AnimatePresence>
             {kind && (
               <motion.div
@@ -209,8 +220,14 @@ export default function DiaperScreen() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18 }}
-                className="ds-section"
+                className="space-y-6"
               >
+                {/* Divider */}
+                <div
+                  className="h-px"
+                  style={{ backgroundColor: 'hsl(var(--border))' }}
+                />
+
                 {/* Quantity */}
                 <div>
                   <SectionLabel>Quantidade</SectionLabel>
@@ -260,6 +277,9 @@ export default function DiaperScreen() {
                     />
                   </div>
                 )}
+
+                {/* Divider */}
+                <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
                 {/* Observations */}
                 <div>

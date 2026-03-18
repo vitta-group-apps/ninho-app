@@ -1,11 +1,14 @@
 /**
  * SleepScreen — Full-screen sleep session flow.
- * DS v2.1: Polish pass — better timer hierarchy, cleaner idle state, improved section separation.
+ *
+ * Phases: idle → active → paused → ended (review) → saved
+ * Language: plain caregiver language, no jargon.
+ * Back guard: if active/paused/ended, warn before navigating away.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,8 +36,10 @@ export interface SleepSession {
 }
 
 export function loadSleepSession(): SleepSession | null {
-  try { const r = localStorage.getItem(SLEEP_SESSION_KEY); return r ? JSON.parse(r) : null; }
-  catch { return null; }
+  try {
+    const r = localStorage.getItem(SLEEP_SESSION_KEY);
+    return r ? JSON.parse(r) : null;
+  } catch { return null; }
 }
 
 export function saveSleepSession(s: SleepSession) {
@@ -46,7 +51,7 @@ export function clearSleepSession() {
   localStorage.removeItem('ninho_sleep_start'); // legacy
 }
 
-// ─── Options ──────────────────────────────────────────────────────────────────
+// ─── Options (plain caregiver language) ───────────────────────────────────────
 
 const SLEEP_LOCATION_OPTIONS = [
   { value: 'berco',    label: '🛏 Berço' },
@@ -64,14 +69,72 @@ const SLEEP_HOW_OPTIONS = [
   { value: 'outro',   label: 'Outro' },
 ];
 
+// Plain language: "Acordou durante o sono?" instead of "Despertares"
 const AWAKENINGS_OPTIONS = [
-  { value: '0', label: '0×' },
-  { value: '1', label: '1×' },
-  { value: '2', label: '2×' },
-  { value: '3+', label: '3+' },
+  { value: '0',  label: 'Nenhuma vez' },
+  { value: '1',  label: '1 vez' },
+  { value: '2',  label: '2 vezes' },
+  { value: '3+', label: '3 ou mais' },
 ];
 
 const SLEEP_COLOR = 'hsl(var(--color-sleep))';
+
+// ─── Back confirm sheet ────────────────────────────────────────────────────────
+
+function BackConfirmSheet({
+  open, onContinue, onEnd, onDiscard,
+}: {
+  open: boolean;
+  onContinue: () => void;
+  onEnd: () => void;
+  onDiscard: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+      onClick={onContinue}
+    >
+      <motion.div
+        initial={{ y: 60, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+        className="w-full max-w-md rounded-t-3xl px-5 pt-6 space-y-3 bg-card"
+        style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="text-base font-bold text-center font-quicksand text-foreground">
+          Sono em andamento
+        </p>
+        <p className="text-sm text-center pb-1 text-muted-foreground font-nunito">
+          O que deseja fazer?
+        </p>
+        <div className="space-y-2 pb-2">
+          <button
+            onClick={onContinue}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito text-white"
+            style={{ backgroundColor: SLEEP_COLOR }}
+          >
+            Continuar o sono
+          </button>
+          <button
+            onClick={onEnd}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito bg-muted text-foreground"
+          >
+            Encerrar e salvar
+          </button>
+          <button
+            onClick={onDiscard}
+            className="w-full py-2 text-xs font-semibold text-center font-nunito text-destructive"
+          >
+            Descartar sessão
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -87,7 +150,9 @@ export default function SleepScreen() {
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
 
+  // Review fields
   const [location, setLocation] = useState('');
   const [howFellAsleep, setHowFellAsleep] = useState('');
   const [awakenings, setAwakenings] = useState('');
@@ -173,17 +238,17 @@ export default function SleepScreen() {
       const endTime = new Date(new Date(startIso).getTime() + totalSec * 1000).toISOString();
 
       const payload: Record<string, unknown> = {};
-      if (location)        payload.location         = location;
-      if (howFellAsleep)   payload.how_fell_asleep  = howFellAsleep;
-      if (awakenings)      payload.awakenings        = awakenings;
-      if (includeInReport) payload.include_in_report = true;
+      if (location)        payload.location          = location;
+      if (howFellAsleep)   payload.how_fell_asleep   = howFellAsleep;
+      if (awakenings)      payload.awakenings         = awakenings;
+      if (includeInReport) payload.include_in_report  = true;
 
       const { error } = await supabase.from('routine_logs').insert({
-        child_id: activeChildId,
-        author_id: user.id,
-        type: 'sleep',
+        child_id:   activeChildId,
+        author_id:  user.id,
+        type:       'sleep',
         start_time: startIso,
-        end_time: endTime,
+        end_time:   endTime,
         notes: (notes.trim() || Object.keys(payload).length > 0)
           ? makePayloadNotes(payload, notes)
           : null,
@@ -209,6 +274,14 @@ export default function SleepScreen() {
     navigate(-1);
   }
 
+  function handleBack() {
+    if (phase === 'active' || phase === 'paused' || phase === 'ended') {
+      setShowBackConfirm(true);
+    } else {
+      navigate(-1);
+    }
+  }
+
   const sessionStartLabel = session
     ? new Date(session.startIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : null;
@@ -226,18 +299,19 @@ export default function SleepScreen() {
       <ScreenHeader
         title="Registrar sono"
         childName={activeChild?.name}
+        onBack={handleBack}
         statusSlot={statusPill}
       />
 
       <div className="ds-form-body">
 
-        {/* ── IDLE ────────────────────────────────────────────────── */}
+        {/* ── IDLE ─────────────────────────────────────────────────────── */}
         {phase === 'idle' && (
           <motion.div
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center pt-8 gap-8"
           >
-            {/* Large circle */}
             <div
               className="w-36 h-36 rounded-full flex items-center justify-center"
               style={{
@@ -252,25 +326,28 @@ export default function SleepScreen() {
               <p className="text-[18px] font-bold font-quicksand text-foreground">
                 Pronto para dormir?
               </p>
-              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
+              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[220px] mx-auto">
                 Inicie o cronômetro quando colocar para dormir
               </p>
             </div>
           </motion.div>
         )}
 
-        {/* ── ACTIVE or PAUSED ─────────────────────────────────────── */}
+        {/* ── ACTIVE or PAUSED ─────────────────────────────────────────── */}
         {(phase === 'active' || phase === 'paused') && (
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             className="flex flex-col items-center gap-7 pt-4"
           >
-            {/* Timer circle — large and dominant */}
+            {/* Timer circle — dominant visual */}
             <div
               className="w-48 h-48 rounded-full flex flex-col items-center justify-center"
               style={{
                 backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 8%, transparent)`,
-                border: `3px solid ${phase === 'active' ? SLEEP_COLOR : `color-mix(in srgb, ${SLEEP_COLOR} 35%, transparent)`}`,
+                border: `3px solid ${phase === 'active'
+                  ? SLEEP_COLOR
+                  : `color-mix(in srgb, ${SLEEP_COLOR} 35%, transparent)`}`,
               }}
             >
               <span className="text-[40px] mb-1">😴</span>
@@ -286,12 +363,12 @@ export default function SleepScreen() {
             <div className="text-center space-y-1">
               <div className="flex items-center gap-2 justify-center">
                 {phase === 'active' && (
-                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: SLEEP_COLOR }} />
+                  <div
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ backgroundColor: SLEEP_COLOR }}
+                  />
                 )}
-                <p
-                  className="text-[14px] font-semibold font-nunito"
-                  style={{ color: SLEEP_COLOR }}
-                >
+                <p className="text-[14px] font-semibold font-nunito" style={{ color: SLEEP_COLOR }}>
                   {phase === 'active' ? 'Sono em andamento' : 'Sono pausado'}
                 </p>
               </div>
@@ -332,13 +409,18 @@ export default function SleepScreen() {
                 ⏹ Encerrar
               </button>
             </div>
+
+            <p className="text-[12px] text-center text-muted-foreground font-nunito px-4">
+              Encerre para salvar o registro desta soneca
+            </p>
           </motion.div>
         )}
 
-        {/* ── ENDED — enrichment form ───────────────────────────────── */}
+        {/* ── ENDED — review form ───────────────────────────────────────── */}
         {phase === 'ended' && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
             {/* Summary card */}
@@ -390,9 +472,9 @@ export default function SleepScreen() {
               />
             </div>
 
-            {/* Awakenings */}
+            {/* Awakenings — plain language */}
             <div>
-              <SectionLabel>Despertares</SectionLabel>
+              <SectionLabel>Acordou durante o sono?</SectionLabel>
               <ChipGroup
                 options={AWAKENINGS_OPTIONS}
                 value={awakenings}
@@ -401,7 +483,6 @@ export default function SleepScreen() {
               />
             </div>
 
-            {/* Divider */}
             <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
             {/* Notes */}
@@ -417,10 +498,7 @@ export default function SleepScreen() {
             </div>
 
             {/* Medical report */}
-            <ReportToggle
-              checked={includeInReport}
-              onCheckedChange={setIncludeInReport}
-            />
+            <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
             {/* Discard — tertiary */}
             <button
@@ -442,24 +520,26 @@ export default function SleepScreen() {
           primaryColor={SLEEP_COLOR}
         />
       )}
-      {(phase === 'active' || phase === 'paused') && (
-        <div
-          className="fixed bottom-0 left-0 right-0 flex justify-center bg-card/95 backdrop-blur-sm border-t border-border z-30"
-          style={{ padding: '14px 20px', paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
-        >
-          <p className="text-[12px] text-center text-muted-foreground font-nunito">
-            Encerre para salvar o registro desta soneca
-          </p>
-        </div>
-      )}
       {phase === 'ended' && (
         <StickyFooterCTA
-          primaryLabel="Salvar sono"
+          primaryLabel={saving ? 'Salvando...' : 'Salvar sono'}
           onPrimary={handleSave}
           primaryLoading={saving}
           primaryColor={SLEEP_COLOR}
         />
       )}
+
+      {/* Back nav guard */}
+      <AnimatePresence>
+        {showBackConfirm && (
+          <BackConfirmSheet
+            open
+            onContinue={() => setShowBackConfirm(false)}
+            onEnd={() => { setShowBackConfirm(false); handleEnd(); }}
+            onDiscard={() => { setShowBackConfirm(false); handleDiscard(); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -498,13 +498,6 @@ export default function SleepScreen() {
             {/* Medical report */}
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
-            {/* Discard — tertiary */}
-            <button
-              onClick={handleDiscard}
-              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
-            >
-              Descartar sessão
-            </button>
           </motion.div>
         )}
       </div>
@@ -520,10 +513,12 @@ export default function SleepScreen() {
       )}
       {phase === 'ended' && (
         <StickyFooterCTA
-          primaryLabel={saving ? 'Salvando...' : 'Salvar sono'}
+          primaryLabel="Salvar registro"
           onPrimary={handleSave}
           primaryLoading={saving}
           primaryColor={SLEEP_COLOR}
+          tertiaryLabel="Descartar sessão"
+          onTertiary={handleDiscard}
         />
       )}
 

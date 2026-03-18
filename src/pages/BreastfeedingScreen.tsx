@@ -94,41 +94,55 @@ function SideCard({
     <button
       onClick={onClick}
       disabled={!onClick}
-      className="flex-1 rounded-3xl p-4 text-center transition-all duration-200 select-none"
+      className="flex-1 rounded-3xl py-5 px-3 text-center transition-all duration-200 select-none"
       style={{
-        backgroundColor: active ? `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)` : 'hsl(var(--muted))',
-        border: `2px solid ${active ? `color-mix(in srgb, ${FEED_COLOR} 40%, transparent)` : 'transparent'}`,
-        opacity: active ? 1 : 0.5,
-        transform: active ? 'scale(1.02)' : 'scale(1)',
+        backgroundColor: active
+          ? `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))`
+          : 'hsl(var(--muted) / 0.6)',
+        border: `2px solid ${active
+          ? `color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`
+          : 'transparent'}`,
+        opacity: active ? 1 : 0.55,
+        boxShadow: active
+          ? `0 2px 10px color-mix(in srgb, ${FEED_COLOR} 14%, transparent)`
+          : 'none',
       }}
     >
+      {/* Side indicator */}
       <div
-        className="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-lg font-bold"
+        className="w-11 h-11 rounded-full mx-auto flex items-center justify-center text-[18px] font-bold"
         style={{
-          backgroundColor: active ? `color-mix(in srgb, ${FEED_COLOR} 20%, transparent)` : 'hsl(var(--border))',
+          backgroundColor: active
+            ? `color-mix(in srgb, ${FEED_COLOR} 18%, transparent)`
+            : 'hsl(var(--border))',
           color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))',
         }}
       >
         {arrow}
       </div>
+
       <p
-        className="text-[11px] mt-2 font-bold uppercase tracking-wide font-nunito"
+        className="text-[11px] mt-2.5 font-bold uppercase tracking-[0.06em] font-nunito"
         style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
       >
         {label}
       </p>
-      {/* Timer — stable height */}
-      <div className="h-9 flex items-center justify-center mt-1">
+
+      {/* Timer — stable fixed height so layout never jumps */}
+      <div className="h-10 flex items-center justify-center mt-1">
         <p
-          className="text-2xl font-bold tabular-nums font-quicksand"
+          className="text-[28px] font-bold tabular-nums font-quicksand leading-none"
           style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
         >
           {fmtTimer(Math.floor(totalMs / 1000))}
         </p>
       </div>
-      {/* Status dot — always occupies space */}
-      <div className="h-5 flex items-center justify-center gap-1 mt-1">
-        {showPulse && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />}
+
+      {/* Status indicator — always occupies space to prevent layout shift */}
+      <div className="h-5 flex items-center justify-center gap-1.5 mt-1">
+        {showPulse && (
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />
+        )}
         <span
           className="text-[10px] font-semibold font-nunito"
           style={{ color: active ? FEED_COLOR : 'transparent' }}

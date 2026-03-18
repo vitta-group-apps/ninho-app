@@ -384,7 +384,7 @@ export default function SleepScreen() {
                   onClick={handlePause}
                   className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 bg-secondary text-foreground"
                 >
-                  ⏸ Pausar
+                  Pausar
                 </button>
               ) : (
                 <button
@@ -396,7 +396,7 @@ export default function SleepScreen() {
                     border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 30%, transparent)`,
                   }}
                 >
-                  ▶ Continuar
+                  Continuar
                 </button>
               )}
               <button
@@ -404,7 +404,7 @@ export default function SleepScreen() {
                 className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 text-white"
                 style={{ backgroundColor: SLEEP_COLOR }}
               >
-                ⏹ Encerrar
+                Encerrar
               </button>
             </div>
 

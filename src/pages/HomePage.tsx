@@ -100,6 +100,37 @@ export default function HomePage() {
     weekday: 'long', day: 'numeric', month: 'long',
   });
 
+  // ─── Contextual next-action suggestion ─────────────────────────────────────
+  // Only shown when there's genuinely useful guidance — not as noise
+  const nextActionSuggestion = (() => {
+    if (logsLoading || !activeChild) return null;
+
+    // If there's an active sleep session, don't suggest anything else
+    if (ongoingSleep) return null;
+
+    const lastFeed = logs.find(l => l.type === 'feed');
+    if (lastFeed && ageCtx?.idealFeedIntervalMin) {
+      const minSinceLastFeed = Math.floor(
+        (Date.now() - new Date(lastFeed.start_time).getTime()) / 60000
+      );
+      const ideal = ageCtx.idealFeedIntervalMin;
+      // Suggest feeding if past 80% of ideal interval
+      if (minSinceLastFeed >= ideal * 0.8) {
+        const h = Math.floor(minSinceLastFeed / 60);
+        const m = minSinceLastFeed % 60;
+        const label = h > 0 ? `${h}h${m > 0 ? `${m}m` : ''} desde a última mamada` : `${m}min desde a última mamada`;
+        return { emoji: '🤱', text: label, path: '/breastfeeding' };
+      }
+    }
+
+    // If no events at all today, suggest starting
+    if (logs.length === 0) {
+      return { emoji: '👶', text: 'Nenhum registro hoje ainda', path: null };
+    }
+
+    return null;
+  })();
+
   // ─── Age-adapted metric cards (locked 4-card grid) ─────────────────────────
   const FEED_COLOR   = 'hsl(152,15%,55%)';
   const SLEEP_COLOR  = 'hsl(270,12%,42%)';

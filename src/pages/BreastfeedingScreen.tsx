@@ -397,6 +397,54 @@ export default function BreastfeedingScreen() {
     }
   }
 
+  async function handleSaveManual() {
+    if (!user || !activeChildId) return;
+    setSaving(true);
+    try {
+      const durationSec = manualDurationMin ? Number(manualDurationMin) * 60 : 0;
+      // Parse start time from HH:MM input
+      const now = new Date();
+      const [hours, minutes] = manualStartTime.split(':').map(Number);
+      const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+      const endDate = durationSec > 0 ? new Date(startDate.getTime() + durationSec * 1000) : now;
+
+      const sideMap: Record<'L' | 'R' | 'both', { left: number; right: number }> = {
+        L:    { left: durationSec, right: 0 },
+        R:    { left: 0, right: durationSec },
+        both: { left: Math.floor(durationSec / 2), right: Math.ceil(durationSec / 2) },
+      };
+      const { left, right } = sideMap[manualSide];
+
+      const payload: Record<string, unknown> = {
+        session_type:  'breastfeed',
+        total_seconds: durationSec,
+        left_seconds:  left,
+        right_seconds: right,
+        switches:      0,
+        last_side:     manualSide === 'R' ? 'R' : 'L',
+        manual_entry:  true,
+      };
+      if (obsTags.length > 0) payload.tags = obsTags.join(',');
+      if (includeInReport)    payload.include_in_report = true;
+
+      const { error } = await supabase.from('routine_logs').insert({
+        child_id:   activeChildId,
+        author_id:  user.id,
+        type:       'feed',
+        start_time: startDate.toISOString(),
+        end_time:   endDate.toISOString(),
+        notes:      makePayloadNotes(payload, notes),
+      });
+      if (error) throw error;
+      toast({ title: '🤱 Amamentação registrada' });
+      navigate(-1);
+    } catch (e: unknown) {
+      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function handleBack() {
     // Sessions are background-persistent — navigating away never interrupts them.
     // Only the "ended" phase (unsaved review) needs a confirmation to prevent data loss.

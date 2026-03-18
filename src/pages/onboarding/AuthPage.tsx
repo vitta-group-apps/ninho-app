@@ -5,7 +5,7 @@
  * - minimum 6 characters
  * - at least 1 uppercase letter
  * - at least 1 number
- * - at least 1 special character
+ * - special character is OPTIONAL (allowed but not required)
  *
  * Full name: at least 2 words, each ≥ 2 chars
  * Email: valid format
@@ -39,7 +39,6 @@ interface PasswordStrength {
   minLength: boolean;
   hasUppercase: boolean;
   hasNumber: boolean;
-  hasSpecial: boolean;
 }
 
 function checkPasswordStrength(password: string): PasswordStrength {
@@ -47,12 +46,12 @@ function checkPasswordStrength(password: string): PasswordStrength {
     minLength: password.length >= 6,
     hasUppercase: /[A-Z]/.test(password),
     hasNumber: /[0-9]/.test(password),
-    hasSpecial: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password),
   };
 }
 
+// Special char is optional — not part of required validation
 function isPasswordValid(strength: PasswordStrength): boolean {
-  return strength.minLength && strength.hasUppercase && strength.hasNumber && strength.hasSpecial;
+  return strength.minLength && strength.hasUppercase && strength.hasNumber;
 }
 
 // ─── Password Rule Row ────────────────────────────────────────────────────────
@@ -109,7 +108,7 @@ export default function AuthPage() {
   const passwordError = useMemo(() => {
     if (!touched.password || !password) return '';
     if (tab === 'signup' && !isPasswordValid(passwordStrength)) {
-      return 'A senha não atende todos os requisitos';
+      return 'A senha não atende os requisitos mínimos';
     }
     if (tab === 'login' && password.length < 6) {
       return 'A senha deve ter pelo menos 6 caracteres';
@@ -182,7 +181,7 @@ export default function AuthPage() {
       } else if (msg.includes('Email not confirmed')) {
         setError('Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.');
       } else if (msg.includes('User already registered')) {
-        setError('Este e-mail já tem uma conta. Tente entrar.');
+        setError('Este e-mail já tem uma conta. Tente fazer login.');
       } else {
         setError('Algo deu errado. Tente novamente.');
       }
@@ -335,14 +334,13 @@ export default function AuthPage() {
                 <PasswordRule ok={passwordStrength.minLength} label="Mínimo 6 caracteres" />
                 <PasswordRule ok={passwordStrength.hasUppercase} label="Pelo menos 1 letra maiúscula" />
                 <PasswordRule ok={passwordStrength.hasNumber} label="Pelo menos 1 número" />
-                <PasswordRule ok={passwordStrength.hasSpecial} label="Pelo menos 1 caractere especial (!@#...)" />
               </div>
             )}
 
             {/* Pre-touch helper for signup */}
             {tab === 'signup' && !touched.password && password.length === 0 && (
               <p className="text-[11px]" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>
-                Mínimo 6 caracteres com maiúscula, número e símbolo
+                Mínimo 6 caracteres, com maiúscula e número
               </p>
             )}
 

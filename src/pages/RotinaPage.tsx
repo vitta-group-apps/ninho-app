@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { FeedSheet } from '@/components/home/QuickLogSheets';
 import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
 import { EventCard } from '@/components/events/EventCard';
 import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
@@ -41,12 +40,15 @@ function DailyStats({ logs }: { logs: RoutineLog[] }) {
 }
 
 // ─── FAB ───────────────────────────────────────────────────────────────────
-function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () => void; onDiaper: () => void }) {
+function FAB({ onBreastfeed, onBottle, onSleep, onDiaper }: {
+  onBreastfeed: () => void; onBottle: () => void; onSleep: () => void; onDiaper: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const actions = [
-    { emoji: '🤱', label: 'Amamentar', onClick: onFeed,   color: 'hsl(152,15%,55%)' },
-    { emoji: '😴', label: 'Sono',      onClick: onSleep,  color: 'hsl(270,12%,52%)' },
-    { emoji: '🧷', label: 'Fralda',    onClick: onDiaper, color: 'hsl(32,80%,57%)' },
+    { emoji: '🤱', label: 'Amamentar', onClick: onBreastfeed, color: 'hsl(152,15%,55%)' },
+    { emoji: '🍼', label: 'Mamadeira',  onClick: onBottle,     color: 'hsl(200,40%,50%)' },
+    { emoji: '😴', label: 'Sono',       onClick: onSleep,      color: 'hsl(270,12%,52%)' },
+    { emoji: '🧷', label: 'Fralda',     onClick: onDiaper,     color: 'hsl(32,80%,57%)' },
   ];
   return (
     <>
@@ -86,7 +88,6 @@ export default function RotinaPage() {
   const { activeChild, loading: childLoading } = useActiveChild();
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [feedOpen, setFeedOpen] = useState(false);
 
   const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
   const [detailKind, setDetailKind] = useState<'breastfeed' | null>(null);
@@ -181,13 +182,13 @@ export default function RotinaPage() {
 
       {activeChild && (
         <FAB
-          onFeed={() => setFeedOpen(true)}
+          onBreastfeed={() => navigate('/breastfeeding')}
+          onBottle={() => navigate('/bottle')}
           onSleep={() => navigate('/sleep')}
           onDiaper={() => navigate('/diaper/new')}
         />
       )}
 
-      <FeedSheet open={feedOpen} onClose={() => setFeedOpen(false)} onSaved={loadLogs} />
       <FeedDetailSheet
         log={detailKind === 'breastfeed' ? detailLog : null}
         open={detailKind === 'breastfeed' && !!detailLog}

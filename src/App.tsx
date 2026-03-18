@@ -19,6 +19,8 @@ import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';
 import SleepScreen from '@/pages/SleepScreen';
+import BreastfeedingScreen from '@/pages/BreastfeedingScreen';
+import BottleScreen from '@/pages/BottleScreen';
 import { ResetPasswordPage } from '@/pages/ResetPassword';
 import NotFound from '@/pages/NotFound';
 
@@ -37,9 +39,11 @@ function AuthedRoutes() {
     <ActiveChildProvider>
       <Routes>
         {/* Full-screen flows — no AppShell (no bottom nav) */}
-        <Route path="/diaper/new"       element={<DiaperScreen />} />
+        <Route path="/diaper/new"         element={<DiaperScreen />} />
         <Route path="/diaper/edit/:logId" element={<DiaperScreen />} />
-        <Route path="/sleep"            element={<SleepScreen />} />
+        <Route path="/sleep"              element={<SleepScreen />} />
+        <Route path="/breastfeeding"      element={<BreastfeedingScreen />} />
+        <Route path="/bottle"             element={<BottleScreen />} />
 
         {/* Main app shell */}
         <Route path="/*" element={

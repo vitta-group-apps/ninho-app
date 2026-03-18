@@ -84,15 +84,14 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function ChipRow({
-  options, value, onToggle, wrap = false,
+  options, value, onToggle,
 }: {
   options: { value: string; label: string }[];
   value: string;
   onToggle: (v: string) => void;
-  wrap?: boolean;
 }) {
   return (
-    <div className={`flex gap-2 ${wrap ? 'flex-wrap' : 'overflow-x-auto pb-1'}`}>
+    <div className="flex flex-wrap gap-2">
       {options.map(opt => (
         <button
           key={opt.value}

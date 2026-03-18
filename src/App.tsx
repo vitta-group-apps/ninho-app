@@ -23,6 +23,7 @@ import SleepDetailScreen from '@/pages/SleepDetailScreen';
 import FeedDetailScreen from '@/pages/FeedDetailScreen';
 import BreastfeedingScreen from '@/pages/BreastfeedingScreen';
 import BottleScreen from '@/pages/BottleScreen';
+import BottleDetailScreen from '@/pages/BottleDetailScreen';
 import { ResetPasswordPage } from '@/pages/ResetPassword';
 import NotFound from '@/pages/NotFound';
 
@@ -45,6 +46,7 @@ function AuthedRoutes() {
         <Route path="/diaper/edit/:logId"      element={<DiaperScreen />} />
         <Route path="/sleep/detail/:logId"     element={<SleepDetailScreen />} />
         <Route path="/feed/detail/:logId"      element={<FeedDetailScreen />} />
+        <Route path="/bottle/detail/:logId"    element={<BottleDetailScreen />} />
         <Route path="/bottle/edit/:logId"      element={<BottleScreen />} />
         <Route path="/sleep"              element={<SleepScreen />} />
         <Route path="/breastfeeding"      element={<BreastfeedingScreen />} />

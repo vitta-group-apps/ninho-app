@@ -35,7 +35,7 @@ const FEED_COLOR = 'hsl(var(--color-feed))';
 
 type Side = 'L' | 'R';
 type SessionStatus = 'ACTIVE' | 'PAUSED' | 'FINISHED';
-type Phase = 'suggest' | 'session' | 'ended';
+type Phase = 'suggest' | 'session' | 'ended' | 'manual';
 
 interface SideTimes { L: number; R: number; }
 
@@ -239,6 +239,14 @@ export default function BreastfeedingScreen() {
   const [includeInReport, setIncludeInReport] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Manual mode fields
+  const [manualSide, setManualSide] = useState<'L' | 'R' | 'both'>('L');
+  const [manualDurationMin, setManualDurationMin] = useState('');
+  const [manualStartTime, setManualStartTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  });
+
   // Load existing session on mount
   useEffect(() => {
     const existing = loadFeedSession();
@@ -389,10 +397,58 @@ export default function BreastfeedingScreen() {
     }
   }
 
+  async function handleSaveManual() {
+    if (!user || !activeChildId) return;
+    setSaving(true);
+    try {
+      const durationSec = manualDurationMin ? Number(manualDurationMin) * 60 : 0;
+      // Parse start time from HH:MM input
+      const now = new Date();
+      const [hours, minutes] = manualStartTime.split(':').map(Number);
+      const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+      const endDate = durationSec > 0 ? new Date(startDate.getTime() + durationSec * 1000) : now;
+
+      const sideMap: Record<'L' | 'R' | 'both', { left: number; right: number }> = {
+        L:    { left: durationSec, right: 0 },
+        R:    { left: 0, right: durationSec },
+        both: { left: Math.floor(durationSec / 2), right: Math.ceil(durationSec / 2) },
+      };
+      const { left, right } = sideMap[manualSide];
+
+      const payload: Record<string, unknown> = {
+        session_type:  'breastfeed',
+        total_seconds: durationSec,
+        left_seconds:  left,
+        right_seconds: right,
+        switches:      0,
+        last_side:     manualSide === 'R' ? 'R' : 'L',
+        manual_entry:  true,
+      };
+      if (obsTags.length > 0) payload.tags = obsTags.join(',');
+      if (includeInReport)    payload.include_in_report = true;
+
+      const { error } = await supabase.from('routine_logs').insert({
+        child_id:   activeChildId,
+        author_id:  user.id,
+        type:       'feed',
+        start_time: startDate.toISOString(),
+        end_time:   endDate.toISOString(),
+        notes:      makePayloadNotes(payload, notes),
+      });
+      if (error) throw error;
+      toast({ title: '🤱 Amamentação registrada' });
+      navigate(-1);
+    } catch (e: unknown) {
+      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function handleBack() {
     // Sessions are background-persistent — navigating away never interrupts them.
     // Only the "ended" phase (unsaved review) needs a confirmation to prevent data loss.
-    if (phase === 'ended') {
+    if (phase === 'ended' || phase === 'manual') {
       setShowBackConfirm(true);
     } else {
       // session or suggest: just navigate back — session continues in background
@@ -479,18 +535,16 @@ export default function BreastfeedingScreen() {
               </button>
               <button
                 onClick={() => {
-                  // Manual log: open ended phase directly with 0-sec session
-                  const now = Date.now();
-                  sideTimesRef.current = { L: 0, R: 0 };
-                  activeSideRef.current = selectedSide;
-                  setSessionStartEpoch(now);
-                  setSwitchCount(0);
-                  setFinishedData({ totalSec: 0, leftSec: 0, rightSec: 0, switches: 0, start: new Date(now), end: new Date(now), lastSide: selectedSide });
-                  setPhase('ended');
+                  // Reset manual fields to current time
+                  const now = new Date();
+                  setManualStartTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+                  setManualDurationMin('');
+                  setManualSide('L');
+                  setPhase('manual');
                 }}
                 className="w-full py-2.5 text-[12px] font-semibold font-nunito text-center text-muted-foreground"
               >
-                Adicionar manualmente (sem cronômetro)
+                Registrar sem cronômetro
               </button>
             </div>
           </motion.div>
@@ -598,6 +652,135 @@ export default function BreastfeedingScreen() {
           </motion.div>
         )}
 
+        {/* ── MANUAL ────────────────────────────────────────────────── */}
+        {phase === 'manual' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            {/* Header */}
+            <div
+              className="flex items-center gap-3 p-4 rounded-2xl"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
+              }}
+            >
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
+              >
+                🤱
+              </div>
+              <div>
+                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">Registro manual</p>
+                <p className="text-[12px] font-nunito text-muted-foreground mt-0.5">Preencha os dados da mamada</p>
+              </div>
+            </div>
+
+            {/* Side selection */}
+            <div>
+              <SectionLabel>Qual lado?</SectionLabel>
+              <div className="flex gap-3">
+                {([
+                  { val: 'L',    label: 'Esquerdo', arrow: '←' },
+                  { val: 'R',    label: 'Direito',   arrow: '→' },
+                  { val: 'both', label: 'Ambos',     arrow: '⇄' },
+                ] as { val: 'L' | 'R' | 'both'; label: string; arrow: string }[]).map(opt => {
+                  const isActive = manualSide === opt.val;
+                  return (
+                    <button
+                      key={opt.val}
+                      onClick={() => setManualSide(opt.val)}
+                      className="flex-1 flex flex-col items-center gap-1.5 py-4 px-2 rounded-2xl font-bold transition-all active:scale-95 font-nunito"
+                      style={{
+                        backgroundColor: isActive
+                          ? `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))`
+                          : 'hsl(var(--card))',
+                        border: `2px solid ${isActive ? FEED_COLOR : 'hsl(var(--border))'}`,
+                      }}
+                    >
+                      <span
+                        className="text-[20px] font-bold"
+                        style={{ color: isActive ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
+                      >
+                        {opt.arrow}
+                      </span>
+                      <p
+                        className="text-[11px] font-bold"
+                        style={{ color: isActive ? FEED_COLOR : 'hsl(var(--foreground))' }}
+                      >
+                        {opt.label}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div>
+              <SectionLabel>Duração (minutos)</SectionLabel>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="120"
+                placeholder="ex: 15"
+                value={manualDurationMin}
+                onChange={e => setManualDurationMin(e.target.value)}
+                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
+                style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': FEED_COLOR } as React.CSSProperties}
+              />
+            </div>
+
+            {/* Start time */}
+            <div>
+              <SectionLabel>Horário de início</SectionLabel>
+              <input
+                type="time"
+                value={manualStartTime}
+                onChange={e => setManualStartTime(e.target.value)}
+                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
+                style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': FEED_COLOR } as React.CSSProperties}
+              />
+            </div>
+
+            <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
+
+            {/* Quick tags */}
+            <div>
+              <SectionLabel>Como foi a mamada?</SectionLabel>
+              <ChipGroup
+                options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
+                values={obsTags}
+                onToggle={id => setObsTags(p => p.includes(id) ? p.filter(t => t !== id) : [...p, id])}
+                accentColor={FEED_COLOR}
+                multiSelect
+              />
+            </div>
+
+            {/* Observations */}
+            <div>
+              <SectionLabel>Observações</SectionLabel>
+              <Textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Como foi a mamada? Alguma observação..."
+                className="ds-textarea"
+                rows={3}
+              />
+            </div>
+
+            <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
+
+            {/* Discard — tertiary */}
+            <button
+              onClick={() => setPhase('suggest')}
+              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
+            >
+              Cancelar
+            </button>
+          </motion.div>
+        )}
+
         {/* ── ENDED ─────────────────────────────────────────────────── */}
         {phase === 'ended' && finishedData && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -623,8 +806,8 @@ export default function BreastfeedingScreen() {
                 {finishedData.totalSec > 0 ? (
                   <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
                     {[
-                      finishedData.leftSec  > 0 ? `Esq: ${fmtDurationShort(finishedData.leftSec)}`  : null,
-                      finishedData.rightSec > 0 ? `Dir: ${fmtDurationShort(finishedData.rightSec)}` : null,
+                      finishedData.leftSec  > 0 ? `Esquerdo: ${fmtDurationShort(finishedData.leftSec)}`  : null,
+                      finishedData.rightSec > 0 ? `Direito: ${fmtDurationShort(finishedData.rightSec)}` : null,
                       finishedData.switches > 0 ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
                     ].filter(Boolean).join(' · ')}
                   </p>
@@ -677,7 +860,7 @@ export default function BreastfeedingScreen() {
         )}
       </div>
 
-      {/* DS Sticky CTA — only on suggest and ended phases */}
+      {/* DS Sticky CTA — only on suggest, manual and ended phases */}
       {phase === 'suggest' && (
         <StickyFooterCTA
           primaryLabel={`Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
@@ -686,9 +869,17 @@ export default function BreastfeedingScreen() {
           primaryDisabled={!activeChildId}
         />
       )}
+      {phase === 'manual' && (
+        <StickyFooterCTA
+          primaryLabel={saving ? 'Salvando...' : 'Registrar mamada'}
+          onPrimary={handleSaveManual}
+          primaryLoading={saving}
+          primaryColor={FEED_COLOR}
+        />
+      )}
       {phase === 'ended' && (
         <StickyFooterCTA
-          primaryLabel="Salvar mamada"
+          primaryLabel={saving ? 'Salvando...' : 'Salvar mamada'}
           onPrimary={handleSave}
           primaryLoading={saving}
           primaryColor={FEED_COLOR}

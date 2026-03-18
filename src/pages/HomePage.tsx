@@ -102,30 +102,31 @@ export default function HomePage() {
   const metricsNewborn = [
     {
       emoji: '🤱', label: 'Mamadas',
-      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '—',
+      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '0×',
       sub: insights.avgFeedIntervalMin
         ? `~${insights.avgFeedIntervalMin}min entre mamadas`
-        : feedCount > 0 ? 'hoje' : undefined,
+        : feedCount > 0 ? 'hoje' : 'Nenhuma mamada registrada hoje',
       empty: !logsLoading && feedCount === 0,
       color: FEED_COLOR,
     },
     {
       emoji: '🧷', label: 'Fraldas',
-      value: logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}×` : '—',
-      sub: diaperCount > 0 ? 'hoje' : undefined,
+      value: logsLoading ? '...' : `${diaperCount}×`,
+      sub: diaperCount > 0 ? 'hoje' : 'Nenhuma fralda registrada hoje',
       empty: !logsLoading && diaperCount === 0,
       color: DIAPER_COLOR,
     },
     {
       emoji: '😴', label: 'Sono',
-      value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '—'),
-      sub: insights.hasLongSleep ? 'Sono longo' : lastSleepSub,
+      value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '0h'),
+      sub: insights.hasLongSleep ? 'Sono longo' : (lastSleepSub ?? 'Nenhum sono registrado hoje'),
       empty: !logsLoading && !sleepLabel && !ongoingSleep,
       color: SLEEP_COLOR,
     },
     {
       emoji: '📅', label: 'Próx. consulta',
-      value: '—', empty: true,
+      value: 'Nenhuma', empty: true,
+      sub: 'Sem consulta agendada',
       color: 'hsl(var(--primary))',
     },
   ];
@@ -133,30 +134,31 @@ export default function HomePage() {
   const metricsOlder = [
     {
       emoji: '😴', label: 'Sono',
-      value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '—'),
-      sub: insights.hasLongSleep ? 'Sono longo' : lastSleepSub,
+      value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '0h'),
+      sub: insights.hasLongSleep ? 'Sono longo' : (lastSleepSub ?? 'Nenhum sono registrado hoje'),
       empty: !logsLoading && !sleepLabel && !ongoingSleep,
       color: SLEEP_COLOR,
     },
     {
       emoji: '🤱', label: 'Mamadas',
-      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '—',
+      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '0×',
       sub: insights.avgFeedIntervalMin
         ? `~${insights.avgFeedIntervalMin}min entre mamadas`
-        : feedCount > 0 ? 'hoje' : undefined,
+        : feedCount > 0 ? 'hoje' : 'Nenhuma mamada registrada hoje',
       empty: !logsLoading && feedCount === 0,
       color: FEED_COLOR,
     },
     {
       emoji: '🧷', label: 'Fraldas',
-      value: logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}×` : '—',
-      sub: diaperCount > 0 ? 'hoje' : undefined,
+      value: logsLoading ? '...' : `${diaperCount}×`,
+      sub: diaperCount > 0 ? 'hoje' : 'Nenhuma fralda registrada hoje',
       empty: !logsLoading && diaperCount === 0,
       color: DIAPER_COLOR,
     },
     {
       emoji: '📅', label: 'Próx. consulta',
-      value: '—', empty: true,
+      value: 'Nenhuma', empty: true,
+      sub: 'Sem consulta agendada',
       color: 'hsl(var(--primary))',
     },
   ];

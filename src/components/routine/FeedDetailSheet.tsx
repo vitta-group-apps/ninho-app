@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';

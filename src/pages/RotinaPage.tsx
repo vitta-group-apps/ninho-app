@@ -184,7 +184,8 @@ export default function RotinaPage() {
 
       {activeChild && (
         <FAB
-          onFeed={() => setFeedOpen(true)}
+          onBreastfeed={() => navigate('/breastfeeding')}
+          onBottle={() => navigate('/bottle')}
           onSleep={() => navigate('/sleep')}
           onDiaper={() => navigate('/diaper/new')}
         />

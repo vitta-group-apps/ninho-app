@@ -41,12 +41,15 @@ function DailyStats({ logs }: { logs: RoutineLog[] }) {
 }
 
 // ─── FAB ───────────────────────────────────────────────────────────────────
-function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () => void; onDiaper: () => void }) {
+function FAB({ onBreastfeed, onBottle, onSleep, onDiaper }: {
+  onBreastfeed: () => void; onBottle: () => void; onSleep: () => void; onDiaper: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const actions = [
-    { emoji: '🤱', label: 'Amamentar', onClick: onFeed,   color: 'hsl(152,15%,55%)' },
-    { emoji: '😴', label: 'Sono',      onClick: onSleep,  color: 'hsl(270,12%,52%)' },
-    { emoji: '🧷', label: 'Fralda',    onClick: onDiaper, color: 'hsl(32,80%,57%)' },
+    { emoji: '🤱', label: 'Amamentar', onClick: onBreastfeed, color: 'hsl(152,15%,55%)' },
+    { emoji: '🍼', label: 'Mamadeira',  onClick: onBottle,     color: 'hsl(200,40%,50%)' },
+    { emoji: '😴', label: 'Sono',       onClick: onSleep,      color: 'hsl(270,12%,52%)' },
+    { emoji: '🧷', label: 'Fralda',     onClick: onDiaper,     color: 'hsl(32,80%,57%)' },
   ];
   return (
     <>

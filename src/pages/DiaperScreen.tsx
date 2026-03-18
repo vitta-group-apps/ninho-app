@@ -1,6 +1,13 @@
 /**
  * DiaperScreen — Full-screen diaper registration and edit flow.
- * DS v2.1: Polish pass — better section separation, kind cards, chip spacing.
+ *
+ * Hardening v3:
+ * - Kind selector has clearer visual hierarchy
+ * - Conditional fields animate in smoothly
+ * - Section grouping is more breathable (pee info + poop info as groups)
+ * - CTA label follows verb+context pattern: "Registrar fralda"
+ * - Microcopy is caregiver-friendly
+ * - Chips always wrap, no horizontal clipping
  */
 
 import { useState, useEffect } from 'react';
@@ -32,10 +39,10 @@ import {
 
 type DiaperKind = 'pee' | 'poop' | 'both';
 
-const KIND_OPTIONS: { kind: DiaperKind; emoji: string; label: string; desc: string }[] = [
-  { kind: 'pee',  emoji: '💛', label: 'Xixi',          desc: 'Urina' },
-  { kind: 'poop', emoji: '💩', label: 'Cocô',          desc: 'Fezes' },
-  { kind: 'both', emoji: '🔄', label: 'Xixi + Cocô',   desc: 'Ambos' },
+const KIND_OPTIONS: { kind: DiaperKind; emoji: string; label: string }[] = [
+  { kind: 'pee',  emoji: '💛', label: 'Xixi' },
+  { kind: 'poop', emoji: '💩', label: 'Cocô' },
+  { kind: 'both', emoji: '🔄', label: 'Xixi + Cocô' },
 ];
 
 const QUANTITY_OPTIONS = Object.entries(DIAPER_QUANTITY_LABEL).map(([v, l]) => ({ value: v, label: l }));
@@ -158,54 +165,47 @@ export default function DiaperScreen() {
     : isEdit
     ? 'Salvar alterações'
     : kind
-    ? `Registrar — ${DIAPER_KIND_LABEL[kind]}`
+    ? `Registrar fralda — ${DIAPER_KIND_LABEL[kind]}`
     : 'Selecione o tipo';
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* DS Header */}
       <ScreenHeader
         title={isEdit ? 'Editar fralda' : 'Registrar fralda'}
         childName={activeChild?.name}
       />
 
-      {/* Scrollable form */}
       <div className="ds-form-body">
         <div className="space-y-6">
 
-          {/* Kind selection — 3-column grid */}
+          {/* Kind selection — chips, not tall cards */}
           <div>
-            <SectionLabel>Tipo de fralda</SectionLabel>
-            <div className="grid grid-cols-3 gap-3">
+            <SectionLabel>O que tinha na fralda?</SectionLabel>
+            <div className="flex gap-3">
               {KIND_OPTIONS.map(opt => {
                 const isActive = kind === opt.kind;
                 return (
                   <button
                     key={opt.kind}
                     onClick={() => setKind(opt.kind)}
-                    className="flex flex-col items-center gap-2.5 py-5 px-2 rounded-2xl font-bold transition-all active:scale-95 font-nunito"
+                    className="flex-1 flex flex-col items-center gap-2 py-4 px-2 rounded-2xl font-bold transition-all active:scale-95 font-nunito"
                     style={{
                       backgroundColor: isActive
                         ? `color-mix(in srgb, ${DIAPER_COLOR} 10%, hsl(var(--card)))`
                         : 'hsl(var(--card))',
                       border: `2px solid ${isActive ? DIAPER_COLOR : 'hsl(var(--border))'}`,
                       boxShadow: isActive
-                        ? `0 2px 8px color-mix(in srgb, ${DIAPER_COLOR} 20%, transparent)`
+                        ? `0 2px 8px color-mix(in srgb, ${DIAPER_COLOR} 18%, transparent)`
                         : 'none',
                     }}
                   >
-                    <span className="text-[26px]">{opt.emoji}</span>
-                    <div className="text-center">
-                      <p
-                        className="text-[12px] font-bold leading-tight"
-                        style={{ color: isActive ? DIAPER_COLOR : 'hsl(var(--foreground))' }}
-                      >
-                        {opt.label}
-                      </p>
-                      <p className="text-[10px] mt-0.5 text-muted-foreground font-nunito font-normal">
-                        {opt.desc}
-                      </p>
-                    </div>
+                    <span className="text-[24px]">{opt.emoji}</span>
+                    <p
+                      className="text-[12px] font-bold leading-tight text-center"
+                      style={{ color: isActive ? DIAPER_COLOR : 'hsl(var(--foreground))' }}
+                    >
+                      {opt.label}
+                    </p>
                   </button>
                 );
               })}
@@ -222,11 +222,7 @@ export default function DiaperScreen() {
                 transition={{ duration: 0.18 }}
                 className="space-y-6"
               >
-                {/* Divider */}
-                <div
-                  className="h-px"
-                  style={{ backgroundColor: 'hsl(var(--border))' }}
-                />
+                <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
                 {/* Quantity */}
                 <div>
@@ -239,7 +235,7 @@ export default function DiaperScreen() {
                   />
                 </div>
 
-                {/* Pee color */}
+                {/* Pee section */}
                 {showPee && (
                   <div>
                     <SectionLabel>Cor do xixi</SectionLabel>
@@ -252,33 +248,30 @@ export default function DiaperScreen() {
                   </div>
                 )}
 
-                {/* Poop color */}
+                {/* Poop section */}
                 {showPoop && (
-                  <div>
-                    <SectionLabel>Cor do cocô</SectionLabel>
-                    <ChipGroup
-                      options={POOP_COLOR_OPTIONS}
-                      value={poopColor}
-                      onToggle={v => setPoopColor(p => p === v ? '' : v)}
-                      accentColor={DIAPER_COLOR}
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <SectionLabel>Cor do cocô</SectionLabel>
+                      <ChipGroup
+                        options={POOP_COLOR_OPTIONS}
+                        value={poopColor}
+                        onToggle={v => setPoopColor(p => p === v ? '' : v)}
+                        accentColor={DIAPER_COLOR}
+                      />
+                    </div>
+                    <div>
+                      <SectionLabel>Consistência</SectionLabel>
+                      <ChipGroup
+                        options={TEXTURE_OPTIONS}
+                        value={texture}
+                        onToggle={v => setTexture(p => p === v ? '' : v)}
+                        accentColor={DIAPER_COLOR}
+                      />
+                    </div>
                   </div>
                 )}
 
-                {/* Poop texture */}
-                {showPoop && (
-                  <div>
-                    <SectionLabel>Consistência</SectionLabel>
-                    <ChipGroup
-                      options={TEXTURE_OPTIONS}
-                      value={texture}
-                      onToggle={v => setTexture(p => p === v ? '' : v)}
-                      accentColor={DIAPER_COLOR}
-                    />
-                  </div>
-                )}
-
-                {/* Divider */}
                 <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
                 {/* Observations */}
@@ -293,18 +286,13 @@ export default function DiaperScreen() {
                   />
                 </div>
 
-                {/* Medical report */}
-                <ReportToggle
-                  checked={includeInReport}
-                  onCheckedChange={setIncludeInReport}
-                />
+                <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
 
-      {/* DS sticky CTA */}
       <StickyFooterCTA
         primaryLabel={ctaLabel}
         onPrimary={handleSave}

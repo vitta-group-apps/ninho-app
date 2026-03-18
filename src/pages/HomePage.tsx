@@ -1,37 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import {
-  BeakerIcon, MoonIcon, ShieldCheckIcon, CalendarIcon, ExclamationCircleIcon,
-} from '@heroicons/react/24/outline';
+import { MoonIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { ChildSwitcher } from '@/components/home/ChildSwitcher';
 import { FeedSheet, SleepSheet, DiaperSheet } from '@/components/home/QuickLogSheets';
-import { parsePayload } from '@/lib/routineUtils';
+import { parsePayload, fmtRangeDuration } from '@/lib/routineUtils';
 import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
 import { DiaperDetailSheet } from '@/components/routine/DiaperDetailSheet';
 import { EventCard } from '@/components/events/EventCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { RoutineLog } from '@/lib/eventSystem';
 
-// ─── Helper ────────────────────────────────────────────────────────────────
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-}
-
 // ─── Summary Card ──────────────────────────────────────────────────────────
 interface SummaryCardProps {
-  icon: React.ReactNode; label: string; value: string; sub?: string; empty?: boolean; color: string;
+  emoji: string; label: string; value: string; sub?: string; empty?: boolean; color: string;
 }
-function SummaryCard({ icon, label, value, sub, empty, color }: SummaryCardProps) {
+function SummaryCard({ emoji, label, value, sub, empty, color }: SummaryCardProps) {
   return (
     <div className="flex-1 min-w-0 rounded-2xl p-4 flex flex-col gap-2"
       style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
-        <span style={{ color }}>{icon}</span>
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg"
+        style={{ backgroundColor: `${color}20` }}>
+        {emoji}
       </div>
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wide"
@@ -65,13 +56,11 @@ export default function HomePage() {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
-  const [nextVaccine, setNextVaccine] = useState<{ name: string } | null | undefined>(undefined);
 
   const [feedOpen, setFeedOpen] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [diaperOpen, setDiaperOpen] = useState(false);
 
-  // Detail state — one selected log + which kind of sheet to open
   const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
   const [detailKind, setDetailKind] = useState<'breastfeed' | 'diaper' | null>(null);
 
@@ -89,20 +78,7 @@ export default function HomePage() {
     finally { setLogsLoading(false); }
   }, [activeChild]);
 
-  const loadNextVaccine = useCallback(async () => {
-    if (!activeChild) return;
-    try {
-      const { data } = await supabase.from('child_vaccines').select('vaccine_id')
-        .eq('child_id', activeChild.id).eq('status', 'pending')
-        .order('created_at', { ascending: true }).limit(1);
-      if (data && data.length > 0) {
-        const { data: vac } = await supabase.from('vaccines_catalog').select('name').eq('id', data[0].vaccine_id).maybeSingle();
-        setNextVaccine(vac ? { name: vac.name } : null);
-      } else { setNextVaccine(null); }
-    } catch { setNextVaccine(null); }
-  }, [activeChild]);
-
-  useEffect(() => { loadLogs(); loadNextVaccine(); }, [loadLogs, loadNextVaccine]);
+  useEffect(() => { loadLogs(); }, [loadLogs]);
 
   function handleTap(log: RoutineLog) {
     const p = parsePayload(log.notes);
@@ -115,13 +91,33 @@ export default function HomePage() {
 
   function closeDetail() { setDetailLog(null); setDetailKind(null); }
 
-  const lastFeed = logs.find(l => l.type === 'feed');
+  // ─── Derived daily stats ───────────────────────────────────────────────
+  const feedCount   = logs.filter(l => l.type === 'feed').length;
+  const diaperCount = logs.filter(l => l.type === 'diaper').length;
+  const sleepLogs   = logs.filter(l => l.type === 'sleep' && l.end_time);
+  const sleepSec    = sleepLogs.reduce((acc, l) => {
+    return acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000);
+  }, 0);
+  const sleepH = Math.floor(sleepSec / 3600);
+  const sleepM = Math.floor((sleepSec % 3600) / 60);
+  const sleepLabel = sleepSec > 0 ? (sleepH > 0 ? `${sleepH}h ${sleepM}m` : `${sleepM}m`) : null;
+
   const lastSleep = logs.find(l => l.type === 'sleep');
+  const ongoingSleep = logs.find(l => l.type === 'sleep' && !l.end_time);
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-  const sageHex = 'hsl(152,15%,55%)';
-  const mauveHex = 'hsl(270,12%,52%)';
+
+  const sageHex   = 'hsl(152,15%,55%)';
+  const mauveHex  = 'hsl(270,12%,52%)';
   const orangeHex = 'hsl(32,80%,57%)';
+
+  // Last sleep duration string
+  const lastSleepSub = ongoingSleep
+    ? 'em andamento'
+    : lastSleep?.end_time
+    ? `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`
+    : undefined;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
@@ -153,20 +149,28 @@ export default function HomePage() {
         </div>
       ) : (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="px-5 pt-5 pb-8 space-y-5">
-          {/* Summary cards */}
+
+          {/* Summary cards — real data */}
           <div>
             <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Resumo do dia</p>
             <div className="grid grid-cols-2 gap-3">
-              <SummaryCard icon={<BeakerIcon className="w-4 h-4" />} label="Última mamada" color={sageHex}
-                value={lastFeed ? fmtTime(lastFeed.start_time) : 'Nenhuma'}
-                sub={lastFeed ? fmtDate(lastFeed.start_time) : undefined} empty={!lastFeed} />
-              <SummaryCard icon={<MoonIcon className="w-4 h-4" />} label="Último sono" color={mauveHex}
-                value={lastSleep ? fmtTime(lastSleep.start_time) : 'Nenhum'}
-                sub={lastSleep ? lastSleep.end_time ? `até ${fmtTime(lastSleep.end_time)}` : 'em andamento' : undefined}
-                empty={!lastSleep} />
-              <SummaryCard icon={<ShieldCheckIcon className="w-4 h-4" />} label="Próxima vacina" color={orangeHex}
-                value={nextVaccine === undefined ? '...' : nextVaccine?.name ?? 'Nenhuma agendada'} empty={!nextVaccine} />
-              <SummaryCard icon={<CalendarIcon className="w-4 h-4" />} label="Próxima consulta" color="#9B6B9B"
+              <SummaryCard emoji="🤱" label="Mamadas" color={sageHex}
+                value={logsLoading ? '...' : feedCount > 0 ? `${feedCount}x` : 'Nenhuma'}
+                sub={feedCount > 0 ? `hoje` : undefined}
+                empty={!logsLoading && feedCount === 0} />
+              <SummaryCard emoji="🧷" label="Fraldas" color={orangeHex}
+                value={logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}x` : 'Nenhuma'}
+                sub={diaperCount > 0 ? 'hoje' : undefined}
+                empty={!logsLoading && diaperCount === 0} />
+              <SummaryCard
+                emoji="😴"
+                label="Sono"
+                color={mauveHex}
+                value={logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : 'Nenhum')}
+                sub={lastSleepSub}
+                empty={!logsLoading && !sleepLabel && !ongoingSleep}
+              />
+              <SummaryCard emoji="📅" label="Próxima consulta" color="#9B6B9B"
                 value="Nenhuma agendada" empty />
             </div>
           </div>
@@ -175,9 +179,9 @@ export default function HomePage() {
           <div>
             <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}>Registrar agora</p>
             <div className="flex gap-3">
-              <QuickAction emoji="🍼" label="Mamada" onClick={() => setFeedOpen(true)} color={sageHex} />
+              <QuickAction emoji="🤱" label="Mamada" onClick={() => setFeedOpen(true)} color={sageHex} />
               <QuickAction emoji="😴" label="Sono" onClick={() => setSleepOpen(true)} color={mauveHex} />
-              <QuickAction emoji="🧷" label="Troca" onClick={() => setDiaperOpen(true)} color={orangeHex} />
+              <QuickAction emoji="🧷" label="Fralda" onClick={() => setDiaperOpen(true)} color={orangeHex} />
             </div>
           </div>
 
@@ -192,7 +196,7 @@ export default function HomePage() {
               </div>
             )}
             {logsLoading ? (
-              <div className="space-y-2">{[0,1,2].map(i => <Skeleton key={i} className="h-14 rounded-2xl" />)}</div>
+              <div className="space-y-2">{[0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}</div>
             ) : logs.length === 0 ? (
               <div className="rounded-2xl px-5 py-8 text-center"
                 style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>

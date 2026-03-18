@@ -73,7 +73,7 @@ function ChipRow({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'hsl(var(--border))' }}>
+    <div className="flex items-center justify-between py-2.5 border-b last:border-0" style={{ borderColor: 'hsl(var(--border))' }}>
       <span className="text-xs font-semibold" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>{label}</span>
       <span className="text-sm font-bold" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: font }}>{value}</span>
     </div>
@@ -95,7 +95,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
   const [editMode, setEditMode] = useState(false);
   const [saving,   setSaving]   = useState(false);
 
-  // Edit fields
   const [quantity,        setQuantity]        = useState('');
   const [peeColor,        setPeeColor]        = useState('');
   const [poopColor,       setPoopColor]       = useState('');
@@ -103,7 +102,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
   const [notes,           setNotes]           = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
-  // Initialise from log on open
   useEffect(() => {
     if (open && log) {
       setEditMode(false);
@@ -120,11 +118,12 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
   if (!log) return null;
 
   const p    = parsePayload(log.notes);
+  // Support both `kind` (new) and `diaper_type` (legacy) field names
   const kind = String(p.kind ?? p.diaper_type ?? '');
   const showPee  = kind === 'pee'  || kind === 'both';
   const showPoop = kind === 'poop' || kind === 'both';
 
-  const kindLabel     = DIAPER_KIND_LABEL[kind] ?? 'Troca';
+  const kindLabel     = DIAPER_KIND_LABEL[kind] ?? 'Fralda';
   const isSignificant = isDiaperSignificant(p);
 
   // ─── Save ──────────────────────────────────────────────────────────────
@@ -161,8 +160,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
     }
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────
-
   const userNote = getUserNotes(log.notes);
 
   return (
@@ -177,17 +174,17 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
           {/* Header row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl"
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl"
                 style={{ backgroundColor: 'hsl(32,80%,57%,0.12)' }}>
                 🧷
               </div>
               <div>
                 <p className="text-base font-bold leading-tight"
                   style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-                  Troca
+                  Fralda
                 </p>
-                <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-                  {fmtTime(log.start_time)}
+                <p className="text-xs font-semibold" style={{ color: ORANGE, fontFamily: font }}>
+                  {kindLabel} · {fmtTime(log.start_time)}
                 </p>
               </div>
             </div>
@@ -204,7 +201,7 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
           </div>
 
           {/* Significance note — informational only, no diagnosis */}
-          {isSignificant && (
+          {isSignificant && !editMode && (
             <div className="px-4 py-3 rounded-2xl" style={{ backgroundColor: 'hsl(var(--muted))' }}>
               <p className="text-xs font-semibold" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
                 ℹ️ Esta troca tem informações que podem ser úteis em uma consulta médica.
@@ -216,18 +213,27 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
           {!editMode && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-0">
               <DetailRow label="Tipo" value={kindLabel} />
-              {p.quantity     && <DetailRow label="Quantidade"     value={DIAPER_QUANTITY_LABEL[String(p.quantity)]    ?? String(p.quantity)} />}
-              {p.pee_color    && <DetailRow label="Cor do xixi"    value={DIAPER_PEE_COLOR_LABEL[String(p.pee_color)]  ?? String(p.pee_color)} />}
-              {p.poop_color   && <DetailRow label="Cor do cocô"    value={DIAPER_POOP_COLOR_LABEL[String(p.poop_color)] ?? String(p.poop_color)} />}
-              {p.poop_texture && <DetailRow label="Consistência"   value={DIAPER_TEXTURE_LABEL[String(p.poop_texture)] ?? String(p.poop_texture)} />}
+              {p.quantity     && <DetailRow label="Quantidade"   value={DIAPER_QUANTITY_LABEL[String(p.quantity)]    ?? String(p.quantity)} />}
+              {p.pee_color    && <DetailRow label="Cor do xixi"  value={DIAPER_PEE_COLOR_LABEL[String(p.pee_color)]  ?? String(p.pee_color)} />}
+              {p.poop_color   && <DetailRow label="Cor do cocô"  value={DIAPER_POOP_COLOR_LABEL[String(p.poop_color)] ?? String(p.poop_color)} />}
+              {p.poop_texture && <DetailRow label="Consistência" value={DIAPER_TEXTURE_LABEL[String(p.poop_texture)] ?? String(p.poop_texture)} />}
               {p.include_in_report && <DetailRow label="Relatório médico" value="Incluído ✓" />}
               {userNote && (
                 <div className="pt-3">
-                  <p className="text-xs font-semibold mb-1" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+                  <p className="text-xs font-semibold mb-1.5" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
                     Observações
                   </p>
                   <p className="text-sm" style={{ color: 'hsl(var(--ninho-brown))', fontFamily: font }}>
                     {userNote}
+                  </p>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!p.quantity && !p.pee_color && !p.poop_color && !p.poop_texture && !userNote && !p.include_in_report && (
+                <div className="py-4 text-center">
+                  <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+                    Sem detalhes adicionados. Toque em Editar para enriquecer este registro.
                   </p>
                 </div>
               )}
@@ -238,13 +244,11 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
           {editMode && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
 
-              {/* Quantity */}
               <div className="space-y-2">
                 <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Quantidade</Label>
                 <ChipRow options={QUANTITY_OPTIONS} value={quantity} onToggle={v => setQuantity(prev => prev === v ? '' : v)} />
               </div>
 
-              {/* Pee color */}
               {showPee && (
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Cor do xixi</Label>
@@ -252,7 +256,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
                 </div>
               )}
 
-              {/* Poop color */}
               {showPoop && (
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Cor do cocô</Label>
@@ -260,7 +263,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
                 </div>
               )}
 
-              {/* Poop texture */}
               {showPoop && (
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Consistência</Label>
@@ -268,7 +270,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
                 </div>
               )}
 
-              {/* Note */}
               <div className="space-y-2">
                 <Label className="text-xs font-semibold" style={{ color: 'hsl(var(--ninho-brown))' }}>Observações (opcional)</Label>
                 <Textarea
@@ -280,7 +281,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
                 />
               </div>
 
-              {/* Report toggle */}
               <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
                 style={{ backgroundColor: 'hsl(var(--muted))' }}>
                 <div>
@@ -294,7 +294,6 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
                 <Switch checked={includeInReport} onCheckedChange={setIncludeInReport} />
               </div>
 
-              {/* Action row */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setEditMode(false)}

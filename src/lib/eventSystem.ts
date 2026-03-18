@@ -53,8 +53,8 @@ export interface EventPresentation {
 // ─── Diaper label dictionaries ─────────────────────────────────────────────
 
 export const DIAPER_KIND_LABEL: Record<string, string> = {
-  pee:  'Xixi 💛',
-  poop: 'Cocô 💩',
+  pee:  'Xixi',
+  poop: 'Cocô',
   both: 'Xixi + Cocô',
 };
 
@@ -113,13 +113,22 @@ export function isDiaperSignificant(p: Record<string, string | number>): boolean
 // ─── Diaper summary builders ───────────────────────────────────────────────
 
 export function buildDiaperSummary(p: Record<string, string | number>): string {
-  const kind = p.kind ?? p.diaper_type ?? '';
-  const kindLabel: Record<string, string> = { pee: 'Xixi', poop: 'Cocô', both: 'Xixi + Cocô' };
-  const base = kindLabel[String(kind)] ?? 'Troca';
+  const kind = String(p.kind ?? p.diaper_type ?? '');
+  const base = DIAPER_KIND_LABEL[kind] ?? 'Fralda';
 
   const parts: string[] = [base];
-  const qty = DIAPER_QUANTITY_LABEL[String(p.quantity ?? '')];
-  if (qty) parts.push(qty);
+
+  // Add most meaningful detail — prioritise texture for poop, then color, then quantity
+  const texture   = DIAPER_TEXTURE_LABEL[String(p.poop_texture ?? '')];
+  const poopColor = DIAPER_POOP_COLOR_LABEL[String(p.poop_color ?? '')];
+  const peeColor  = DIAPER_PEE_COLOR_LABEL[String(p.pee_color ?? '')];
+  const qty       = DIAPER_QUANTITY_LABEL[String(p.quantity ?? '')];
+
+  if (texture)   parts.push(texture);
+  else if (poopColor) parts.push(poopColor);
+  else if (peeColor)  parts.push(peeColor);
+  else if (qty)       parts.push(qty);
+
   return parts.join(' · ');
 }
 
@@ -210,10 +219,9 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
     // ── DIAPER ────────────────────────────────────────────────────────────
     case 'diaper': {
       const summary = buildDiaperSummary(p);
-      const detail  = buildDiaperDetail(p);
-      const obsPreview = detail ?? (userNotes ? `💬 ${userNotes.slice(0, 40)}` : null);
+      const obsPreview = userNotes ? `💬 ${userNotes.slice(0, 40)}` : null;
       return {
-        title: 'Troca',
+        title: 'Fralda',
         emoji: '🧷',
         color: 'hsl(32,80%,57%)',
         bgColor: 'hsl(32,80%,57%,0.12)',

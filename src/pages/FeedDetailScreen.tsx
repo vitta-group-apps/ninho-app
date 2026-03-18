@@ -1,15 +1,19 @@
 /**
- * FeedDetailScreen — Full-screen read/edit view for a breastfeeding session.
+ * FeedDetailScreen — READ-ONLY detail view for a breastfeeding session.
  *
  * Route: /feed/detail/:logId
- * Replaces the FeedDetailSheet modal — all editing via full-screen now.
- * 
- * Edit rule: inline editing, no modals. Explicit "Salvar alterações" CTA.
+ *
+ * UX Rule (global):
+ *   - Opens in READ mode: displays data, NO editable inputs
+ *   - "Editar" CTA → toggles to EDIT mode in same screen
+ *   - In edit mode: "Salvar alterações" is the only primary CTA
+ *
+ * DS: ScreenHeader · SectionLabel · ChipGroup · ReportToggle · StickyFooterCTA
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -33,6 +37,25 @@ const QUICK_TAGS = [
   { value: 'rejeitou_lado', label: '↩️ Rejeitou lado' },
 ];
 
+const TAG_LABEL: Record<string, string> = {
+  mamou_bem: 'Mamou bem', inquieto: 'Inquieto', dormiu: 'Dormiu durante',
+  pega_boa: 'Pega boa', rejeitou_lado: 'Rejeitou lado',
+};
+
+// ─── Read-only row ─────────────────────────────────────────────────────────
+
+function DetailRow({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0">
+      <p className="text-[13px] text-muted-foreground font-nunito flex-shrink-0">{label}</p>
+      <p className="text-[13px] font-semibold font-nunito text-foreground text-right">{value}</p>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function FeedDetailScreen() {
   const navigate = useNavigate();
   const { logId } = useParams<{ logId: string }>();
@@ -40,6 +63,7 @@ export default function FeedDetailScreen() {
   const [log, setLog] = useState<RoutineLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Editable fields
   const [tags, setTags] = useState<string[]>([]);
@@ -83,7 +107,10 @@ export default function FeedDetailScreen() {
 
       if (error) throw error;
       toast({ title: '✓ Alterações salvas' });
-      navigate(-1);
+      setIsEditing(false);
+      // Refresh log
+      const { data } = await supabase.from('routine_logs').select('*').eq('id', log.id).maybeSingle();
+      if (data) setLog(data);
     } catch (e: unknown) {
       toast({
         title: 'Erro ao salvar',
@@ -120,19 +147,29 @@ export default function FeedDetailScreen() {
   const rightSec = Number(p.right_seconds ?? 0);
   const switches = Number(p.switches ?? 0);
   const endTime = log.end_time ? fmtTime(log.end_time) : null;
+  const tagLabels = tags.map(t => TAG_LABEL[t] ?? t).join(', ');
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <ScreenHeader title="Amamentação" onBack={() => navigate(-1)} />
+      <ScreenHeader
+        title="Amamentação"
+        onBack={() => {
+          if (isEditing) {
+            setIsEditing(false);
+          } else {
+            navigate(-1);
+          }
+        }}
+      />
 
       <div className="ds-form-body">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="space-y-6"
+          className="space-y-5"
         >
-          {/* Summary card */}
+          {/* ── Summary card — always visible ────────────────────────────── */}
           <div
             className="p-4 rounded-2xl"
             style={{
@@ -198,42 +235,97 @@ export default function FeedDetailScreen() {
             )}
           </div>
 
-          {/* Tags */}
-          <div>
-            <SectionLabel>Como foi a mamada?</SectionLabel>
-            <ChipGroup
-              options={QUICK_TAGS}
-              values={tags}
-              onToggle={id => setTags(p => p.includes(id) ? p.filter(t => t !== id) : [...p, id])}
-              accentColor={FEED_COLOR}
-              multiSelect
-            />
-          </div>
+          {/* ── READ MODE ─────────────────────────────────────────────────── */}
+          <AnimatePresence mode="wait">
+            {!isEditing ? (
+              <motion.div
+                key="read"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <div
+                  className="rounded-2xl px-4 overflow-hidden"
+                  style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                >
+                  <DetailRow label="Como foi" value={tagLabels || null} />
+                  <DetailRow label="Observações" value={notes || null} />
+                  <DetailRow label="Relatório médico" value={includeInReport ? 'Incluído' : null} />
+                </div>
 
-          <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
+                {!tagLabels && !notes && !includeInReport && (
+                  <p className="text-center text-[13px] text-muted-foreground font-nunito py-4">
+                    Nenhuma informação adicional registrada.
+                  </p>
+                )}
+              </motion.div>
+            ) : (
+              /* ── EDIT MODE ──────────────────────────────────────────────── */
+              <motion.div
+                key="edit"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="space-y-6"
+              >
+                <div>
+                  <SectionLabel>Como foi a mamada?</SectionLabel>
+                  <ChipGroup
+                    options={QUICK_TAGS}
+                    values={tags}
+                    onToggle={id => setTags(p => p.includes(id) ? p.filter(t => t !== id) : [...p, id])}
+                    accentColor={FEED_COLOR}
+                    multiSelect
+                  />
+                </div>
 
-          {/* Notes */}
-          <div>
-            <SectionLabel>Observações</SectionLabel>
-            <Textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Como foi a mamada? Alguma observação..."
-              className="ds-textarea"
-              rows={3}
-            />
-          </div>
+                <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
-          <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
+                <div>
+                  <SectionLabel>Observações</SectionLabel>
+                  <Textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Como foi a mamada? Alguma observação..."
+                    className="ds-textarea"
+                    rows={3}
+                  />
+                </div>
+
+                <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
 
-      <StickyFooterCTA
-        primaryLabel={saving ? 'Salvando...' : 'Salvar alterações'}
-        onPrimary={handleSave}
-        primaryLoading={saving}
-        primaryColor={FEED_COLOR}
-      />
+      {/* CTA: READ → "Editar" | EDIT → "Salvar alterações" */}
+      {!isEditing ? (
+        <StickyFooterCTA
+          primaryLabel="Editar"
+          onPrimary={() => setIsEditing(true)}
+          primaryColor={FEED_COLOR}
+        />
+      ) : (
+        <StickyFooterCTA
+          primaryLabel={saving ? 'Salvando...' : 'Salvar alterações'}
+          onPrimary={handleSave}
+          primaryLoading={saving}
+          primaryColor={FEED_COLOR}
+          secondaryLabel="Cancelar"
+          onSecondary={() => {
+            if (log) {
+              const pp = parsePayload(log.notes);
+              setTags(String(pp.tags ?? '').split(',').filter(Boolean));
+              setNotes(getUserNotes(log.notes) ?? '');
+              setIncludeInReport(Boolean(pp.include_in_report));
+            }
+            setIsEditing(false);
+          }}
+        />
+      )}
     </div>
   );
 }

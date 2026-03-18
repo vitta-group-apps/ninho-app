@@ -23,6 +23,7 @@ import SleepDetailScreen from '@/pages/SleepDetailScreen';
 import FeedDetailScreen from '@/pages/FeedDetailScreen';
 import BreastfeedingScreen from '@/pages/BreastfeedingScreen';
 import BottleScreen from '@/pages/BottleScreen';
+import BottleDetailScreen from '@/pages/BottleDetailScreen';
 import { ResetPasswordPage } from '@/pages/ResetPassword';
 import NotFound from '@/pages/NotFound';
 

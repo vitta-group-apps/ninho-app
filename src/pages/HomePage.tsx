@@ -1,12 +1,12 @@
 /**
- * HomePage — Ninho DS v2 home screen.
+ * HomePage — Ninho assistant home screen.
  *
  * Responsibility: context-first, summary-first, action-first, lightweight.
- * - NO search or filters here (those live in Rotina)
- * - NO heavy timeline duplication
- * - "Hoje" area is a concise preview only (max ~5 events, no grouping)
+ * - Summary cards show dominant value + contextual line
+ * - Assistant strip shows genuinely useful guidance — never contradictory
+ * - Empty states are distinct and helpful, not passive
+ * - "Hoje" is a concise preview only (max 5 events)
  * - Quick actions are data-driven via config/quickActions.ts (locked at 4)
- * - Summary cards are age-adapted
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -33,8 +33,34 @@ export default function HomePage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
 
+  // ─── Load logs ─────────────────────────────────────────────────────────────
+  const loadLogs = useCallback(async () => {
+    if (!activeChild) return;
+    setLogsLoading(true);
+    setLogsError(null);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
+        .from('routine_logs')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .gte('start_time', today.toISOString())
+        .order('start_time', { ascending: false });
+      if (error) throw error;
+      setLogs(data ?? []);
+    } catch {
+      setLogsError('Não foi possível carregar os eventos de hoje.');
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [activeChild]);
+
+  useEffect(() => { loadLogs(); }, [loadLogs]);
+
   // ─── Daily stats ───────────────────────────────────────────────────────────
-  const feedCount = logs.filter(l => l.type === 'feed').length;
+  const feedLogs = logs.filter(l => l.type === 'feed');
+  const feedCount = feedLogs.length;
   const diaperCount = logs.filter(l => l.type === 'diaper').length;
   const sleepLogs = logs.filter(l => l.type === 'sleep' && l.end_time);
   const sleepSec = sleepLogs.reduce((acc, l) => {
@@ -44,12 +70,8 @@ export default function HomePage() {
   const sleepM = Math.floor((sleepSec % 3600) / 60);
   const sleepLabel = sleepSec > 0 ? (sleepH > 0 ? `${sleepH}h ${sleepM}m` : `${sleepM}m`) : null;
   const ongoingSleep = logs.find(l => l.type === 'sleep' && !l.end_time);
-  const lastSleep = logs.find(l => l.type === 'sleep');
-  const lastSleepSub = ongoingSleep
-    ? 'em andamento'
-    : lastSleep?.end_time
-      ? `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`
-      : undefined;
+  const lastSleep = [...logs].reverse().find(l => l.type === 'sleep');
+  const lastFeed = feedLogs[0]; // newest first
 
   // ─── Age context + intelligence ────────────────────────────────────────────
   const ageCtx = activeChild ? getAgeContext(activeChild.birth_date) : null;
@@ -63,70 +85,101 @@ export default function HomePage() {
     weekday: 'long', day: 'numeric', month: 'long',
   });
 
-  // ─── Contextual next-action suggestion ─────────────────────────────────────
-  // Only shown when there's genuinely useful guidance — not as noise
-  const nextActionSuggestion = (() => {
+  // ─── Assistant guidance strip ───────────────────────────────────────────────
+  // Shows ONE clear next-step message. Never shown when it would contradict visible data.
+  const assistantMessage = (() => {
     if (logsLoading || !activeChild) return null;
 
-    // If there's an active sleep session, don't suggest anything else
-    if (ongoingSleep) return null;
+    // Active session takes priority
+    if (ongoingSleep) {
+      return { emoji: '😴', text: 'Sono em andamento', path: '/sleep', cta: 'Ver sono' };
+    }
 
-    const lastFeed = logs.find(l => l.type === 'feed');
+    // Time since last feed — only surface if meaningfully overdue
     if (lastFeed && ageCtx?.idealFeedIntervalMin) {
       const minSinceLastFeed = Math.floor(
         (Date.now() - new Date(lastFeed.start_time).getTime()) / 60000
       );
       const ideal = ageCtx.idealFeedIntervalMin;
-      // Suggest feeding if past 80% of ideal interval
-      if (minSinceLastFeed >= ideal * 0.8) {
+      if (minSinceLastFeed >= ideal * 0.85) {
         const h = Math.floor(minSinceLastFeed / 60);
         const m = minSinceLastFeed % 60;
-        const label = h > 0 ? `${h}h${m > 0 ? `${m}m` : ''} desde a última mamada` : `${m}min desde a última mamada`;
-        return { emoji: '🤱', text: label, path: '/breastfeeding' };
+        const timeStr = h > 0 ? `${h}h${m > 0 ? `${m}m` : ''}` : `${m}min`;
+        return {
+          emoji: '🤱',
+          text: `Última mamada há ${timeStr}`,
+          path: '/breastfeeding',
+          cta: 'Registrar',
+        };
       }
     }
 
-    // If no events at all today, suggest starting
+    // No logs at all today
     if (logs.length === 0) {
-      return { emoji: '👶', text: 'Nenhum registro hoje ainda', path: null };
+      return {
+        emoji: '👶',
+        text: 'Nenhuma atividade registrada hoje ainda',
+        path: null,
+        cta: null,
+      };
     }
 
     return null;
   })();
 
-  // ─── Age-adapted metric cards (locked 4-card grid) ─────────────────────────
+  // ─── Metric cards ──────────────────────────────────────────────────────────
   const FEED_COLOR   = 'hsl(152,15%,55%)';
   const SLEEP_COLOR  = 'hsl(270,12%,42%)';
   const DIAPER_COLOR = 'hsl(32,80%,57%)';
 
+  // Build contextual supporting lines
+  const feedSub = (() => {
+    if (feedCount === 0) return 'Nenhuma mamada registrada hoje';
+    if (insights.avgFeedIntervalMin) return `~${insights.avgFeedIntervalMin}min entre mamadas`;
+    return feedCount === 1 ? '1 mamada hoje' : `${feedCount} mamadas hoje`;
+  })();
+
+  const sleepSub = (() => {
+    if (ongoingSleep) return 'Em andamento agora';
+    if (sleepSec === 0) return 'Nenhum sono registrado hoje';
+    if (insights.hasLongSleep) return 'Sono longo — ótimo!';
+    if (lastSleep?.end_time) return `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`;
+    return 'Sono registrado hoje';
+  })();
+
+  const diaperSub = (() => {
+    if (diaperCount === 0) return 'Nenhuma fralda registrada hoje';
+    if (diaperCount === 1) return '1 fralda trocada hoje';
+    return `${diaperCount} fraldas trocadas hoje`;
+  })();
+
   const metricsNewborn = [
     {
       emoji: '🤱', label: 'Mamadas',
-      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '0×',
-      sub: insights.avgFeedIntervalMin
-        ? `~${insights.avgFeedIntervalMin}min entre mamadas`
-        : feedCount > 0 ? 'hoje' : 'Nenhuma mamada registrada hoje',
+      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}` : '0',
+      sub: logsLoading ? '' : feedSub,
       empty: !logsLoading && feedCount === 0,
       color: FEED_COLOR,
     },
     {
       emoji: '🧷', label: 'Fraldas',
-      value: logsLoading ? '...' : `${diaperCount}×`,
-      sub: diaperCount > 0 ? 'hoje' : 'Nenhuma fralda registrada hoje',
+      value: logsLoading ? '...' : `${diaperCount}`,
+      sub: logsLoading ? '' : diaperSub,
       empty: !logsLoading && diaperCount === 0,
       color: DIAPER_COLOR,
     },
     {
       emoji: '😴', label: 'Sono',
-      value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '0h'),
-      sub: insights.hasLongSleep ? 'Sono longo' : (lastSleepSub ?? 'Nenhum sono registrado hoje'),
+      value: logsLoading ? '...' : (sleepLabel ?? (ongoingSleep ? '...' : '0')),
+      sub: logsLoading ? '' : sleepSub,
       empty: !logsLoading && !sleepLabel && !ongoingSleep,
       color: SLEEP_COLOR,
     },
     {
-      emoji: '📅', label: 'Próx. consulta',
-      value: 'Nenhuma', empty: true,
+      emoji: '📅', label: 'Consulta',
+      value: '—',
       sub: 'Sem consulta agendada',
+      empty: true,
       color: 'hsl(var(--primary))',
     },
   ];
@@ -134,31 +187,30 @@ export default function HomePage() {
   const metricsOlder = [
     {
       emoji: '😴', label: 'Sono',
-      value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '0h'),
-      sub: insights.hasLongSleep ? 'Sono longo' : (lastSleepSub ?? 'Nenhum sono registrado hoje'),
+      value: logsLoading ? '...' : (sleepLabel ?? (ongoingSleep ? '...' : '0')),
+      sub: logsLoading ? '' : sleepSub,
       empty: !logsLoading && !sleepLabel && !ongoingSleep,
       color: SLEEP_COLOR,
     },
     {
       emoji: '🤱', label: 'Mamadas',
-      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '0×',
-      sub: insights.avgFeedIntervalMin
-        ? `~${insights.avgFeedIntervalMin}min entre mamadas`
-        : feedCount > 0 ? 'hoje' : 'Nenhuma mamada registrada hoje',
+      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}` : '0',
+      sub: logsLoading ? '' : feedSub,
       empty: !logsLoading && feedCount === 0,
       color: FEED_COLOR,
     },
     {
       emoji: '🧷', label: 'Fraldas',
-      value: logsLoading ? '...' : `${diaperCount}×`,
-      sub: diaperCount > 0 ? 'hoje' : 'Nenhuma fralda registrada hoje',
+      value: logsLoading ? '...' : `${diaperCount}`,
+      sub: logsLoading ? '' : diaperSub,
       empty: !logsLoading && diaperCount === 0,
       color: DIAPER_COLOR,
     },
     {
-      emoji: '📅', label: 'Próx. consulta',
-      value: 'Nenhuma', empty: true,
+      emoji: '📅', label: 'Consulta',
+      value: '—',
       sub: 'Sem consulta agendada',
+      empty: true,
       color: 'hsl(var(--primary))',
     },
   ];
@@ -168,7 +220,7 @@ export default function HomePage() {
   // ─── Data-driven quick actions (locked at 4) ───────────────────────────────
   const quickActions = getOrderedQuickActions(ageMonths);
 
-  // Home preview: show first 5 events only — this is a preview, not a full history
+  // Home preview: show first 5 events only
   const previewLogs = logs.slice(0, 5);
 
   return (
@@ -248,26 +300,26 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* ── Próxima ação sugerida — only when relevant ─────────────── */}
-            {nextActionSuggestion && !logsLoading && (
+            {/* ── Assistant guidance — only shown when genuinely useful ───── */}
+            {assistantMessage && !logsLoading && (
               <div
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+                className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
                 style={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1.5px solid hsl(var(--border))',
                 }}
               >
-                <span className="text-[20px]">{nextActionSuggestion.emoji}</span>
-                <p className="flex-1 text-[13px] font-semibold font-nunito text-foreground">
-                  {nextActionSuggestion.text}
+                <span className="text-[20px] flex-shrink-0">{assistantMessage.emoji}</span>
+                <p className="flex-1 text-[13px] font-semibold font-nunito text-foreground leading-snug">
+                  {assistantMessage.text}
                 </p>
-                {nextActionSuggestion.path && (
+                {assistantMessage.path && assistantMessage.cta && (
                   <button
-                    onClick={() => navigate(nextActionSuggestion.path!)}
-                    className="text-[12px] font-bold font-nunito px-3 py-1.5 rounded-xl text-white transition-all active:scale-95"
+                    onClick={() => navigate(assistantMessage.path!)}
+                    className="text-[12px] font-bold font-nunito px-3 py-1.5 rounded-xl text-white transition-all active:scale-95 flex-shrink-0"
                     style={{ backgroundColor: 'hsl(152,15%,55%)' }}
                   >
-                    Registrar
+                    {assistantMessage.cta}
                   </button>
                 )}
               </div>
@@ -323,10 +375,10 @@ export default function HomePage() {
                 <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
                   <p className="text-4xl mb-3">🌤️</p>
                   <p className="text-[15px] font-bold font-quicksand text-foreground">
-                    Dia ainda em branco
+                    Seu dia ainda não começou
                   </p>
                   <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
-                    Toque em um dos atalhos acima para começar.
+                    Toque em um dos atalhos acima para registrar a primeira atividade.
                   </p>
                 </div>
               ) : (

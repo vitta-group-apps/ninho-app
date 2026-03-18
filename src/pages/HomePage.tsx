@@ -5,10 +5,8 @@ import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { ChildSwitcher } from '@/components/home/ChildSwitcher';
-import { FeedSheet } from '@/components/home/QuickLogSheets';
 import { parsePayload, fmtRangeDuration } from '@/lib/routineUtils';
 import { FeedDetailSheet } from '@/components/routine/FeedDetailSheet';
-import { DiaperDetailSheet } from '@/components/routine/DiaperDetailSheet';
 import { EventCard } from '@/components/events/EventCard';
 import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,12 +39,12 @@ function SummaryCard({ emoji, label, value, sub, empty, color }: SummaryCardProp
 function QuickAction({ emoji, label, onClick, color }: { emoji: string; label: string; onClick: () => void; color: string }) {
   return (
     <button onClick={onClick}
-      className="flex-1 flex flex-col items-center gap-1.5 py-4 rounded-2xl transition-all active:scale-95"
+      className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
       style={{ backgroundColor: `${color}15`, border: `1.5px solid ${color}30` }}>
-      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${color}25` }}>
-        <span className="text-xl">{emoji}</span>
+      <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: `${color}25` }}>
+        <span className="text-lg">{emoji}</span>
       </div>
-      <span className="text-xs font-bold" style={{ color, fontFamily: 'Nunito, sans-serif' }}>{label}</span>
+      <span className="text-[11px] font-bold leading-tight text-center px-1" style={{ color, fontFamily: 'Nunito, sans-serif' }}>{label}</span>
     </button>
   );
 }

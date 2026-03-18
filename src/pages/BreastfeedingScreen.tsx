@@ -629,8 +629,8 @@ export default function BreastfeedingScreen() {
                 {finishedData.totalSec > 0 ? (
                   <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
                     {[
-                      finishedData.leftSec  > 0 ? `Esq: ${fmtDurationShort(finishedData.leftSec)}`  : null,
-                      finishedData.rightSec > 0 ? `Dir: ${fmtDurationShort(finishedData.rightSec)}` : null,
+                      finishedData.leftSec  > 0 ? `Esquerdo: ${fmtDurationShort(finishedData.leftSec)}`  : null,
+                      finishedData.rightSec > 0 ? `Direito: ${fmtDurationShort(finishedData.rightSec)}` : null,
                       finishedData.switches > 0 ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
                     ].filter(Boolean).join(' · ')}
                   </p>

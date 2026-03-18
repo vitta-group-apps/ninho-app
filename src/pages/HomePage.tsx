@@ -1,14 +1,11 @@
 /**
- * HomePage — Ninho DS v2 harmonized home screen.
+ * HomePage — Ninho DS v2 intelligent home screen.
  *
- * Polish v2.1:
- * - Header band uses a calm, non-gradient solid mauve background
- * - Child identity block has more breathing room
- * - Section labels have consistent spacing above them
- * - Metric cards are in a tighter grid with better proportions
- * - Quick actions grid has equal columns with proper tap targets
- * - Timeline section header shows today's date
- * - Empty state is more intentional and less dense
+ * Intelligence v2:
+ * - SummaryMetricCard priority adapts to baby age
+ * - QuickActionTile order adapts to baby age (feeding/sleep first for newborns)
+ * - Age context hint shown in header
+ * - DayInsights subtly surface anomalies in metric sub-text
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -25,8 +22,8 @@ import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SummaryMetricCard, QuickActionTile } from '@/components/ds';
 import type { RoutineLog } from '@/lib/eventSystem';
+import { analyzeDayPatterns, getAgeContext } from '@/lib/eventSystem';
 
-// DS semantic color tokens
 const FEED_COLOR   = 'hsl(152,15%,55%)';
 const SLEEP_COLOR  = 'hsl(270,12%,42%)';
 const DIAPER_COLOR = 'hsl(32,80%,57%)';
@@ -39,7 +36,6 @@ export default function HomePage() {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
-
   const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
   const [detailKind, setDetailKind] = useState<'breastfeed' | null>(null);
 
@@ -68,15 +64,11 @@ export default function HomePage() {
     }
   }
 
-  function closeDetail() { setDetailLog(null); setDetailKind(null); }
-
-  // ─── Daily stats ───────────────────────────────────────────────
+  // ─── Daily stats ─────────────────────────────────────────────────────
   const feedCount   = logs.filter(l => l.type === 'feed').length;
   const diaperCount = logs.filter(l => l.type === 'diaper').length;
   const sleepLogs   = logs.filter(l => l.type === 'sleep' && l.end_time);
-  const sleepSec    = sleepLogs.reduce((acc, l) => {
-    return acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000);
-  }, 0);
+  const sleepSec    = sleepLogs.reduce((acc, l) => acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000), 0);
   const sleepH = Math.floor(sleepSec / 3600);
   const sleepM = Math.floor((sleepSec % 3600) / 60);
   const sleepLabel = sleepSec > 0 ? (sleepH > 0 ? `${sleepH}h ${sleepM}m` : `${sleepM}m`) : null;
@@ -84,47 +76,68 @@ export default function HomePage() {
   const lastSleep = logs.find(l => l.type === 'sleep');
   const lastSleepSub = ongoingSleep
     ? 'em andamento'
-    : lastSleep?.end_time
-    ? `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`
-    : undefined;
+    : lastSleep?.end_time ? `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}` : undefined;
+
+  // ─── Age context + intelligence ──────────────────────────────────────
+  const ageCtx = activeChild ? getAgeContext(activeChild.birth_date) : null;
+  const insights = analyzeDayPatterns(logs);
+  const isNewborn = (ageCtx?.months ?? 99) < 3;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-
-  // Today's date label
   const todayLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Age-adapted metric priority — newborns: feed > diaper > sleep | older: sleep > feed > diaper
+  const metrics = isNewborn
+    ? [
+        { emoji: '🤱', label: 'Mamadas', value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '—', sub: insights.avgFeedIntervalMin ? `~${insights.avgFeedIntervalMin}min entre mamadas` : feedCount > 0 ? 'hoje' : undefined, empty: !logsLoading && feedCount === 0, color: FEED_COLOR },
+        { emoji: '🧷', label: 'Fraldas', value: logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}×` : '—', sub: diaperCount > 0 ? 'hoje' : undefined, empty: !logsLoading && diaperCount === 0, color: DIAPER_COLOR },
+        { emoji: '😴', label: 'Sono', value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '—'), sub: insights.hasLongSleep ? 'Sono longo' : lastSleepSub, empty: !logsLoading && !sleepLabel && !ongoingSleep, color: SLEEP_COLOR },
+        { emoji: '📅', label: 'Próx. consulta', value: '—', empty: true, color: 'hsl(var(--primary))' },
+      ]
+    : [
+        { emoji: '😴', label: 'Sono', value: logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '—'), sub: insights.hasLongSleep ? 'Sono longo' : lastSleepSub, empty: !logsLoading && !sleepLabel && !ongoingSleep, color: SLEEP_COLOR },
+        { emoji: '🤱', label: 'Mamadas', value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : '—', sub: feedCount > 0 ? 'hoje' : undefined, empty: !logsLoading && feedCount === 0, color: FEED_COLOR },
+        { emoji: '🧷', label: 'Fraldas', value: logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}×` : '—', sub: diaperCount > 0 ? 'hoje' : undefined, empty: !logsLoading && diaperCount === 0, color: DIAPER_COLOR },
+        { emoji: '📅', label: 'Próx. consulta', value: '—', empty: true, color: 'hsl(var(--primary))' },
+      ];
+
+  // Age-adapted quick action order
+  const quickActions = isNewborn
+    ? [
+        { emoji: '🤱', label: 'Amamentar', color: FEED_COLOR,   path: '/breastfeeding' },
+        { emoji: '😴', label: 'Sono',       color: SLEEP_COLOR,  path: '/sleep' },
+        { emoji: '🧷', label: 'Fralda',     color: DIAPER_COLOR, path: '/diaper/new' },
+        { emoji: '🍼', label: 'Mamadeira',  color: BOTTLE_COLOR, path: '/bottle' },
+      ]
+    : [
+        { emoji: '🤱', label: 'Amamentar', color: FEED_COLOR,   path: '/breastfeeding' },
+        { emoji: '🍼', label: 'Mamadeira',  color: BOTTLE_COLOR, path: '/bottle' },
+        { emoji: '😴', label: 'Sono',       color: SLEEP_COLOR,  path: '/sleep' },
+        { emoji: '🧷', label: 'Fralda',     color: DIAPER_COLOR, path: '/diaper/new' },
+      ];
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero header — calm solid mauve, no gradient */}
-      <div
-        className="px-5 pt-12 pb-6"
-        style={{ backgroundColor: 'hsl(270,12%,38%)' }}
-      >
-        <p className="text-[13px] text-white/65 mb-2.5 font-nunito font-medium">
-          {greeting} 👋
-        </p>
+      <div className="px-5 pt-12 pb-6" style={{ backgroundColor: 'hsl(270,12%,38%)' }}>
+        <p className="text-[13px] text-white/65 mb-2.5 font-nunito font-medium">{greeting} 👋</p>
         <ChildSwitcher />
+        {ageCtx && (
+          <p className="text-[11px] text-white/50 mt-2 font-nunito">{ageCtx.phaseHint}</p>
+        )}
       </div>
 
-      {/* Error banner */}
       {childError && (
-        <div
-          className="mx-4 mt-4 px-4 py-3 rounded-2xl flex items-center gap-2"
-          style={{ backgroundColor: 'hsl(var(--destructive) / 0.1)', border: '1px solid hsl(var(--destructive) / 0.2)' }}
-        >
+        <div className="mx-4 mt-4 px-4 py-3 rounded-2xl flex items-center gap-2"
+          style={{ backgroundColor: 'hsl(var(--destructive) / 0.1)', border: '1px solid hsl(var(--destructive) / 0.2)' }}>
           <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0 text-destructive" />
-          <p className="text-xs text-destructive font-nunito">
-            Não foi possível carregar os dados da criança.
-          </p>
+          <p className="text-xs text-destructive font-nunito">Não foi possível carregar os dados da criança.</p>
         </div>
       )}
 
       {childLoading ? (
         <div className="px-4 pt-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {[0,1,2,3].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}
-          </div>
+          <div className="grid grid-cols-2 gap-3">{[0,1,2,3].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>
           <Skeleton className="h-14 rounded-2xl" />
           <Skeleton className="h-40 rounded-2xl" />
         </div>
@@ -134,93 +147,52 @@ export default function HomePage() {
           <p className="text-sm mt-1.5 text-muted-foreground font-nunito">Complete o cadastro para ver o painel.</p>
         </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-          className="pb-10"
-        >
-          {/* Active session surface — sits just below hero */}
-          <div className="pt-3">
-            <ActiveSessionBanner />
-          </div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="pb-10">
+          <div className="pt-3"><ActiveSessionBanner /></div>
 
           <div className="px-4 mt-4 space-y-6">
-
-            {/* ── Summary metrics ─────────────────────────────────── */}
+            {/* Metrics — age-adapted order */}
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
-                Resumo do dia
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">Resumo do dia</p>
               <div className="grid grid-cols-2 gap-3">
-                <SummaryMetricCard
-                  emoji="🤱" label="Mamadas" accentColor={FEED_COLOR}
-                  value={logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : 'Nenhuma'}
-                  sub={feedCount > 0 ? 'hoje' : undefined}
-                  empty={!logsLoading && feedCount === 0}
-                />
-                <SummaryMetricCard
-                  emoji="🧷" label="Fraldas" accentColor={DIAPER_COLOR}
-                  value={logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}×` : 'Nenhuma'}
-                  sub={diaperCount > 0 ? 'hoje' : undefined}
-                  empty={!logsLoading && diaperCount === 0}
-                />
-                <SummaryMetricCard
-                  emoji="😴" label="Sono" accentColor={SLEEP_COLOR}
-                  value={logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '—')}
-                  sub={lastSleepSub}
-                  empty={!logsLoading && !sleepLabel && !ongoingSleep}
-                />
-                <SummaryMetricCard
-                  emoji="📅" label="Próx. consulta" accentColor="hsl(var(--primary))"
-                  value="—" empty
-                />
+                {metrics.map(m => (
+                  <SummaryMetricCard key={m.label} emoji={m.emoji} label={m.label} value={m.value} sub={m.sub} empty={m.empty} accentColor={m.color} />
+                ))}
               </div>
             </div>
 
-            {/* ── Quick actions — 4 tiles ──────────────────────────── */}
+            {/* Quick actions — age-adapted order */}
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
-                Registrar agora
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">Registrar agora</p>
               <div className="grid grid-cols-4 gap-2.5">
-                <QuickActionTile emoji="🤱" label="Amamentar" accentColor={FEED_COLOR}   onClick={() => navigate('/breastfeeding')} />
-                <QuickActionTile emoji="🍼" label="Mamadeira"  accentColor={BOTTLE_COLOR} onClick={() => navigate('/bottle')} />
-                <QuickActionTile emoji="😴" label="Sono"       accentColor={SLEEP_COLOR}  onClick={() => navigate('/sleep')} />
-                <QuickActionTile emoji="🧷" label="Fralda"     accentColor={DIAPER_COLOR} onClick={() => navigate('/diaper/new')} />
+                {quickActions.map(a => (
+                  <QuickActionTile key={a.label} emoji={a.emoji} label={a.label} accentColor={a.color} onClick={() => navigate(a.path)} />
+                ))}
               </div>
             </div>
 
-            {/* ── Today's timeline ─────────────────────────────────── */}
+            {/* Timeline */}
             <div>
               <div className="flex items-baseline justify-between mb-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
-                  Hoje
-                </p>
-                <p className="text-[11px] text-muted-foreground font-nunito capitalize">
-                  {todayLabel}
-                </p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">Hoje</p>
+                <p className="text-[11px] text-muted-foreground font-nunito capitalize">{todayLabel}</p>
               </div>
 
               {logsError && (
-                <div
-                  className="px-4 py-3 rounded-2xl mb-3 flex items-center gap-2"
-                  style={{ backgroundColor: 'hsl(var(--destructive) / 0.08)', border: '1px solid hsl(var(--destructive) / 0.15)' }}
-                >
+                <div className="px-4 py-3 rounded-2xl mb-3 flex items-center gap-2"
+                  style={{ backgroundColor: 'hsl(var(--destructive) / 0.08)', border: '1px solid hsl(var(--destructive) / 0.15)' }}>
                   <ExclamationCircleIcon className="w-4 h-4 text-destructive" />
                   <p className="text-xs text-destructive font-nunito">{logsError}</p>
                 </div>
               )}
 
               {logsLoading ? (
-                <div className="space-y-2.5">
-                  {[0,1,2].map(i => <Skeleton key={i} className="h-[72px] rounded-2xl" />)}
-                </div>
+                <div className="space-y-2.5">{[0,1,2].map(i => <Skeleton key={i} className="h-[72px] rounded-2xl" />)}</div>
               ) : logs.length === 0 ? (
                 <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
                   <p className="text-4xl mb-3">🌤️</p>
                   <p className="text-[15px] font-bold font-quicksand text-foreground">Nenhum evento hoje</p>
-                  <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
-                    Use os botões acima para começar a registrar.
-                  </p>
+                  <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">Use os botões acima para começar.</p>
                 </div>
               ) : (
                 <div className="pb-2">
@@ -237,7 +209,7 @@ export default function HomePage() {
       <FeedDetailSheet
         log={detailKind === 'breastfeed' ? detailLog : null}
         open={detailKind === 'breastfeed' && !!detailLog}
-        onClose={closeDetail}
+        onClose={() => { setDetailLog(null); setDetailKind(null); }}
         onUpdated={loadLogs}
       />
     </div>

@@ -1,40 +1,40 @@
 /**
  * EventCard — Ninho DS v2 unified timeline card.
  *
+ * Intelligence v2:
+ * - Shows InlineStatusPill hint when an anomaly is detected (long sleep, unusual diaper, etc.)
+ * - Shows "Relatório" badge when includeInReport is true
+ * - Observation preview is shown as plain italic text (no 💬 prefix)
+ * - Spine dot pulses when event is ongoing (no end_time)
+ *
  * IDENTICAL in Home and Rotina — do not fork.
- *
- * Polish v2.1:
- * - Card has more vertical padding (py-3.5)
- * - Icon is 40×40 (slightly larger, better proportion)
- * - Title is slightly larger (14px) and bolder
- * - Summary has better contrast (not just muted)
- * - Time and badge are better aligned
- * - Chevron is bolder and more visible
- * - Timeline spine dot is larger (3×3)
- *
- * Uses semantic tokens only — no hardcoded colors in JSX.
+ * Uses semantic tokens only.
  */
 
 import type { RoutineLog } from '@/lib/eventSystem';
 import { getEventPresentation } from '@/lib/eventSystem';
 import { fmtTime } from '@/lib/routineUtils';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import { InlineStatusPill } from '@/components/ds/InlineStatusPill';
 
 interface EventCardProps {
   log: RoutineLog;
   isLast?: boolean;
   onTap: (log: RoutineLog) => void;
+  /** Optional: show who registered this event */
+  authorLabel?: string;
 }
 
-export function EventCard({ log, isLast, onTap }: EventCardProps) {
+export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
   const ev = getEventPresentation(log);
+  const isOngoing = log.type === 'sleep' && !log.end_time;
 
   return (
     <div className="flex items-stretch gap-3 mb-2.5">
       {/* Timeline spine */}
       <div className="flex flex-col items-center w-5 flex-shrink-0 pt-4">
         <div
-          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isOngoing ? 'animate-pulse' : ''}`}
           style={{ backgroundColor: ev.color }}
         />
         {!isLast && (
@@ -80,6 +80,17 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
                   {ev.badge}
                 </span>
               )}
+              {ev.includeInReport && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full font-nunito"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, hsl(var(--primary)) 10%, transparent)',
+                    color: 'hsl(var(--primary))',
+                  }}
+                >
+                  📋
+                </span>
+              )}
               <span className="text-[11px] font-semibold tabular-nums text-muted-foreground font-nunito">
                 {fmtTime(log.start_time)}
               </span>
@@ -97,13 +108,31 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
             </p>
           )}
 
-          {/* Row 3: observation preview */}
-          {ev.observationPreview && (
+          {/* Row 3: intelligence hint pill */}
+          {ev.hint && (
+            <div className="mt-1.5">
+              <InlineStatusPill
+                label={ev.hint.label}
+                variant={ev.hint.variant}
+                color={ev.color}
+              />
+            </div>
+          )}
+
+          {/* Row 4: observation preview */}
+          {ev.observationPreview && !ev.hint && (
             <p
-              className="text-[11px] mt-0.5 truncate italic font-nunito"
+              className="text-[11px] mt-1 truncate italic font-nunito"
               style={{ color: 'hsl(var(--muted-foreground))' }}
             >
               "{ev.observationPreview}"
+            </p>
+          )}
+
+          {/* Row 5: author label */}
+          {authorLabel && (
+            <p className="text-[10px] mt-1 font-nunito" style={{ color: 'hsl(var(--muted-foreground) / 0.7)' }}>
+              por {authorLabel}
             </p>
           )}
         </div>

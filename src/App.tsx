@@ -39,9 +39,11 @@ function AuthedRoutes() {
     <ActiveChildProvider>
       <Routes>
         {/* Full-screen flows — no AppShell (no bottom nav) */}
-        <Route path="/diaper/new"       element={<DiaperScreen />} />
+        <Route path="/diaper/new"         element={<DiaperScreen />} />
         <Route path="/diaper/edit/:logId" element={<DiaperScreen />} />
-        <Route path="/sleep"            element={<SleepScreen />} />
+        <Route path="/sleep"              element={<SleepScreen />} />
+        <Route path="/breastfeeding"      element={<BreastfeedingScreen />} />
+        <Route path="/bottle"             element={<BottleScreen />} />
 
         {/* Main app shell */}
         <Route path="/*" element={

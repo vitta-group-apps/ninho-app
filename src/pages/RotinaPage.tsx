@@ -19,7 +19,7 @@ import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { EventCard } from '@/components/events/EventCard';
 import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fmtTimeSince, parsePayload } from '@/lib/routineUtils';
+import { fmtTimeSince } from '@/lib/routineUtils';
 import { SummaryMetricCard, SectionLabel } from '@/components/ds';
 import { ChipGroup } from '@/components/ds/ChipGroup';
 import type { RoutineLog } from '@/lib/eventSystem';

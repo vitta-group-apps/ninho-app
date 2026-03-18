@@ -1,13 +1,19 @@
 /**
  * EventCard — Ninho DS v2 unified timeline card.
  *
- * Intelligence v2:
- * - Shows InlineStatusPill hint when an anomaly is detected (long sleep, unusual diaper, etc.)
- * - Shows "Relatório" badge when includeInReport is true
- * - Observation preview is shown as plain italic text (no 💬 prefix)
- * - Spine dot pulses when event is ongoing (no end_time)
+ * SINGLE SOURCE OF TRUTH for event presentation across:
+ *   - Home "Hoje" preview
+ *   - Rotina full timeline
+ *   - Família recent activity
  *
- * IDENTICAL in Home and Rotina — do not fork.
+ * Rules:
+ *  - Same anatomy in every context (only contextual reductions allowed)
+ *  - Insight hints (InlineStatusPill) only show when genuinely relevant
+ *  - Observation preview and author label are optional context
+ *  - Ongoing sleep pulses the spine dot
+ *  - Tappable events show chevron + subtle accent border
+ *
+ * IDENTICAL in Home and Rotina — do NOT fork.
  * Uses semantic tokens only.
  */
 
@@ -21,7 +27,7 @@ interface EventCardProps {
   log: RoutineLog;
   isLast?: boolean;
   onTap: (log: RoutineLog) => void;
-  /** Optional: show who registered this event */
+  /** Optional: show who registered this event (Família context) */
   authorLabel?: string;
 }
 
@@ -38,7 +44,10 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
           style={{ backgroundColor: ev.color }}
         />
         {!isLast && (
-          <div className="w-px flex-1 mt-1.5" style={{ backgroundColor: 'hsl(var(--border))' }} />
+          <div
+            className="w-px flex-1 mt-1.5"
+            style={{ backgroundColor: 'hsl(var(--border))' }}
+          />
         )}
       </div>
 
@@ -56,7 +65,7 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
           cursor: ev.tappable ? 'pointer' : 'default',
         }}
       >
-        {/* Icon container */}
+        {/* Icon */}
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-[18px]"
           style={{ backgroundColor: ev.bgColor }}
@@ -66,12 +75,14 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
 
         {/* Text block */}
         <div className="min-w-0 flex-1">
+
           {/* Row 1: title + time + chevron */}
           <div className="flex items-center justify-between gap-2">
             <p className="text-[14px] font-bold leading-tight text-foreground font-quicksand truncate">
               {ev.title}
             </p>
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Duration badge — e.g. "18min" for breastfeed */}
               {ev.badge && (
                 <span
                   className="text-[10px] font-bold px-2 py-0.5 rounded-full font-nunito"
@@ -80,6 +91,7 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
                   {ev.badge}
                 </span>
               )}
+              {/* Report indicator */}
               {ev.includeInReport && (
                 <span
                   className="text-[10px] font-bold px-1.5 py-0.5 rounded-full font-nunito"
@@ -95,20 +107,25 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
                 {fmtTime(log.start_time)}
               </span>
               {ev.tappable && (
-                <ChevronRightIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" strokeWidth={2.5} />
+                <ChevronRightIcon
+                  className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"
+                  strokeWidth={2.5}
+                />
               )}
             </div>
           </div>
 
           {/* Row 2: summary */}
           {ev.summary && (
-            <p className="text-[12px] mt-1 font-medium leading-snug font-nunito"
-               style={{ color: 'hsl(var(--foreground) / 0.6)' }}>
+            <p
+              className="text-[12px] mt-1 font-medium leading-snug font-nunito"
+              style={{ color: 'hsl(var(--foreground) / 0.6)' }}
+            >
               {ev.summary}
             </p>
           )}
 
-          {/* Row 3: intelligence hint pill */}
+          {/* Row 3: intelligence hint — only when genuinely relevant (set in eventSystem) */}
           {ev.hint && (
             <div className="mt-1.5">
               <InlineStatusPill
@@ -119,7 +136,7 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
             </div>
           )}
 
-          {/* Row 4: observation preview */}
+          {/* Row 4: observation preview — only when no hint */}
           {ev.observationPreview && !ev.hint && (
             <p
               className="text-[11px] mt-1 truncate italic font-nunito"
@@ -129,9 +146,12 @@ export function EventCard({ log, isLast, onTap, authorLabel }: EventCardProps) {
             </p>
           )}
 
-          {/* Row 5: author label */}
+          {/* Row 5: author label (Família context) */}
           {authorLabel && (
-            <p className="text-[10px] mt-1 font-nunito" style={{ color: 'hsl(var(--muted-foreground) / 0.7)' }}>
+            <p
+              className="text-[10px] mt-1 font-nunito"
+              style={{ color: 'hsl(var(--muted-foreground) / 0.7)' }}
+            >
               por {authorLabel}
             </p>
           )}

@@ -546,7 +546,7 @@ export default function BreastfeedingScreen() {
               )}
               <button
                 onClick={handleEnd}
-                className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 text-white"
+                className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 text-white"
                 style={{ backgroundColor: FEED_COLOR }}
               >
                 ⏹ Encerrar

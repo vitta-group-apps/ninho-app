@@ -1,13 +1,16 @@
 /**
  * BreastfeedingScreen — Full-screen breastfeeding session flow.
  *
- * Migrated from FeedSheet to a full-screen route for consistent
- * product patterns. Uses the same session logic from FeedSheet.
- *
  * Route: /breastfeeding
+ *
+ * Session phases:
+ *   suggest → session (ACTIVE/PAUSED) → ended → saved
+ *
+ * Safety: back button during active/paused shows a confirmation sheet.
+ * No silent data loss.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -17,14 +20,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
-import { makePayloadNotes, fmtTimer, fmtDurationShort, parsePayload } from '@/lib/routineUtils';
-import type { RoutineLog } from '@/lib/eventSystem';
+import { makePayloadNotes, fmtTimer, fmtDurationShort } from '@/lib/routineUtils';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-const SESSION_KEY = 'ninho_feed_session_v6';
-const SAGE = 'hsl(152,15%,55%)';
-const font = 'Nunito, sans-serif';
+export const FEED_SESSION_KEY = 'ninho_feed_session_v6';
+const SAGE  = 'hsl(152,15%,55%)';
+const font  = 'Nunito, sans-serif';
 
 type Side = 'L' | 'R';
 type SessionStatus = 'ACTIVE' | 'PAUSED' | 'FINISHED';
@@ -32,7 +34,7 @@ type Phase = 'suggest' | 'session' | 'ended';
 
 interface SideTimes { L: number; R: number; }
 
-interface PersistedSession {
+export interface FeedSession {
   childId: string;
   sessionStartEpoch: number;
   sideTimes: SideTimes;
@@ -53,24 +55,25 @@ interface FinishedData {
 }
 
 const QUICK_TAGS = [
-  { id: 'mamou_bem', label: '😊 Mamou bem' },
-  { id: 'inquieto',  label: '😟 Inquieto' },
-  { id: 'dormiu',    label: '😴 Dormiu durante' },
-  { id: 'pega_boa',  label: '👍 Pega boa' },
+  { id: 'mamou_bem',     label: '😊 Mamou bem' },
+  { id: 'inquieto',      label: '😟 Inquieto' },
+  { id: 'dormiu',        label: '😴 Dormiu durante' },
+  { id: 'pega_boa',      label: '👍 Pega boa' },
   { id: 'rejeitou_lado', label: '↩️ Rejeitou lado' },
 ];
 
 // ─── Persistence ───────────────────────────────────────────────────────────
 
-function saveSession(d: PersistedSession) {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify(d)); } catch { /* noop */ }
+export function saveFeedSession(d: FeedSession) {
+  try { localStorage.setItem(FEED_SESSION_KEY, JSON.stringify(d)); } catch { /* noop */ }
 }
-function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
+export function clearFeedSession() {
+  localStorage.removeItem(FEED_SESSION_KEY);
   localStorage.removeItem('ninho_feed_session_v4');
+  localStorage.removeItem('ninho_feed_session');
 }
-function loadSession(): PersistedSession | null {
-  try { const r = localStorage.getItem(SESSION_KEY); return r ? JSON.parse(r) : null; }
+export function loadFeedSession(): FeedSession | null {
+  try { const r = localStorage.getItem(FEED_SESSION_KEY); return r ? JSON.parse(r) : null; }
   catch { return null; }
 }
 
@@ -99,7 +102,7 @@ function SideCard({
     <button
       onClick={onClick}
       disabled={!onClick}
-      className="flex-1 rounded-3xl p-4 text-center transition-all duration-200"
+      className="flex-1 rounded-3xl p-4 text-center transition-all duration-200 select-none"
       style={{
         backgroundColor: active ? `${SAGE}18` : 'hsl(var(--muted))',
         border: active ? `2px solid ${SAGE}50` : '2px solid transparent',
@@ -107,7 +110,7 @@ function SideCard({
         transform: active ? 'scale(1.02)' : 'scale(1)',
       }}
     >
-      <div className="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-base font-bold"
+      <div className="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-lg font-bold"
         style={{
           backgroundColor: active ? `${SAGE}25` : 'hsl(var(--border))',
           color: active ? SAGE : 'hsl(var(--muted-foreground))',
@@ -118,20 +121,85 @@ function SideCard({
         style={{ color: active ? SAGE : 'hsl(var(--muted-foreground))', fontFamily: font }}>
         {label}
       </p>
+      {/* Timer — stable height to prevent layout shift */}
       <div className="h-9 flex items-center justify-center mt-1">
         <p className="text-2xl font-bold tabular-nums"
           style={{ color: active ? SAGE : 'hsl(var(--muted-foreground))', fontFamily: 'Quicksand, sans-serif' }}>
           {fmtTimer(Math.floor(totalMs / 1000))}
         </p>
       </div>
+      {/* Status label — always occupies space to prevent height jump */}
       <div className="h-5 flex items-center justify-center gap-1 mt-1">
         {showPulse && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: SAGE }} />}
         <span className="text-[10px] font-semibold"
-          style={{ color: active ? SAGE : 'transparent', fontFamily: font }}>
+          style={{
+            color: active ? SAGE : 'transparent',
+            fontFamily: font,
+          }}>
           {active && status === 'ACTIVE' ? 'ativo' : active && status === 'PAUSED' ? 'pausado' : '\u00A0'}
         </span>
       </div>
     </button>
+  );
+}
+
+/** Back-navigation confirmation sheet */
+function BackConfirmSheet({
+  open, durationSec,
+  onContinue, onSaveReview, onDiscard,
+}: {
+  open: boolean;
+  durationSec: number;
+  onContinue: () => void;
+  onSaveReview: () => void;
+  onDiscard: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+      onClick={onContinue}
+    >
+      <motion.div
+        initial={{ y: 60, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+        className="w-full max-w-md rounded-t-3xl px-5 pb-safe pt-6 space-y-3"
+        style={{ backgroundColor: 'hsl(var(--card))' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="text-base font-bold text-center"
+          style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+          Sessão em andamento
+        </p>
+        <p className="text-sm text-center pb-1"
+          style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+          {durationSec >= 60
+            ? `Você tem ${fmtDurationShort(durationSec)} registrados.`
+            : 'Sessão muito curta. O que deseja fazer?'}
+        </p>
+        <div className="space-y-2 pb-4">
+          <button onClick={onContinue}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
+            style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
+            Continuar sessão
+          </button>
+          {durationSec >= 30 && (
+            <button onClick={onSaveReview}
+              className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
+              style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: font }}>
+              Encerrar e revisar
+            </button>
+          )}
+          <button onClick={onDiscard}
+            className="w-full py-2 text-xs font-semibold text-center"
+            style={{ color: 'hsl(var(--destructive))', fontFamily: font }}>
+            Descartar sessão
+          </button>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -144,28 +212,29 @@ export default function BreastfeedingScreen() {
 
   const [phase, setPhase] = useState<Phase>('suggest');
   const [selectedSide, setSelectedSide] = useState<Side>('L');
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
 
   // Timer state
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('ACTIVE');
   const [sessionStartEpoch, setSessionStartEpoch] = useState(0);
   const [activeSide, setActiveSide] = useState<Side>('L');
   const [switchCount, setSwitchCount] = useState(0);
-  const sideTimesRef = useRef<SideTimes>({ L: 0, R: 0 });
-  const segmentStartRef = useRef<number | null>(null);
+  const sideTimesRef  = useRef<SideTimes>({ L: 0, R: 0 });
+  const segmentStart  = useRef<number | null>(null);
   const activeSideRef = useRef<Side>('L');
   const [, forceRender] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Ended state
+  // Ended review state
   const [finishedData, setFinishedData] = useState<FinishedData | null>(null);
   const [obsTags, setObsTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load existing session on mount
+  // ── Load existing session on mount ────────────────────────────────────────
   useEffect(() => {
-    const existing = loadSession();
+    const existing = loadFeedSession();
     if (existing && existing.childId === activeChildId) {
       sideTimesRef.current = existing.sideTimes;
       activeSideRef.current = existing.activeSide;
@@ -175,113 +244,113 @@ export default function BreastfeedingScreen() {
       setSessionStatus(existing.status);
       if (existing.status !== 'FINISHED') {
         if (existing.segmentStartEpoch) {
-          segmentStartRef.current = existing.segmentStartEpoch;
+          segmentStart.current = existing.segmentStartEpoch;
         }
         setPhase('session');
-        if (existing.status === 'ACTIVE') {
-          startInterval();
-        }
+        if (existing.status === 'ACTIVE') startTicker();
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function startInterval() {
+  function startTicker() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => forceRender(n => n + 1), 500);
   }
-  function stopInterval() {
+  function stopTicker() {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   }
-
-  useEffect(() => () => stopInterval(), []);
+  useEffect(() => () => stopTicker(), []);
 
   function getDisplay() {
-    const nowMs = segmentStartRef.current !== null && sessionStatus === 'ACTIVE'
-      ? Date.now() - segmentStartRef.current : 0;
+    const nowMs = segmentStart.current !== null && sessionStatus === 'ACTIVE'
+      ? Date.now() - segmentStart.current : 0;
     const L = sideTimesRef.current.L + (activeSideRef.current === 'L' ? nowMs : 0);
     const R = sideTimesRef.current.R + (activeSideRef.current === 'R' ? nowMs : 0);
     return { L, R, total: L + R };
   }
 
+  function getCurrentTotalSec(): number {
+    return Math.floor(getDisplay().total / 1000);
+  }
+
   function persist(status: SessionStatus) {
     if (!activeChildId) return;
-    saveSession({
+    saveFeedSession({
       childId: activeChildId,
       sessionStartEpoch,
       sideTimes: sideTimesRef.current,
       activeSide: activeSideRef.current,
       switchCount,
       status,
-      segmentStartEpoch: segmentStartRef.current,
+      segmentStartEpoch: segmentStart.current,
     });
   }
+
+  // ── Session actions ────────────────────────────────────────────────────────
 
   function handleStart() {
     const now = Date.now();
     sideTimesRef.current = { L: 0, R: 0 };
     activeSideRef.current = selectedSide;
-    segmentStartRef.current = now;
+    segmentStart.current = now;
     setActiveSide(selectedSide);
     setSwitchCount(0);
     setSessionStartEpoch(now);
     setSessionStatus('ACTIVE');
     setPhase('session');
-    startInterval();
+    startTicker();
     persist('ACTIVE');
   }
 
   function handleSwitch() {
-    if (sessionStatus !== 'ACTIVE' || !segmentStartRef.current) return;
+    if (sessionStatus !== 'ACTIVE' || !segmentStart.current) return;
     const now = Date.now();
-    const elapsed = now - segmentStartRef.current;
-    sideTimesRef.current[activeSideRef.current] += elapsed;
-    const newSide: Side = activeSideRef.current === 'L' ? 'R' : 'L';
-    activeSideRef.current = newSide;
-    segmentStartRef.current = now;
-    setActiveSide(newSide);
+    sideTimesRef.current[activeSideRef.current] += now - segmentStart.current;
+    const next: Side = activeSideRef.current === 'L' ? 'R' : 'L';
+    activeSideRef.current = next;
+    segmentStart.current = now;
+    setActiveSide(next);
     setSwitchCount(c => c + 1);
     forceRender(n => n + 1);
     persist('ACTIVE');
   }
 
   function handlePause() {
-    if (!segmentStartRef.current) return;
-    const now = Date.now();
-    sideTimesRef.current[activeSideRef.current] += now - segmentStartRef.current;
-    segmentStartRef.current = null;
-    stopInterval();
+    if (!segmentStart.current) return;
+    sideTimesRef.current[activeSideRef.current] += Date.now() - segmentStart.current;
+    segmentStart.current = null;
+    stopTicker();
     setSessionStatus('PAUSED');
     forceRender(n => n + 1);
     persist('PAUSED');
   }
 
   function handleResume() {
-    segmentStartRef.current = Date.now();
+    segmentStart.current = Date.now();
     setSessionStatus('ACTIVE');
-    startInterval();
+    startTicker();
     persist('ACTIVE');
   }
 
   function handleEnd() {
-    // Finalize current segment
-    if (segmentStartRef.current && sessionStatus === 'ACTIVE') {
-      sideTimesRef.current[activeSideRef.current] += Date.now() - segmentStartRef.current;
-      segmentStartRef.current = null;
+    if (segmentStart.current && sessionStatus === 'ACTIVE') {
+      sideTimesRef.current[activeSideRef.current] += Date.now() - segmentStart.current;
+      segmentStart.current = null;
     }
-    stopInterval();
+    stopTicker();
     const totalMs = sideTimesRef.current.L + sideTimesRef.current.R;
     setFinishedData({
       totalSec: Math.floor(totalMs / 1000),
-      leftSec: Math.floor(sideTimesRef.current.L / 1000),
+      leftSec:  Math.floor(sideTimesRef.current.L / 1000),
       rightSec: Math.floor(sideTimesRef.current.R / 1000),
       switches: switchCount,
       start: new Date(sessionStartEpoch),
-      end: new Date(),
+      end:   new Date(),
       lastSide: activeSideRef.current,
     });
     setPhase('ended');
-    clearSession();
+    clearFeedSession();
   }
 
   async function handleSave() {
@@ -291,21 +360,21 @@ export default function BreastfeedingScreen() {
       const payload: Record<string, unknown> = {
         session_type: 'breastfeed',
         total_seconds: finishedData.totalSec,
-        left_seconds: finishedData.leftSec,
+        left_seconds:  finishedData.leftSec,
         right_seconds: finishedData.rightSec,
-        switches: finishedData.switches,
-        last_side: finishedData.lastSide,
+        switches:      finishedData.switches,
+        last_side:     finishedData.lastSide,
       };
-      if (obsTags.length > 0) payload.tags = obsTags.join(',');
-      if (includeInReport) payload.include_in_report = true;
+      if (obsTags.length > 0)  payload.tags = obsTags.join(',');
+      if (includeInReport)     payload.include_in_report = true;
 
       const { error } = await supabase.from('routine_logs').insert({
-        child_id: activeChildId,
-        author_id: user.id,
-        type: 'feed',
+        child_id:   activeChildId,
+        author_id:  user.id,
+        type:       'feed',
         start_time: finishedData.start.toISOString(),
-        end_time: finishedData.end.toISOString(),
-        notes: makePayloadNotes(payload, notes),
+        end_time:   finishedData.end.toISOString(),
+        notes:      makePayloadNotes(payload, notes),
       });
       if (error) throw error;
       toast({ title: '🤱 Amamentação registrada' });
@@ -317,12 +386,36 @@ export default function BreastfeedingScreen() {
     }
   }
 
-  function handleDiscard() {
-    clearSession();
+  // ── Back navigation ────────────────────────────────────────────────────────
+
+  function handleBack() {
+    if (phase === 'session') {
+      setShowBackConfirm(true);
+    } else if (phase === 'ended') {
+      // Already cleared session — ask before losing review state
+      setShowBackConfirm(true);
+    } else {
+      navigate(-1);
+    }
+  }
+
+  function handleConfirmContinue() {
+    setShowBackConfirm(false);
+  }
+
+  function handleConfirmSaveReview() {
+    setShowBackConfirm(false);
+    if (phase === 'session') handleEnd();
+    // If already in ended, just close confirm
+  }
+
+  function handleConfirmDiscard() {
+    clearFeedSession();
     navigate(-1);
   }
 
   const display = getDisplay();
+  const totalSec = getCurrentTotalSec();
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
@@ -334,13 +427,13 @@ export default function BreastfeedingScreen() {
           backgroundColor: 'hsl(var(--card))',
           borderBottom: '1px solid hsl(var(--border))',
         }}>
-        <button onClick={() => navigate(-1)}
+        <button onClick={handleBack}
           className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all active:scale-90"
           style={{ backgroundColor: 'hsl(var(--muted))' }}>
           <ArrowLeftIcon className="w-5 h-5" style={{ color: 'hsl(var(--ninho-brown))' }} />
         </button>
-        <div>
-          <p className="text-lg font-bold leading-tight"
+        <div className="min-w-0">
+          <p className="text-lg font-bold leading-tight truncate"
             style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
             Amamentação
           </p>
@@ -350,13 +443,26 @@ export default function BreastfeedingScreen() {
             </p>
           )}
         </div>
+        {/* Session status pill */}
+        {phase === 'session' && (
+          <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0"
+            style={{ backgroundColor: sessionStatus === 'ACTIVE' ? `${SAGE}15` : 'hsl(var(--muted))' }}>
+            {sessionStatus === 'ACTIVE' && (
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: SAGE }} />
+            )}
+            <span className="text-[11px] font-bold"
+              style={{ color: sessionStatus === 'ACTIVE' ? SAGE : 'hsl(var(--muted-foreground))', fontFamily: font }}>
+              {sessionStatus === 'ACTIVE' ? 'Em andamento' : 'Pausada'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6"
         style={{ paddingBottom: 'max(96px, calc(env(safe-area-inset-bottom) + 96px))' }}>
 
-        {/* SUGGEST phase */}
+        {/* ── SUGGEST phase ──────────────────────────────────────────────── */}
         {phase === 'suggest' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center gap-6 pt-6">
@@ -364,12 +470,21 @@ export default function BreastfeedingScreen() {
               style={{ backgroundColor: `${SAGE}18`, border: `2px dashed ${SAGE}40` }}>
               <span className="text-5xl">🤱</span>
             </div>
+            <div className="text-center">
+              <p className="text-base font-bold"
+                style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+                Pronta para mamar?
+              </p>
+              <p className="text-sm mt-1"
+                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+                Escolha o lado e inicie o cronômetro
+              </p>
+            </div>
             <div className="w-full">
               <SectionLabel>Por qual lado começar?</SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (
-                  <SideCard
-                    key={s} side={s}
+                  <SideCard key={s} side={s}
                     active={selectedSide === s}
                     totalMs={0}
                     status="ACTIVE"
@@ -381,17 +496,30 @@ export default function BreastfeedingScreen() {
           </motion.div>
         )}
 
-        {/* SESSION phase */}
+        {/* ── SESSION phase ──────────────────────────────────────────────── */}
         {phase === 'session' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="space-y-5">
-            {/* Side cards */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+            {/* Total timer — large and prominent */}
+            <div className="flex flex-col items-center py-4 px-4 rounded-2xl"
+              style={{ backgroundColor: 'hsl(var(--card))', border: `1.5px solid ${SAGE}30` }}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-1"
+                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+                Tempo total
+              </p>
+              <p className="text-5xl font-bold tabular-nums"
+                style={{ color: SAGE, fontFamily: 'Quicksand, sans-serif' }}>
+                {fmtTimer(Math.floor(display.total / 1000))}
+              </p>
+            </div>
+
+            {/* Side cards — tap to switch */}
             <div>
-              <SectionLabel>Toque para trocar de lado</SectionLabel>
+              <SectionLabel>
+                {sessionStatus === 'ACTIVE' ? 'Toque no lado para alternar' : 'Sessão pausada'}
+              </SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (
-                  <SideCard
-                    key={s} side={s}
+                  <SideCard key={s} side={s}
                     active={activeSide === s}
                     totalMs={display[s]}
                     status={sessionStatus}
@@ -399,32 +527,15 @@ export default function BreastfeedingScreen() {
                   />
                 ))}
               </div>
+              {switchCount > 0 && (
+                <p className="text-center text-xs mt-2"
+                  style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+                  {switchCount} troca{switchCount > 1 ? 's' : ''} de lado
+                </p>
+              )}
             </div>
 
-            {/* Total + status */}
-            <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
-              style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
-              <div>
-                <p className="text-xs font-semibold" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-                  Total
-                </p>
-                <p className="text-2xl font-bold tabular-nums"
-                  style={{ color: SAGE, fontFamily: 'Quicksand, sans-serif' }}>
-                  {fmtTimer(Math.floor(display.total / 1000))}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {sessionStatus === 'ACTIVE' && (
-                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: SAGE }} />
-                )}
-                <span className="text-sm font-semibold"
-                  style={{ color: sessionStatus === 'ACTIVE' ? SAGE : 'hsl(var(--muted-foreground))', fontFamily: font }}>
-                  {sessionStatus === 'ACTIVE' ? 'Em andamento' : 'Pausado'}
-                </span>
-              </div>
-            </div>
-
-            {/* Session controls */}
+            {/* Controls */}
             <div className="flex gap-3">
               {sessionStatus === 'ACTIVE' ? (
                 <button onClick={handlePause}
@@ -445,21 +556,15 @@ export default function BreastfeedingScreen() {
                 ⏹ Encerrar
               </button>
             </div>
-
-            {/* Discard link */}
-            <button onClick={handleDiscard}
-              className="w-full py-1 text-xs font-semibold text-center"
-              style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-              Descartar sessão
-            </button>
           </motion.div>
         )}
 
-        {/* ENDED phase — enrichment */}
+        {/* ── ENDED phase — review before saving ────────────────────────── */}
         {phase === 'ended' && finishedData && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="space-y-6">
-            {/* Summary card */}
+
+            {/* Summary */}
             <div className="flex items-center gap-3 px-4 py-4 rounded-2xl"
               style={{ backgroundColor: `${SAGE}12`, border: `1.5px solid ${SAGE}30` }}>
               <span className="text-3xl">🤱</span>
@@ -470,9 +575,10 @@ export default function BreastfeedingScreen() {
                 </p>
                 <p className="text-xs font-semibold mt-0.5" style={{ color: SAGE, fontFamily: font }}>
                   {[
-                    finishedData.leftSec > 0 ? `E: ${fmtDurationShort(finishedData.leftSec)}` : null,
+                    finishedData.leftSec  > 0 ? `E: ${fmtDurationShort(finishedData.leftSec)}`  : null,
                     finishedData.rightSec > 0 ? `D: ${fmtDurationShort(finishedData.rightSec)}` : null,
-                    finishedData.switches > 0 ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
+                    finishedData.switches > 0
+                      ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
                   ].filter(Boolean).join(' · ')}
                 </p>
               </div>
@@ -529,13 +635,6 @@ export default function BreastfeedingScreen() {
               </div>
               <Switch checked={includeInReport} onCheckedChange={setIncludeInReport} />
             </div>
-
-            {/* Discard link */}
-            <button onClick={handleDiscard}
-              className="w-full py-1 text-xs font-semibold text-center"
-              style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-              Descartar sessão
-            </button>
           </motion.div>
         )}
       </div>
@@ -552,8 +651,8 @@ export default function BreastfeedingScreen() {
           {phase === 'suggest' && (
             <button onClick={handleStart}
               className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-95"
-              style={{ background: `linear-gradient(135deg, ${SAGE}, hsl(var(--ninho-mauve)))`, color: 'white', fontFamily: font }}>
-              ▶ Iniciar mamada
+              style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
+              ▶ Iniciar mamada — lado {selectedSide === 'L' ? 'esquerdo' : 'direito'}
             </button>
           )}
           {phase === 'session' && (
@@ -566,15 +665,25 @@ export default function BreastfeedingScreen() {
           {phase === 'ended' && (
             <button onClick={handleSave} disabled={saving}
               className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
-              style={{
-                background: `linear-gradient(135deg, ${SAGE}, hsl(var(--ninho-mauve)))`,
-                color: 'white', fontFamily: font,
-              }}>
+              style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
               {saving ? 'Salvando...' : 'Salvar mamada'}
             </button>
           )}
         </div>
       </div>
+
+      {/* Back nav confirmation */}
+      <AnimatePresence>
+        {showBackConfirm && (
+          <BackConfirmSheet
+            open
+            durationSec={phase === 'ended' ? (finishedData?.totalSec ?? 0) : totalSec}
+            onContinue={handleConfirmContinue}
+            onSaveReview={handleConfirmSaveReview}
+            onDiscard={handleConfirmDiscard}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -88,7 +88,6 @@ export default function RotinaPage() {
   const { activeChild, loading: childLoading } = useActiveChild();
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [feedOpen, setFeedOpen] = useState(false);
 
   const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
   const [detailKind, setDetailKind] = useState<'breastfeed' | null>(null);

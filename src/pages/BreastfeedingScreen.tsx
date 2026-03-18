@@ -861,10 +861,12 @@ export default function BreastfeedingScreen() {
       )}
       {phase === 'manual' && (
         <StickyFooterCTA
-          primaryLabel={saving ? 'Salvando...' : 'Registrar mamada'}
+          primaryLabel="Salvar registro"
           onPrimary={handleSaveManual}
           primaryLoading={saving}
           primaryColor={FEED_COLOR}
+          tertiaryLabel="Cancelar"
+          onTertiary={() => setPhase('suggest')}
         />
       )}
       {phase === 'ended' && (

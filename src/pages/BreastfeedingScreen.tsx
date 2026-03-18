@@ -35,7 +35,7 @@ const FEED_COLOR = 'hsl(var(--color-feed))';
 
 type Side = 'L' | 'R';
 type SessionStatus = 'ACTIVE' | 'PAUSED' | 'FINISHED';
-type Phase = 'suggest' | 'session' | 'ended';
+type Phase = 'suggest' | 'session' | 'ended' | 'manual';
 
 interface SideTimes { L: number; R: number; }
 

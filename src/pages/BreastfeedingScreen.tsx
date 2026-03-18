@@ -604,20 +604,24 @@ export default function BreastfeedingScreen() {
               )}
             </div>
 
-            {/* Trocar de lado — explicit button when active */}
-            {sessionStatus === 'ACTIVE' && (
-              <button
-                onClick={handleSwitch}
-                className="w-full py-3.5 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
-                style={{
-                  backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
-                  color: FEED_COLOR,
-                  border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 25%, transparent)`,
-                }}
-              >
-                ⇄ Trocar de lado
-              </button>
-            )}
+            {/* Trocar de lado — always visible, disabled when not active */}
+            <button
+              onClick={sessionStatus === 'ACTIVE' ? handleSwitch : undefined}
+              disabled={sessionStatus !== 'ACTIVE'}
+              className="w-full py-3.5 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: sessionStatus === 'ACTIVE'
+                  ? `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`
+                  : 'hsl(var(--muted))',
+                color: sessionStatus === 'ACTIVE' ? FEED_COLOR : 'hsl(var(--muted-foreground))',
+                border: `1.5px solid ${sessionStatus === 'ACTIVE'
+                  ? `color-mix(in srgb, ${FEED_COLOR} 25%, transparent)`
+                  : 'transparent'}`,
+                opacity: sessionStatus === 'ACTIVE' ? 1 : 0.45,
+              }}
+            >
+              ⇄ Trocar de lado
+            </button>
 
             {/* Controls */}
             <div className="flex gap-3">

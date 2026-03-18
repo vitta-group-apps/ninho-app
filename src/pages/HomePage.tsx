@@ -32,42 +32,6 @@ export default function HomePage() {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
-  const [detailLog, setDetailLog] = useState<RoutineLog | null>(null);
-  const [detailKind, setDetailKind] = useState<'breastfeed' | null>(null);
-
-  const loadLogs = useCallback(async () => {
-    if (!activeChild) return;
-    setLogsLoading(true);
-    setLogsError(null);
-    try {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const { data, error } = await supabase
-        .from('routine_logs')
-        .select('*')
-        .eq('child_id', activeChild.id)
-        .gte('start_time', todayStart.toISOString())
-        .order('start_time', { ascending: false });
-      if (error) throw error;
-      setLogs(data ?? []);
-    } catch {
-      setLogsError('Não foi possível carregar os eventos de hoje.');
-    } finally {
-      setLogsLoading(false);
-    }
-  }, [activeChild]);
-
-  useEffect(() => { loadLogs(); }, [loadLogs]);
-
-  function handleTap(log: RoutineLog) {
-    const p = parsePayload(log.notes);
-    if (log.type === 'feed' && p.session_type === 'breastfeed') {
-      setDetailLog(log);
-      setDetailKind('breastfeed');
-    } else if (log.type === 'diaper') {
-      navigate(`/diaper/edit/${log.id}`);
-    }
-  }
 
   // ─── Daily stats ───────────────────────────────────────────────────────────
   const feedCount = logs.filter(l => l.type === 'feed').length;

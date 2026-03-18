@@ -604,6 +604,135 @@ export default function BreastfeedingScreen() {
           </motion.div>
         )}
 
+        {/* ── MANUAL ────────────────────────────────────────────────── */}
+        {phase === 'manual' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            {/* Header */}
+            <div
+              className="flex items-center gap-3 p-4 rounded-2xl"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
+              }}
+            >
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
+              >
+                🤱
+              </div>
+              <div>
+                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">Registro manual</p>
+                <p className="text-[12px] font-nunito text-muted-foreground mt-0.5">Preencha os dados da mamada</p>
+              </div>
+            </div>
+
+            {/* Side selection */}
+            <div>
+              <SectionLabel>Qual lado?</SectionLabel>
+              <div className="flex gap-3">
+                {([
+                  { val: 'L',    label: 'Esquerdo', arrow: '←' },
+                  { val: 'R',    label: 'Direito',   arrow: '→' },
+                  { val: 'both', label: 'Ambos',     arrow: '⇄' },
+                ] as { val: 'L' | 'R' | 'both'; label: string; arrow: string }[]).map(opt => {
+                  const isActive = manualSide === opt.val;
+                  return (
+                    <button
+                      key={opt.val}
+                      onClick={() => setManualSide(opt.val)}
+                      className="flex-1 flex flex-col items-center gap-1.5 py-4 px-2 rounded-2xl font-bold transition-all active:scale-95 font-nunito"
+                      style={{
+                        backgroundColor: isActive
+                          ? `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))`
+                          : 'hsl(var(--card))',
+                        border: `2px solid ${isActive ? FEED_COLOR : 'hsl(var(--border))'}`,
+                      }}
+                    >
+                      <span
+                        className="text-[20px] font-bold"
+                        style={{ color: isActive ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
+                      >
+                        {opt.arrow}
+                      </span>
+                      <p
+                        className="text-[11px] font-bold"
+                        style={{ color: isActive ? FEED_COLOR : 'hsl(var(--foreground))' }}
+                      >
+                        {opt.label}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div>
+              <SectionLabel>Duração (minutos)</SectionLabel>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="120"
+                placeholder="ex: 15"
+                value={manualDurationMin}
+                onChange={e => setManualDurationMin(e.target.value)}
+                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
+                style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': FEED_COLOR } as React.CSSProperties}
+              />
+            </div>
+
+            {/* Start time */}
+            <div>
+              <SectionLabel>Horário de início</SectionLabel>
+              <input
+                type="time"
+                value={manualStartTime}
+                onChange={e => setManualStartTime(e.target.value)}
+                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
+                style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': FEED_COLOR } as React.CSSProperties}
+              />
+            </div>
+
+            <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
+
+            {/* Quick tags */}
+            <div>
+              <SectionLabel>Como foi a mamada?</SectionLabel>
+              <ChipGroup
+                options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
+                values={obsTags}
+                onToggle={id => setObsTags(p => p.includes(id) ? p.filter(t => t !== id) : [...p, id])}
+                accentColor={FEED_COLOR}
+                multiSelect
+              />
+            </div>
+
+            {/* Observations */}
+            <div>
+              <SectionLabel>Observações</SectionLabel>
+              <Textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Como foi a mamada? Alguma observação..."
+                className="ds-textarea"
+                rows={3}
+              />
+            </div>
+
+            <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
+
+            {/* Discard — tertiary */}
+            <button
+              onClick={() => setPhase('suggest')}
+              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
+            >
+              Cancelar
+            </button>
+          </motion.div>
+        )}
+
         {/* ── ENDED ─────────────────────────────────────────────────── */}
         {phase === 'ended' && finishedData && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">

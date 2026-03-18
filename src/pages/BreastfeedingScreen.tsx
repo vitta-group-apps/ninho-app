@@ -557,23 +557,28 @@ export default function BreastfeedingScreen() {
 
         {/* ── ENDED ───────────────────────────────────────────────── */}
         {phase === 'ended' && finishedData && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ds-section">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-            {/* Summary */}
+            {/* Summary card */}
             <div
-              className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+              className="flex items-center gap-4 p-4 rounded-2xl"
               style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
-                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 25%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
               }}
             >
-              <span className="text-3xl">🤱</span>
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
+              >
+                🤱
+              </div>
               <div>
-                <p className="text-sm font-bold font-quicksand text-foreground">Sessão encerrada</p>
-                <p className="text-xs font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
+                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">Sessão encerrada</p>
+                <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
                   {[
-                    finishedData.leftSec  > 0 ? `E: ${fmtDurationShort(finishedData.leftSec)}`  : null,
-                    finishedData.rightSec > 0 ? `D: ${fmtDurationShort(finishedData.rightSec)}` : null,
+                    finishedData.leftSec  > 0 ? `Esq: ${fmtDurationShort(finishedData.leftSec)}`  : null,
+                    finishedData.rightSec > 0 ? `Dir: ${fmtDurationShort(finishedData.rightSec)}` : null,
                     finishedData.switches > 0
                       ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
                   ].filter(Boolean).join(' · ')}
@@ -592,6 +597,9 @@ export default function BreastfeedingScreen() {
                 multiSelect
               />
             </div>
+
+            {/* Divider */}
+            <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
             {/* Observations */}
             <div>

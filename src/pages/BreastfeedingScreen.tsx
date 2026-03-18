@@ -487,18 +487,16 @@ export default function BreastfeedingScreen() {
               </button>
               <button
                 onClick={() => {
-                  // Manual log: open ended phase directly with 0-sec session
-                  const now = Date.now();
-                  sideTimesRef.current = { L: 0, R: 0 };
-                  activeSideRef.current = selectedSide;
-                  setSessionStartEpoch(now);
-                  setSwitchCount(0);
-                  setFinishedData({ totalSec: 0, leftSec: 0, rightSec: 0, switches: 0, start: new Date(now), end: new Date(now), lastSide: selectedSide });
-                  setPhase('ended');
+                  // Reset manual fields to current time
+                  const now = new Date();
+                  setManualStartTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+                  setManualDurationMin('');
+                  setManualSide('L');
+                  setPhase('manual');
                 }}
                 className="w-full py-2.5 text-[12px] font-semibold font-nunito text-center text-muted-foreground"
               >
-                Adicionar manualmente (sem cronômetro)
+                Registrar sem cronômetro
               </button>
             </div>
           </motion.div>

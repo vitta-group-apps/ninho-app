@@ -860,7 +860,7 @@ export default function BreastfeedingScreen() {
         )}
       </div>
 
-      {/* DS Sticky CTA — only on suggest and ended phases */}
+      {/* DS Sticky CTA — only on suggest, manual and ended phases */}
       {phase === 'suggest' && (
         <StickyFooterCTA
           primaryLabel={`Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
@@ -869,9 +869,17 @@ export default function BreastfeedingScreen() {
           primaryDisabled={!activeChildId}
         />
       )}
+      {phase === 'manual' && (
+        <StickyFooterCTA
+          primaryLabel={saving ? 'Salvando...' : 'Registrar mamada'}
+          onPrimary={handleSaveManual}
+          primaryLoading={saving}
+          primaryColor={FEED_COLOR}
+        />
+      )}
       {phase === 'ended' && (
         <StickyFooterCTA
-          primaryLabel="Salvar mamada"
+          primaryLabel={saving ? 'Salvando...' : 'Salvar mamada'}
           onPrimary={handleSave}
           primaryLoading={saving}
           primaryColor={FEED_COLOR}

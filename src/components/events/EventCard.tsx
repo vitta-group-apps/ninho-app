@@ -1,13 +1,13 @@
 /**
- * EventCard — The single reusable event card for Ninho timelines.
+ * EventCard — Ninho DS v2 unified timeline card.
  *
- * Used identically in Home (today's timeline) and Rotina (daily timeline).
- * Structure:
- *   Row 1: icon · title · time (right) · optional badge
- *   Row 2: human summary
- *   Row 3: observation preview (only if meaningful)
+ * IDENTICAL in Home and Rotina — do not fork.
  *
- * Tapping opens the corresponding detail sheet (handled by parent via onTap).
+ * Row 1: icon · title · time · optional badge
+ * Row 2: human summary
+ * Row 3: observation preview (only if meaningful)
+ *
+ * Uses semantic tokens only — no hardcoded colors in JSX.
  */
 
 import type { RoutineLog } from '@/lib/eventSystem';
@@ -32,7 +32,7 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
           style={{ backgroundColor: ev.color }}
         />
         {!isLast && (
-          <div className="w-px flex-1 mt-1" style={{ backgroundColor: 'hsl(var(--border))' }} />
+          <div className="w-px flex-1 mt-1 bg-border" />
         )}
       </div>
 
@@ -40,62 +40,52 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
       <button
         onClick={ev.tappable ? () => onTap(log) : undefined}
         className={[
-          'flex-1 rounded-2xl px-4 py-3 flex items-start gap-3 text-left w-full',
+          'flex-1 rounded-2xl px-4 py-3 flex items-start gap-3 text-left w-full bg-card border border-border',
           ev.tappable ? 'active:scale-[0.98] transition-transform' : '',
         ].join(' ')}
         style={{
-          backgroundColor: 'hsl(var(--card))',
-          border: `1px solid ${ev.tappable
-            ? ev.color.replace(')', ' / 0.25)').replace('hsl(', 'hsl(')
-            : 'hsl(var(--border))'}`,
+          borderColor: ev.tappable
+            ? `color-mix(in srgb, ${ev.color} 28%, transparent)`
+            : 'hsl(var(--border))',
           cursor: ev.tappable ? 'pointer' : 'default',
         }}
       >
-        {/* Icon */}
+        {/* Icon container */}
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-lg"
           style={{ backgroundColor: ev.bgColor }}
         >
-          <span className="text-lg">{ev.emoji}</span>
+          {ev.emoji}
         </div>
 
-        {/* Text */}
+        {/* Text block */}
         <div className="min-w-0 flex-1">
           {/* Row 1: title + time + chevron */}
           <div className="flex items-center justify-between gap-2">
-            <p
-              className="text-sm font-bold leading-tight"
-              style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}
-            >
+            <p className="text-sm font-bold leading-tight text-foreground font-quicksand truncate">
               {ev.title}
             </p>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {ev.badge && (
                 <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full font-nunito"
                   style={{ backgroundColor: ev.bgColor, color: ev.color }}
                 >
                   {ev.badge}
                 </span>
               )}
-              <span
-                className="text-[11px] font-semibold tabular-nums"
-                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
-              >
+              <span className="text-[11px] font-semibold tabular-nums text-muted-foreground font-nunito">
                 {fmtTime(log.start_time)}
               </span>
               {ev.tappable && (
-                <span className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>›</span>
+                <span className="text-xs text-muted-foreground">›</span>
               )}
             </div>
           </div>
 
           {/* Row 2: summary */}
           {ev.summary && (
-            <p
-              className="text-xs mt-0.5 font-medium"
-              style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
-            >
+            <p className="text-xs mt-0.5 font-medium text-muted-foreground font-nunito">
               {ev.summary}
             </p>
           )}
@@ -103,8 +93,8 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
           {/* Row 3: observation preview */}
           {ev.observationPreview && (
             <p
-              className="text-xs mt-0.5 truncate"
-              style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif', opacity: 0.75 }}
+              className="text-xs mt-0.5 truncate font-nunito"
+              style={{ color: 'hsl(var(--muted-foreground))', opacity: 0.75 }}
             >
               {ev.observationPreview}
             </p>

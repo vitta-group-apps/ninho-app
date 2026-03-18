@@ -1,11 +1,10 @@
 /**
- * ActiveSessionBanner — Persistent surface for any running timed session.
+ * ActiveSessionBanner — DS v2 persistent active-session surface.
  *
- * Shows at the top of Home and Rotina when:
- *  - a breastfeeding session is active (localStorage: ninho_feed_session_v6)
- *  - a sleep session is active (localStorage: ninho_sleep_v2)
+ * Sits below the home/rotina header when a timed session is running.
+ * Supports: sleep + breastfeeding.
  *
- * Tapping opens the corresponding full-screen flow.
+ * Uses semantic tokens. No hardcoded hex.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -15,8 +14,8 @@ import { fmtTimer } from '@/lib/routineUtils';
 import { loadSleepSession } from '@/pages/SleepScreen';
 
 const FEED_SESSION_KEY = 'ninho_feed_session_v6';
-const MAUVE = 'hsl(270,12%,52%)';
-const SAGE  = 'hsl(152,15%,55%)';
+const SLEEP_COLOR = 'hsl(270,12%,42%)';
+const FEED_COLOR  = 'hsl(152,15%,55%)';
 
 interface ActiveBannerItem {
   id: string;
@@ -24,27 +23,8 @@ interface ActiveBannerItem {
   label: string;
   sub: string;
   color: string;
-  bgColor: string;
   elapsed: number;
   onClick: () => void;
-}
-
-function useLiveElapsed(startEpoch: number | null, paused: boolean): number {
-  const [elapsed, setElapsed] = useState(
-    startEpoch ? Math.floor((Date.now() - startEpoch) / 1000) : 0
-  );
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (startEpoch && !paused) {
-      ref.current = setInterval(() => {
-        setElapsed(Math.floor((Date.now() - startEpoch) / 1000));
-      }, 1000);
-    }
-    return () => { if (ref.current) clearInterval(ref.current); };
-  }, [startEpoch, paused]);
-
-  return elapsed;
 }
 
 export function ActiveSessionBanner() {
@@ -55,24 +35,26 @@ export function ActiveSessionBanner() {
     const build = () => {
       const next: ActiveBannerItem[] = [];
 
-      // ── Sleep session ──────────────────────────────────────────
+      // Sleep
       const sleep = loadSleepSession();
       if (sleep) {
         const isPaused = !!sleep.pausedAt;
         const startMs = isPaused ? null : new Date(sleep.startIso).getTime();
+        const elapsed = isPaused
+          ? sleep.accumulatedSec
+          : sleep.accumulatedSec + Math.floor((Date.now() - (startMs ?? 0)) / 1000);
         next.push({
           id: 'sleep',
           emoji: '😴',
           label: 'Sono em andamento',
           sub: isPaused ? 'Pausado' : 'Ativo',
-          color: MAUVE,
-          bgColor: `${MAUVE}15`,
-          elapsed: sleep.accumulatedSec,
+          color: SLEEP_COLOR,
+          elapsed,
           onClick: () => navigate('/sleep'),
         });
       }
 
-      // ── Breastfeed session ────────────────────────────────────
+      // Breastfeeding
       try {
         const raw = localStorage.getItem(FEED_SESSION_KEY);
         if (raw) {
@@ -83,8 +65,7 @@ export function ActiveSessionBanner() {
               emoji: '🤱',
               label: 'Amamentação em andamento',
               sub: feed.status === 'PAUSED' ? 'Pausado' : 'Ativo',
-              color: SAGE,
-              bgColor: `${SAGE}15`,
+              color: FEED_COLOR,
               elapsed: Math.floor((Date.now() - feed.sessionStartEpoch) / 1000),
               onClick: () => navigate('/breastfeeding'),
             });
@@ -103,7 +84,7 @@ export function ActiveSessionBanner() {
   if (items.length === 0) return null;
 
   return (
-    <div className="px-5 pt-3 space-y-2">
+    <div className="px-4 pt-3 space-y-2">
       {items.map(item => (
         <BannerItem key={item.id} item={item} />
       ))}
@@ -113,14 +94,17 @@ export function ActiveSessionBanner() {
 
 function BannerItem({ item }: { item: ActiveBannerItem }) {
   const [elapsed, setElapsed] = useState(item.elapsed);
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     setElapsed(item.elapsed);
     if (item.sub !== 'Pausado') {
-      const ref = setInterval(() => setElapsed(e => e + 1), 1000);
-      return () => clearInterval(ref);
+      ref.current = setInterval(() => setElapsed(e => e + 1), 1000);
     }
+    return () => { if (ref.current) clearInterval(ref.current); };
   }, [item.elapsed, item.sub]);
+
+  const isPaused = item.sub === 'Pausado';
 
   return (
     <motion.button
@@ -129,28 +113,28 @@ function BannerItem({ item }: { item: ActiveBannerItem }) {
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.2 }}
       onClick={item.onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-98"
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[0.98]"
       style={{
-        backgroundColor: item.bgColor,
-        border: `1.5px solid ${item.color}30`,
+        backgroundColor: `color-mix(in srgb, ${item.color} 10%, transparent)`,
+        border: `1.5px solid color-mix(in srgb, ${item.color} 25%, transparent)`,
       }}
     >
       <span className="text-xl flex-shrink-0">{item.emoji}</span>
+
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold leading-tight truncate"
-          style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+        <p className="text-sm font-bold leading-tight text-foreground font-quicksand truncate">
           {item.label}
         </p>
-        <p className="text-xs" style={{ color: item.color, fontFamily: 'Nunito, sans-serif' }}>
-          {item.sub === 'Pausado' ? 'Pausado' : `Há ${fmtTimer(elapsed)}`}
+        <p className="text-xs font-nunito" style={{ color: item.color }}>
+          {isPaused ? 'Pausado' : `Há ${fmtTimer(elapsed)}`}
         </p>
       </div>
+
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        {item.sub !== 'Pausado' && (
+        {!isPaused && (
           <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: item.color }} />
         )}
-        <span className="text-xs font-bold tabular-nums"
-          style={{ color: item.color, fontFamily: 'Nunito, sans-serif' }}>
+        <span className="text-xs font-bold tabular-nums font-nunito" style={{ color: item.color }}>
           {fmtTimer(elapsed)}
         </span>
         <span className="text-sm" style={{ color: item.color }}>›</span>

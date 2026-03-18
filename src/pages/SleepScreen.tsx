@@ -79,14 +79,15 @@ const AWAKENINGS_OPTIONS = [
 
 const SLEEP_COLOR = 'hsl(var(--color-sleep))';
 
-// ─── Back confirm sheet ────────────────────────────────────────────────────────
+// ─── Discard review confirm sheet ─────────────────────────────────────────────
+// Only shown when user tries to go back from the "ended" review phase.
+// Active/paused sessions persist silently in background.
 
-function BackConfirmSheet({
-  open, onContinue, onEnd, onDiscard,
+function DiscardReviewSheet({
+  open, onStay, onDiscard,
 }: {
   open: boolean;
-  onContinue: () => void;
-  onEnd: () => void;
+  onStay: () => void;
   onDiscard: () => void;
 }) {
   if (!open) return null;
@@ -94,7 +95,7 @@ function BackConfirmSheet({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-      onClick={onContinue}
+      onClick={onStay}
     >
       <motion.div
         initial={{ y: 60, opacity: 0 }}
@@ -105,30 +106,24 @@ function BackConfirmSheet({
         onClick={e => e.stopPropagation()}
       >
         <p className="text-base font-bold text-center font-quicksand text-foreground">
-          Sono em andamento
+          Descartar o registro?
         </p>
         <p className="text-sm text-center pb-1 text-muted-foreground font-nunito">
-          O que deseja fazer?
+          O sono já foi encerrado. Voltar agora descartará o registro.
         </p>
         <div className="space-y-2 pb-2">
           <button
-            onClick={onContinue}
+            onClick={onStay}
             className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito text-white"
             style={{ backgroundColor: SLEEP_COLOR }}
           >
-            Continuar o sono
-          </button>
-          <button
-            onClick={onEnd}
-            className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito bg-muted text-foreground"
-          >
-            Encerrar e salvar
+            Continuar e salvar
           </button>
           <button
             onClick={onDiscard}
             className="w-full py-2 text-xs font-semibold text-center font-nunito text-destructive"
           >
-            Descartar sessão
+            Descartar e voltar
           </button>
         </div>
       </motion.div>

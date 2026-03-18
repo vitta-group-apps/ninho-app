@@ -19,6 +19,8 @@ import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';
 import SleepScreen from '@/pages/SleepScreen';
+import BreastfeedingScreen from '@/pages/BreastfeedingScreen';
+import BottleScreen from '@/pages/BottleScreen';
 import { ResetPasswordPage } from '@/pages/ResetPassword';
 import NotFound from '@/pages/NotFound';
 

@@ -364,7 +364,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
         observationPreview: hasObs && userNotes ? userNotes.slice(0, 50) : null,
         detailKind: isBreastfeed ? 'breastfeed' : 'bottle',
         tappable: true,
-        editPath: isBreastfeed ? `/feed/detail/${log.id}` : `/bottle/edit/${log.id}`,
+        editPath: isBreastfeed ? `/feed/detail/${log.id}` : `/bottle/detail/${log.id}`,
         hint: hintLabel ? { label: hintLabel, variant: 'info' } : null,
         includeInReport,
       };

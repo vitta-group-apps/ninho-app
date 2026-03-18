@@ -5,8 +5,9 @@
 @tailwind utilities;
 
 /*
- * NINHO Design System
- * Todas as cores em HSL. Não usar hex diretamente nos componentes.
+ * NINHO Design System v2
+ * Todas as cores em HSL. Não usar hex ou cores diretas nos componentes.
+ * Tokens de ação, texto e superfície definidos aqui.
  */
 
 @layer base {
@@ -15,7 +16,13 @@
     --ninho-sand:    37 30% 96%;       /* #F7F5F2 — fundo principal */
     --ninho-brown:   16 14% 30%;       /* #5A4A42 — textos e elementos */
     --ninho-sage:    152 15% 55%;      /* #7A9A8B — CTAs e destaques */
-    --ninho-mauve:   270 12% 52%;      /* #8A7A92 — splash, headers */
+    --ninho-mauve:   270 12% 52%;      /* #8A7A92 — splash, headers, primary */
+
+    /* ── Ninho Action Colors (semantic) ── */
+    --color-sleep:   270 12% 52%;      /* mesmo que mauve */
+    --color-feed:    152 15% 55%;      /* mesmo que sage  */
+    --color-diaper:  32  80% 57%;      /* âmbar/laranja */
+    --color-bottle:  200 40% 50%;      /* azul/teal */
 
     /* ── shadcn semantic tokens ── */
     --background:    37 30% 96%;
@@ -27,36 +34,37 @@
     --popover:       0 0% 100%;
     --popover-foreground: 16 14% 30%;
 
-    --primary:       270 12% 52%;
+    /* Primary = Mauve (brand action color) */
+    --primary:       270 12% 42%;
     --primary-foreground: 0 0% 100%;
 
     --secondary:     37 30% 92%;
     --secondary-foreground: 16 14% 30%;
 
     --muted:         37 20% 92%;
-    --muted-foreground: 16 10% 55%;
+    --muted-foreground: 16 10% 52%;
 
     --accent:        152 15% 90%;
     --accent-foreground: 16 14% 30%;
 
-    --destructive:   0 84.2% 60.2%;
+    --destructive:   0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border:        37 20% 88%;
-    --input:         37 20% 88%;
-    --ring:          270 12% 52%;
+    --input:         37 20% 85%;
+    --ring:          270 12% 42%;
 
     --radius:        0.75rem;
 
-    /* sidebar (não usado neste app, mas exigido pelo shadcn) */
+    /* sidebar (exigido pelo shadcn) */
     --sidebar-background: 37 30% 96%;
     --sidebar-foreground: 16 14% 30%;
-    --sidebar-primary: 270 12% 52%;
+    --sidebar-primary: 270 12% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 37 30% 92%;
     --sidebar-accent-foreground: 16 14% 30%;
     --sidebar-border: 37 20% 88%;
-    --sidebar-ring: 270 12% 52%;
+    --sidebar-ring: 270 12% 42%;
   }
 
   .dark {
@@ -113,3 +121,28 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ── DS v2 utility classes ── */
+@layer utilities {
+  .font-quicksand { font-family: 'Quicksand', system-ui, sans-serif; }
+  .font-nunito    { font-family: 'Nunito', system-ui, sans-serif; }
+
+  /* Textarea: prevent clipping on focus */
+  .ds-textarea {
+    @apply w-full rounded-2xl border border-input bg-card px-4 py-3 text-sm text-foreground
+           resize-none font-nunito min-h-[88px] transition-all
+           focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring;
+  }
+
+  /* Scrollable form body — always safe-bottom padded */
+  .ds-form-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 16px;
+    padding-bottom: max(96px, calc(env(safe-area-inset-bottom) + 96px));
+  }
+
+  /* Form section spacer */
+  .ds-section { @apply space-y-5; }
+}
+

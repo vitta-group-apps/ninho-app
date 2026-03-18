@@ -1,32 +1,33 @@
 /**
  * BreastfeedingScreen — Full-screen breastfeeding session flow.
+ * DS v2: uses ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle, InlineStatusPill.
  *
- * Route: /breastfeeding
- *
- * Session phases:
- *   suggest → session (ACTIVE/PAUSED) → ended → saved
- *
- * Safety: back button during active/paused shows a confirmation sheet.
- * No silent data loss.
+ * No gradient buttons. Solid primary (sage). Chips always wrap.
+ * Back-guard preserved.
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import { makePayloadNotes, fmtTimer, fmtDurationShort } from '@/lib/routineUtils';
+import {
+  ScreenHeader,
+  StickyFooterCTA,
+  SectionLabel,
+  ChipGroup,
+  ReportToggle,
+  InlineStatusPill,
+} from '@/components/ds';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
 export const FEED_SESSION_KEY = 'ninho_feed_session_v6';
-const SAGE  = 'hsl(152,15%,55%)';
-const font  = 'Nunito, sans-serif';
+const FEED_COLOR = 'hsl(var(--color-feed))';
 
 type Side = 'L' | 'R';
 type SessionStatus = 'ACTIVE' | 'PAUSED' | 'FINISHED';
@@ -77,16 +78,7 @@ export function loadFeedSession(): FeedSession | null {
   catch { return null; }
 }
 
-// ─── Sub-components ────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs font-bold uppercase tracking-wider mb-2"
-      style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-      {children}
-    </p>
-  );
-}
+// ─── SideCard ──────────────────────────────────────────────────────────────
 
 function SideCard({
   side, active, totalMs, status, onClick,
@@ -104,38 +96,43 @@ function SideCard({
       disabled={!onClick}
       className="flex-1 rounded-3xl p-4 text-center transition-all duration-200 select-none"
       style={{
-        backgroundColor: active ? `${SAGE}18` : 'hsl(var(--muted))',
-        border: active ? `2px solid ${SAGE}50` : '2px solid transparent',
+        backgroundColor: active ? `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)` : 'hsl(var(--muted))',
+        border: `2px solid ${active ? `color-mix(in srgb, ${FEED_COLOR} 40%, transparent)` : 'transparent'}`,
         opacity: active ? 1 : 0.5,
         transform: active ? 'scale(1.02)' : 'scale(1)',
       }}
     >
-      <div className="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-lg font-bold"
+      <div
+        className="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-lg font-bold"
         style={{
-          backgroundColor: active ? `${SAGE}25` : 'hsl(var(--border))',
-          color: active ? SAGE : 'hsl(var(--muted-foreground))',
-        }}>
+          backgroundColor: active ? `color-mix(in srgb, ${FEED_COLOR} 20%, transparent)` : 'hsl(var(--border))',
+          color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))',
+        }}
+      >
         {arrow}
       </div>
-      <p className="text-[11px] mt-2 font-bold uppercase tracking-wide"
-        style={{ color: active ? SAGE : 'hsl(var(--muted-foreground))', fontFamily: font }}>
+      <p
+        className="text-[11px] mt-2 font-bold uppercase tracking-wide font-nunito"
+        style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
+      >
         {label}
       </p>
-      {/* Timer — stable height to prevent layout shift */}
+      {/* Timer — stable height */}
       <div className="h-9 flex items-center justify-center mt-1">
-        <p className="text-2xl font-bold tabular-nums"
-          style={{ color: active ? SAGE : 'hsl(var(--muted-foreground))', fontFamily: 'Quicksand, sans-serif' }}>
+        <p
+          className="text-2xl font-bold tabular-nums font-quicksand"
+          style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
+        >
           {fmtTimer(Math.floor(totalMs / 1000))}
         </p>
       </div>
-      {/* Status label — always occupies space to prevent height jump */}
+      {/* Status dot — always occupies space */}
       <div className="h-5 flex items-center justify-center gap-1 mt-1">
-        {showPulse && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: SAGE }} />}
-        <span className="text-[10px] font-semibold"
-          style={{
-            color: active ? SAGE : 'transparent',
-            fontFamily: font,
-          }}>
+        {showPulse && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />}
+        <span
+          className="text-[10px] font-semibold font-nunito"
+          style={{ color: active ? FEED_COLOR : 'transparent' }}
+        >
           {active && status === 'ACTIVE' ? 'ativo' : active && status === 'PAUSED' ? 'pausado' : '\u00A0'}
         </span>
       </div>
@@ -143,10 +140,10 @@ function SideCard({
   );
 }
 
-/** Back-navigation confirmation sheet */
+// ─── Back-confirm sheet ────────────────────────────────────────────────────
+
 function BackConfirmSheet({
-  open, durationSec,
-  onContinue, onSaveReview, onDiscard,
+  open, durationSec, onContinue, onSaveReview, onDiscard,
 }: {
   open: boolean;
   durationSec: number;
@@ -165,36 +162,37 @@ function BackConfirmSheet({
         initial={{ y: 60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-        className="w-full max-w-md rounded-t-3xl px-5 pb-safe pt-6 space-y-3"
-        style={{ backgroundColor: 'hsl(var(--card))' }}
+        className="w-full max-w-md rounded-t-3xl px-5 pb-safe pt-6 space-y-3 bg-card"
         onClick={e => e.stopPropagation()}
       >
-        <p className="text-base font-bold text-center"
-          style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
+        <p className="text-base font-bold text-center font-quicksand text-foreground">
           Sessão em andamento
         </p>
-        <p className="text-sm text-center pb-1"
-          style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+        <p className="text-sm text-center pb-1 text-muted-foreground font-nunito">
           {durationSec >= 60
             ? `Você tem ${fmtDurationShort(durationSec)} registrados.`
             : 'Sessão muito curta. O que deseja fazer?'}
         </p>
         <div className="space-y-2 pb-4">
-          <button onClick={onContinue}
-            className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
-            style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
+          <button
+            onClick={onContinue}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito text-white"
+            style={{ backgroundColor: FEED_COLOR }}
+          >
             Continuar sessão
           </button>
           {durationSec >= 30 && (
-            <button onClick={onSaveReview}
-              className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95"
-              style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: font }}>
+            <button
+              onClick={onSaveReview}
+              className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito bg-muted text-foreground"
+            >
               Encerrar e revisar
             </button>
           )}
-          <button onClick={onDiscard}
-            className="w-full py-2 text-xs font-semibold text-center"
-            style={{ color: 'hsl(var(--destructive))', fontFamily: font }}>
+          <button
+            onClick={onDiscard}
+            className="w-full py-2 text-xs font-semibold text-center font-nunito text-destructive"
+          >
             Descartar sessão
           </button>
         </div>
@@ -214,7 +212,6 @@ export default function BreastfeedingScreen() {
   const [selectedSide, setSelectedSide] = useState<Side>('L');
   const [showBackConfirm, setShowBackConfirm] = useState(false);
 
-  // Timer state
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('ACTIVE');
   const [sessionStartEpoch, setSessionStartEpoch] = useState(0);
   const [activeSide, setActiveSide] = useState<Side>('L');
@@ -225,14 +222,13 @@ export default function BreastfeedingScreen() {
   const [, forceRender] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Ended review state
   const [finishedData, setFinishedData] = useState<FinishedData | null>(null);
   const [obsTags, setObsTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // ── Load existing session on mount ────────────────────────────────────────
+  // Load existing session
   useEffect(() => {
     const existing = loadFeedSession();
     if (existing && existing.childId === activeChildId) {
@@ -243,9 +239,7 @@ export default function BreastfeedingScreen() {
       setSessionStartEpoch(existing.sessionStartEpoch);
       setSessionStatus(existing.status);
       if (existing.status !== 'FINISHED') {
-        if (existing.segmentStartEpoch) {
-          segmentStart.current = existing.segmentStartEpoch;
-        }
+        if (existing.segmentStartEpoch) segmentStart.current = existing.segmentStartEpoch;
         setPhase('session');
         if (existing.status === 'ACTIVE') startTicker();
       }
@@ -286,8 +280,6 @@ export default function BreastfeedingScreen() {
       segmentStartEpoch: segmentStart.current,
     });
   }
-
-  // ── Session actions ────────────────────────────────────────────────────────
 
   function handleStart() {
     const now = Date.now();
@@ -346,7 +338,7 @@ export default function BreastfeedingScreen() {
       rightSec: Math.floor(sideTimesRef.current.R / 1000),
       switches: switchCount,
       start: new Date(sessionStartEpoch),
-      end:   new Date(),
+      end: new Date(),
       lastSide: activeSideRef.current,
     });
     setPhase('ended');
@@ -365,8 +357,8 @@ export default function BreastfeedingScreen() {
         switches:      finishedData.switches,
         last_side:     finishedData.lastSide,
       };
-      if (obsTags.length > 0)  payload.tags = obsTags.join(',');
-      if (includeInReport)     payload.include_in_report = true;
+      if (obsTags.length > 0) payload.tags = obsTags.join(',');
+      if (includeInReport)    payload.include_in_report = true;
 
       const { error } = await supabase.from('routine_logs').insert({
         child_id:   activeChildId,
@@ -386,29 +378,19 @@ export default function BreastfeedingScreen() {
     }
   }
 
-  // ── Back navigation ────────────────────────────────────────────────────────
-
   function handleBack() {
-    if (phase === 'session') {
-      setShowBackConfirm(true);
-    } else if (phase === 'ended') {
-      // Already cleared session — ask before losing review state
+    if (phase === 'session' || phase === 'ended') {
       setShowBackConfirm(true);
     } else {
       navigate(-1);
     }
   }
 
-  function handleConfirmContinue() {
-    setShowBackConfirm(false);
-  }
-
+  function handleConfirmContinue() { setShowBackConfirm(false); }
   function handleConfirmSaveReview() {
     setShowBackConfirm(false);
     if (phase === 'session') handleEnd();
-    // If already in ended, just close confirm
   }
-
   function handleConfirmDiscard() {
     clearFeedSession();
     navigate(-1);
@@ -417,66 +399,46 @@ export default function BreastfeedingScreen() {
   const display = getDisplay();
   const totalSec = getCurrentTotalSec();
 
+  // Status pill for header
+  const statusPill = phase === 'session' ? (
+    <InlineStatusPill
+      label={sessionStatus === 'ACTIVE' ? 'Em andamento' : 'Pausada'}
+      variant={sessionStatus === 'ACTIVE' ? 'active' : 'paused'}
+      color={FEED_COLOR}
+    />
+  ) : null;
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
-      {/* Header */}
-      <div className="flex-shrink-0 px-5 flex items-center gap-3"
-        style={{
-          paddingTop: 'max(52px, env(safe-area-inset-top))',
-          paddingBottom: '16px',
-          backgroundColor: 'hsl(var(--card))',
-          borderBottom: '1px solid hsl(var(--border))',
-        }}>
-        <button onClick={handleBack}
-          className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all active:scale-90"
-          style={{ backgroundColor: 'hsl(var(--muted))' }}>
-          <ArrowLeftIcon className="w-5 h-5" style={{ color: 'hsl(var(--ninho-brown))' }} />
-        </button>
-        <div className="min-w-0">
-          <p className="text-lg font-bold leading-tight truncate"
-            style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-            Amamentação
-          </p>
-          {activeChild && (
-            <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-              {activeChild.name}
-            </p>
-          )}
-        </div>
-        {/* Session status pill */}
-        {phase === 'session' && (
-          <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full flex-shrink-0"
-            style={{ backgroundColor: sessionStatus === 'ACTIVE' ? `${SAGE}15` : 'hsl(var(--muted))' }}>
-            {sessionStatus === 'ACTIVE' && (
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: SAGE }} />
-            )}
-            <span className="text-[11px] font-bold"
-              style={{ color: sessionStatus === 'ACTIVE' ? SAGE : 'hsl(var(--muted-foreground))', fontFamily: font }}>
-              {sessionStatus === 'ACTIVE' ? 'Em andamento' : 'Pausada'}
-            </span>
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* DS Header */}
+      <ScreenHeader
+        title="Amamentação"
+        childName={activeChild?.name}
+        onBack={handleBack}
+        statusSlot={statusPill}
+      />
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6"
-        style={{ paddingBottom: 'max(96px, calc(env(safe-area-inset-bottom) + 96px))' }}>
+      <div className="ds-form-body">
 
-        {/* ── SUGGEST phase ──────────────────────────────────────────────── */}
+        {/* ── SUGGEST ─────────────────────────────────────────────── */}
         {phase === 'suggest' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-6 pt-6">
-            <div className="w-28 h-28 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: `${SAGE}18`, border: `2px dashed ${SAGE}40` }}>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center gap-6 pt-6"
+          >
+            <div
+              className="w-28 h-28 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)`,
+                border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`,
+              }}
+            >
               <span className="text-5xl">🤱</span>
             </div>
             <div className="text-center">
-              <p className="text-base font-bold"
-                style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-                Pronta para mamar?
-              </p>
-              <p className="text-sm mt-1"
-                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+              <p className="text-base font-bold font-quicksand text-foreground">Pronta para mamar?</p>
+              <p className="text-sm mt-1 text-muted-foreground font-nunito">
                 Escolha o lado e inicie o cronômetro
               </p>
             </div>
@@ -484,52 +446,50 @@ export default function BreastfeedingScreen() {
               <SectionLabel>Por qual lado começar?</SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (
-                  <SideCard key={s} side={s}
-                    active={selectedSide === s}
-                    totalMs={0}
-                    status="ACTIVE"
-                    onClick={() => setSelectedSide(s)}
-                  />
+                  <SideCard key={s} side={s} active={selectedSide === s}
+                    totalMs={0} status="ACTIVE" onClick={() => setSelectedSide(s)} />
                 ))}
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* ── SESSION phase ──────────────────────────────────────────────── */}
+        {/* ── SESSION ─────────────────────────────────────────────── */}
         {phase === 'session' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-            {/* Total timer — large and prominent */}
-            <div className="flex flex-col items-center py-4 px-4 rounded-2xl"
-              style={{ backgroundColor: 'hsl(var(--card))', border: `1.5px solid ${SAGE}30` }}>
-              <p className="text-xs font-bold uppercase tracking-wider mb-1"
-                style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+            {/* Total timer */}
+            <div
+              className="flex flex-col items-center py-5 px-4 rounded-2xl"
+              style={{
+                backgroundColor: 'hsl(var(--card))',
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 28%, transparent)`,
+              }}
+            >
+              <p className="text-xs font-bold uppercase tracking-wider mb-1 text-muted-foreground font-nunito">
                 Tempo total
               </p>
-              <p className="text-5xl font-bold tabular-nums"
-                style={{ color: SAGE, fontFamily: 'Quicksand, sans-serif' }}>
+              <p
+                className="text-5xl font-bold tabular-nums font-quicksand"
+                style={{ color: FEED_COLOR }}
+              >
                 {fmtTimer(Math.floor(display.total / 1000))}
               </p>
             </div>
 
-            {/* Side cards — tap to switch */}
+            {/* Side cards */}
             <div>
               <SectionLabel>
                 {sessionStatus === 'ACTIVE' ? 'Toque no lado para alternar' : 'Sessão pausada'}
               </SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (
-                  <SideCard key={s} side={s}
-                    active={activeSide === s}
-                    totalMs={display[s]}
-                    status={sessionStatus}
-                    onClick={sessionStatus === 'ACTIVE' ? handleSwitch : undefined}
-                  />
+                  <SideCard key={s} side={s} active={activeSide === s}
+                    totalMs={display[s]} status={sessionStatus}
+                    onClick={sessionStatus === 'ACTIVE' ? handleSwitch : undefined} />
                 ))}
               </div>
               {switchCount > 0 && (
-                <p className="text-center text-xs mt-2"
-                  style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
+                <p className="text-center text-xs mt-2 text-muted-foreground font-nunito">
                   {switchCount} troca{switchCount > 1 ? 's' : ''} de lado
                 </p>
               )}
@@ -538,42 +498,52 @@ export default function BreastfeedingScreen() {
             {/* Controls */}
             <div className="flex gap-3">
               {sessionStatus === 'ACTIVE' ? (
-                <button onClick={handlePause}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all active:scale-95"
-                  style={{ backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--ninho-brown))', fontFamily: font }}>
+                <button
+                  onClick={handlePause}
+                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 bg-muted text-foreground"
+                >
                   ⏸ Pausar
                 </button>
               ) : (
-                <button onClick={handleResume}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all active:scale-95"
-                  style={{ backgroundColor: `${SAGE}15`, color: SAGE, border: `1.5px solid ${SAGE}40`, fontFamily: font }}>
+                <button
+                  onClick={handleResume}
+                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)`,
+                    color: FEED_COLOR,
+                    border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`,
+                  }}
+                >
                   ▶ Continuar
                 </button>
               )}
-              <button onClick={handleEnd}
-                className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all active:scale-95"
-                style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
+              <button
+                onClick={handleEnd}
+                className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 text-white"
+                style={{ backgroundColor: FEED_COLOR }}
+              >
                 ⏹ Encerrar
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* ── ENDED phase — review before saving ────────────────────────── */}
+        {/* ── ENDED ───────────────────────────────────────────────── */}
         {phase === 'ended' && finishedData && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="space-y-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ds-section">
 
             {/* Summary */}
-            <div className="flex items-center gap-3 px-4 py-4 rounded-2xl"
-              style={{ backgroundColor: `${SAGE}12`, border: `1.5px solid ${SAGE}30` }}>
+            <div
+              className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 25%, transparent)`,
+              }}
+            >
               <span className="text-3xl">🤱</span>
               <div>
-                <p className="text-sm font-bold"
-                  style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Quicksand, sans-serif' }}>
-                  Sessão encerrada
-                </p>
-                <p className="text-xs font-semibold mt-0.5" style={{ color: SAGE, fontFamily: font }}>
+                <p className="text-sm font-bold font-quicksand text-foreground">Sessão encerrada</p>
+                <p className="text-xs font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
                   {[
                     finishedData.leftSec  > 0 ? `E: ${fmtDurationShort(finishedData.leftSec)}`  : null,
                     finishedData.rightSec > 0 ? `D: ${fmtDurationShort(finishedData.rightSec)}` : null,
@@ -587,24 +557,13 @@ export default function BreastfeedingScreen() {
             {/* Quick tags */}
             <div>
               <SectionLabel>Como foi a mamada?</SectionLabel>
-              <div className="flex flex-wrap gap-2">
-                {QUICK_TAGS.map(tag => {
-                  const active = obsTags.includes(tag.id);
-                  return (
-                    <button key={tag.id}
-                      onClick={() => setObsTags(p => active ? p.filter(t => t !== tag.id) : [...p, tag.id])}
-                      className="py-2 px-3 rounded-2xl text-sm font-semibold transition-all active:scale-95"
-                      style={{
-                        backgroundColor: active ? `${SAGE}20` : 'hsl(var(--card))',
-                        color: active ? SAGE : 'hsl(var(--ninho-brown))',
-                        border: `1.5px solid ${active ? `${SAGE}50` : 'hsl(var(--border))'}`,
-                        fontFamily: font,
-                      }}>
-                      {tag.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <ChipGroup
+                options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
+                values={obsTags}
+                onToggle={id => setObsTags(p => p.includes(id) ? p.filter(t => t !== id) : [...p, id])}
+                accentColor={FEED_COLOR}
+                multiSelect
+              />
             </div>
 
             {/* Observations */}
@@ -614,63 +573,40 @@ export default function BreastfeedingScreen() {
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Como foi a mamada? Alguma observação..."
-                className="rounded-2xl border-border resize-none"
+                className="ds-textarea"
                 rows={3}
-                style={{ fontFamily: font, minHeight: '80px' }}
               />
             </div>
 
-            {/* Medical report toggle */}
-            <div className="flex items-center justify-between px-4 py-4 rounded-2xl"
-              style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
-              <div>
-                <p className="text-sm font-semibold leading-tight"
-                  style={{ color: 'hsl(var(--ninho-brown))', fontFamily: font }}>
-                  Incluir no relatório médico
-                </p>
-                <p className="text-xs mt-0.5"
-                  style={{ color: 'hsl(var(--muted-foreground))', fontFamily: font }}>
-                  Aparecerá no próximo relatório gerado
-                </p>
-              </div>
-              <Switch checked={includeInReport} onCheckedChange={setIncludeInReport} />
-            </div>
+            {/* Medical report */}
+            <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
           </motion.div>
         )}
       </div>
 
-      {/* Fixed footer CTA */}
-      <div className="fixed bottom-0 left-0 right-0 flex justify-center"
-        style={{
-          padding: '16px 20px',
-          paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
-          backgroundColor: 'hsl(var(--card))',
-          borderTop: '1px solid hsl(var(--border))',
-        }}>
-        <div className="w-full max-w-md">
-          {phase === 'suggest' && (
-            <button onClick={handleStart}
-              className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-95"
-              style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
-              ▶ Iniciar mamada — lado {selectedSide === 'L' ? 'esquerdo' : 'direito'}
-            </button>
-          )}
-          {phase === 'session' && (
-            <button onClick={handleEnd}
-              className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-95"
-              style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
-              ⏹ Encerrar e revisar
-            </button>
-          )}
-          {phase === 'ended' && (
-            <button onClick={handleSave} disabled={saving}
-              className="w-full py-4 rounded-2xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
-              style={{ backgroundColor: SAGE, color: 'white', fontFamily: font }}>
-              {saving ? 'Salvando...' : 'Salvar mamada'}
-            </button>
-          )}
-        </div>
-      </div>
+      {/* DS Sticky CTA */}
+      {phase === 'suggest' && (
+        <StickyFooterCTA
+          primaryLabel={`▶ Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
+          onPrimary={handleStart}
+          primaryColor={FEED_COLOR}
+        />
+      )}
+      {phase === 'session' && (
+        <StickyFooterCTA
+          primaryLabel="⏹ Encerrar e revisar"
+          onPrimary={handleEnd}
+          primaryColor={FEED_COLOR}
+        />
+      )}
+      {phase === 'ended' && (
+        <StickyFooterCTA
+          primaryLabel="Salvar mamada"
+          onPrimary={handleSave}
+          primaryLoading={saving}
+          primaryColor={FEED_COLOR}
+        />
+      )}
 
       {/* Back nav confirmation */}
       <AnimatePresence>

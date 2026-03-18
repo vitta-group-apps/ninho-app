@@ -527,13 +527,12 @@ export default function SleepScreen() {
         />
       )}
 
-      {/* Back nav guard */}
+      {/* Discard review guard — only shown in "ended" phase */}
       <AnimatePresence>
         {showBackConfirm && (
-          <BackConfirmSheet
+          <DiscardReviewSheet
             open
-            onContinue={() => setShowBackConfirm(false)}
-            onEnd={() => { setShowBackConfirm(false); handleEnd(); }}
+            onStay={() => setShowBackConfirm(false)}
             onDiscard={() => { setShowBackConfirm(false); handleDiscard(); }}
           />
         )}

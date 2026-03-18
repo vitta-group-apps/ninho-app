@@ -702,14 +702,13 @@ export default function BreastfeedingScreen() {
         />
       )}
 
-      {/* Back nav guard */}
+      {/* Discard review guard — only shown in "ended" phase */}
       <AnimatePresence>
         {showBackConfirm && (
-          <BackConfirmSheet
+          <DiscardReviewSheet
             open
-            durationSec={phase === 'ended' ? (finishedData?.totalSec ?? 0) : totalSec}
-            onContinue={handleConfirmContinue}
-            onSaveReview={handleConfirmSaveReview}
+            durationSec={finishedData?.totalSec ?? 0}
+            onStay={handleConfirmContinue}
             onDiscard={handleConfirmDiscard}
           />
         )}

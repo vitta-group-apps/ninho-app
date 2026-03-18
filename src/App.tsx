@@ -49,13 +49,18 @@ function AuthedRoutes() {
         <Route path="/*" element={
           <AppShell>
             <Routes>
-              <Route path="/"           element={<Navigate to="/home" replace />} />
-              <Route path="/home"       element={<HomePage />} />
-              <Route path="/routine"    element={<RotinaPage />} />
-              <Route path="/health"     element={<SaudePage />} />
+              <Route path="/"            element={<Navigate to="/home" replace />} />
+              <Route path="/home"        element={<HomePage />} />
+              {/* /routine is canonical; /rotina is kept as alias to prevent 404s */}
+              <Route path="/routine"     element={<RotinaPage />} />
+              <Route path="/rotina"      element={<Navigate to="/routine" replace />} />
+              <Route path="/health"      element={<SaudePage />} />
+              <Route path="/saude"       element={<Navigate to="/health" replace />} />
               <Route path="/development" element={<DesenvolvimentoPage />} />
-              <Route path="/family"     element={<FamiliaPage />} />
-              <Route path="*"           element={<NotFound />} />
+              <Route path="/crescer"     element={<Navigate to="/development" replace />} />
+              <Route path="/family"      element={<FamiliaPage />} />
+              <Route path="/familia"     element={<Navigate to="/family" replace />} />
+              <Route path="*"            element={<NotFound />} />
             </Routes>
           </AppShell>
         } />

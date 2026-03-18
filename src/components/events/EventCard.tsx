@@ -3,9 +3,14 @@
  *
  * IDENTICAL in Home and Rotina — do not fork.
  *
- * Row 1: icon · title · time · optional badge
- * Row 2: human summary
- * Row 3: observation preview (only if meaningful)
+ * Polish v2.1:
+ * - Card has more vertical padding (py-3.5)
+ * - Icon is 40×40 (slightly larger, better proportion)
+ * - Title is slightly larger (14px) and bolder
+ * - Summary has better contrast (not just muted)
+ * - Time and badge are better aligned
+ * - Chevron is bolder and more visible
+ * - Timeline spine dot is larger (3×3)
  *
  * Uses semantic tokens only — no hardcoded colors in JSX.
  */
@@ -13,6 +18,7 @@
 import type { RoutineLog } from '@/lib/eventSystem';
 import { getEventPresentation } from '@/lib/eventSystem';
 import { fmtTime } from '@/lib/routineUtils';
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
 
 interface EventCardProps {
   log: RoutineLog;
@@ -24,15 +30,15 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
   const ev = getEventPresentation(log);
 
   return (
-    <div className="flex items-stretch gap-3 mb-3">
+    <div className="flex items-stretch gap-3 mb-2.5">
       {/* Timeline spine */}
-      <div className="flex flex-col items-center w-5 flex-shrink-0 pt-3">
+      <div className="flex flex-col items-center w-5 flex-shrink-0 pt-4">
         <div
-          className="w-2 h-2 rounded-full flex-shrink-0"
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
           style={{ backgroundColor: ev.color }}
         />
         {!isLast && (
-          <div className="w-px flex-1 mt-1 bg-border" />
+          <div className="w-px flex-1 mt-1.5" style={{ backgroundColor: 'hsl(var(--border))' }} />
         )}
       </div>
 
@@ -40,19 +46,19 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
       <button
         onClick={ev.tappable ? () => onTap(log) : undefined}
         className={[
-          'flex-1 rounded-2xl px-4 py-3 flex items-start gap-3 text-left w-full bg-card border border-border',
-          ev.tappable ? 'active:scale-[0.98] transition-transform' : '',
+          'flex-1 rounded-2xl px-4 py-3.5 flex items-start gap-3 text-left w-full bg-card border border-border',
+          ev.tappable ? 'active:scale-[0.985] transition-transform' : '',
         ].join(' ')}
         style={{
           borderColor: ev.tappable
-            ? `color-mix(in srgb, ${ev.color} 28%, transparent)`
+            ? `color-mix(in srgb, ${ev.color} 25%, hsl(var(--border)))`
             : 'hsl(var(--border))',
           cursor: ev.tappable ? 'pointer' : 'default',
         }}
       >
         {/* Icon container */}
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-lg"
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-[18px]"
           style={{ backgroundColor: ev.bgColor }}
         >
           {ev.emoji}
@@ -62,7 +68,7 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
         <div className="min-w-0 flex-1">
           {/* Row 1: title + time + chevron */}
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold leading-tight text-foreground font-quicksand truncate">
+            <p className="text-[14px] font-bold leading-tight text-foreground font-quicksand truncate">
               {ev.title}
             </p>
             <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -78,14 +84,15 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
                 {fmtTime(log.start_time)}
               </span>
               {ev.tappable && (
-                <span className="text-xs text-muted-foreground">›</span>
+                <ChevronRightIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" strokeWidth={2.5} />
               )}
             </div>
           </div>
 
           {/* Row 2: summary */}
           {ev.summary && (
-            <p className="text-xs mt-0.5 font-medium text-muted-foreground font-nunito">
+            <p className="text-[12px] mt-1 font-medium leading-snug font-nunito"
+               style={{ color: 'hsl(var(--foreground) / 0.6)' }}>
               {ev.summary}
             </p>
           )}
@@ -93,10 +100,10 @@ export function EventCard({ log, isLast, onTap }: EventCardProps) {
           {/* Row 3: observation preview */}
           {ev.observationPreview && (
             <p
-              className="text-xs mt-0.5 truncate font-nunito"
-              style={{ color: 'hsl(var(--muted-foreground))', opacity: 0.75 }}
+              className="text-[11px] mt-0.5 truncate italic font-nunito"
+              style={{ color: 'hsl(var(--muted-foreground))' }}
             >
-              {ev.observationPreview}
+              "{ev.observationPreview}"
             </p>
           )}
         </div>

@@ -46,6 +46,7 @@ function AuthedRoutes() {
         <Route path="/diaper/edit/:logId"      element={<DiaperScreen />} />
         <Route path="/sleep/detail/:logId"     element={<SleepDetailScreen />} />
         <Route path="/feed/detail/:logId"      element={<FeedDetailScreen />} />
+        <Route path="/bottle/detail/:logId"    element={<BottleDetailScreen />} />
         <Route path="/bottle/edit/:logId"      element={<BottleScreen />} />
         <Route path="/sleep"              element={<SleepScreen />} />
         <Route path="/breastfeeding"      element={<BreastfeedingScreen />} />

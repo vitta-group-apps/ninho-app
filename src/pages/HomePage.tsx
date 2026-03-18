@@ -118,9 +118,9 @@ export default function HomePage() {
     if (logs.length === 0) {
       return {
         emoji: '👶',
-        text: 'Nenhuma atividade registrada hoje ainda',
-        path: null,
-        cta: null,
+        text: 'Seu dia ainda não começou — registre a primeira atividade',
+        path: '/breastfeeding',
+        cta: 'Registrar',
       };
     }
 

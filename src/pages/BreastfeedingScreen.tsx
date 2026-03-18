@@ -775,13 +775,6 @@ export default function BreastfeedingScreen() {
 
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
-            {/* Discard — tertiary */}
-            <button
-              onClick={() => setPhase('suggest')}
-              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
-            >
-              Cancelar
-            </button>
           </motion.div>
         )}
 
@@ -853,13 +846,6 @@ export default function BreastfeedingScreen() {
             {/* Medical report */}
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
-            {/* Discard — tertiary */}
-            <button
-              onClick={handleConfirmDiscard}
-              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
-            >
-              Descartar e voltar
-            </button>
           </motion.div>
         )}
       </div>
@@ -875,18 +861,22 @@ export default function BreastfeedingScreen() {
       )}
       {phase === 'manual' && (
         <StickyFooterCTA
-          primaryLabel={saving ? 'Salvando...' : 'Registrar mamada'}
+          primaryLabel="Salvar registro"
           onPrimary={handleSaveManual}
           primaryLoading={saving}
           primaryColor={FEED_COLOR}
+          tertiaryLabel="Cancelar"
+          onTertiary={() => setPhase('suggest')}
         />
       )}
       {phase === 'ended' && (
         <StickyFooterCTA
-          primaryLabel={saving ? 'Salvando...' : 'Salvar mamada'}
+          primaryLabel="Salvar registro"
           onPrimary={handleSave}
           primaryLoading={saving}
           primaryColor={FEED_COLOR}
+          tertiaryLabel="Descartar e voltar"
+          onTertiary={handleConfirmDiscard}
         />
       )}
 

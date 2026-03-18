@@ -118,9 +118,9 @@ export default function HomePage() {
     if (logs.length === 0) {
       return {
         emoji: '👶',
-        text: 'Nenhuma atividade registrada hoje ainda',
-        path: null,
-        cta: null,
+        text: 'Seu dia ainda não começou — registre a primeira atividade',
+        path: '/breastfeeding',
+        cta: 'Registrar',
       };
     }
 
@@ -177,8 +177,8 @@ export default function HomePage() {
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: '—',
-      sub: 'Sem consulta agendada',
+      value: 'Nenhuma',
+      sub: 'Agende a próxima consulta',
       empty: true,
       color: 'hsl(var(--primary))',
     },
@@ -208,8 +208,8 @@ export default function HomePage() {
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: '—',
-      sub: 'Sem consulta agendada',
+      value: 'Nenhuma',
+      sub: 'Agende a próxima consulta',
       empty: true,
       color: 'hsl(var(--primary))',
     },

@@ -275,9 +275,12 @@ export default function SleepScreen() {
   }
 
   function handleBack() {
-    if (phase === 'active' || phase === 'paused' || phase === 'ended') {
+    // Sessions are background-persistent — navigating away during active/paused
+    // never interrupts the session. Only "ended" (unsaved review) needs confirmation.
+    if (phase === 'ended') {
       setShowBackConfirm(true);
     } else {
+      // idle, active, paused: just navigate back — session continues in background
       navigate(-1);
     }
   }

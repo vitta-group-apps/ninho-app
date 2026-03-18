@@ -397,9 +397,12 @@ export default function BreastfeedingScreen() {
   }
 
   function handleBack() {
-    if (phase === 'session' || phase === 'ended') {
+    // Sessions are background-persistent — navigating away never interrupts them.
+    // Only the "ended" phase (unsaved review) needs a confirmation to prevent data loss.
+    if (phase === 'ended') {
       setShowBackConfirm(true);
     } else {
+      // session or suggest: just navigate back — session continues in background
       navigate(-1);
     }
   }

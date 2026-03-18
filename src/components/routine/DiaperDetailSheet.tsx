@@ -12,7 +12,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -169,6 +170,7 @@ export function DiaperDetailSheet({ log, open, onClose, onUpdated }: DiaperDetai
         className="rounded-t-3xl pb-safe"
         style={{ backgroundColor: 'hsl(var(--card))' }}
       >
+        <VisuallyHidden><SheetTitle>Detalhes da fralda</SheetTitle></VisuallyHidden>
         <div className="px-1 pt-2 pb-6 max-h-[85vh] overflow-y-auto space-y-5">
 
           {/* Header row */}

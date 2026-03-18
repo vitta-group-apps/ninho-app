@@ -157,15 +157,16 @@ function SideCard({
   );
 }
 
-// ─── Back-confirm sheet ───────────────────────────────────────────────────────
+// ─── Discard review confirm sheet ────────────────────────────────────────────
+// Only shown when user tries to go back from the "ended" review phase.
+// Active/paused sessions persist silently in background — no interruption.
 
-function BackConfirmSheet({
-  open, durationSec, onContinue, onSaveReview, onDiscard,
+function DiscardReviewSheet({
+  open, durationSec, onStay, onDiscard,
 }: {
   open: boolean;
   durationSec: number;
-  onContinue: () => void;
-  onSaveReview: () => void;
+  onStay: () => void;
   onDiscard: () => void;
 }) {
   if (!open) return null;
@@ -173,7 +174,7 @@ function BackConfirmSheet({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-      onClick={onContinue}
+      onClick={onStay}
     >
       <motion.div
         initial={{ y: 60, opacity: 0 }}
@@ -184,34 +185,26 @@ function BackConfirmSheet({
         onClick={e => e.stopPropagation()}
       >
         <p className="text-base font-bold text-center font-quicksand text-foreground">
-          Sessão em andamento
+          Descartar o registro?
         </p>
         <p className="text-sm text-center pb-1 text-muted-foreground font-nunito">
           {durationSec >= 60
-            ? `Você tem ${fmtDurationShort(durationSec)} registrados.`
-            : 'Sessão muito curta. O que deseja fazer?'}
+            ? `Você tem ${fmtDurationShort(durationSec)} registrados. Esses dados serão perdidos.`
+            : 'A revisão será descartada. Tem certeza?'}
         </p>
         <div className="space-y-2 pb-2">
           <button
-            onClick={onContinue}
+            onClick={onStay}
             className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito text-white"
             style={{ backgroundColor: FEED_COLOR }}
           >
-            Continuar sessão
+            Continuar e salvar
           </button>
-          {durationSec >= 30 && (
-            <button
-              onClick={onSaveReview}
-              className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito bg-muted text-foreground"
-            >
-              Encerrar e revisar
-            </button>
-          )}
           <button
             onClick={onDiscard}
             className="w-full py-2 text-xs font-semibold text-center font-nunito text-destructive"
           >
-            Descartar sessão
+            Descartar e voltar
           </button>
         </div>
       </motion.div>
@@ -397,9 +390,12 @@ export default function BreastfeedingScreen() {
   }
 
   function handleBack() {
-    if (phase === 'session' || phase === 'ended') {
+    // Sessions are background-persistent — navigating away never interrupts them.
+    // Only the "ended" phase (unsaved review) needs a confirmation to prevent data loss.
+    if (phase === 'ended') {
       setShowBackConfirm(true);
     } else {
+      // session or suggest: just navigate back — session continues in background
       navigate(-1);
     }
   }
@@ -706,14 +702,13 @@ export default function BreastfeedingScreen() {
         />
       )}
 
-      {/* Back nav guard */}
+      {/* Discard review guard — only shown in "ended" phase */}
       <AnimatePresence>
         {showBackConfirm && (
-          <BackConfirmSheet
+          <DiscardReviewSheet
             open
-            durationSec={phase === 'ended' ? (finishedData?.totalSec ?? 0) : totalSec}
-            onContinue={handleConfirmContinue}
-            onSaveReview={handleConfirmSaveReview}
+            durationSec={finishedData?.totalSec ?? 0}
+            onStay={handleConfirmContinue}
             onDiscard={handleConfirmDiscard}
           />
         )}

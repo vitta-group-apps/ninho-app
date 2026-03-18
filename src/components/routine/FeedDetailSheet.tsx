@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
@@ -115,6 +116,7 @@ export function FeedDetailSheet({ log, open, onClose, onUpdated }: FeedDetailShe
         className="rounded-t-3xl pb-safe"
         style={{ backgroundColor: 'hsl(var(--card))' }}
       >
+        <VisuallyHidden><SheetTitle>Detalhes da amamentação</SheetTitle></VisuallyHidden>
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

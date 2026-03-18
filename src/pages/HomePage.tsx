@@ -320,7 +320,7 @@ export default function HomePage() {
                   ))}
                   {logs.length > 5 && (
                     <button
-                      onClick={() => navigate('/rotina')}
+                      onClick={() => navigate('/routine')}
                       className="w-full py-3 text-[12px] font-semibold font-nunito text-center rounded-2xl mt-1 transition-colors"
                       style={{
                         color: 'hsl(var(--muted-foreground))',

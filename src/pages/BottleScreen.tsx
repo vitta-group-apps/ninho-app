@@ -3,6 +3,12 @@
  *
  * DS: ScreenHeader · SectionLabel · ChipGroup · ReportToggle · StickyFooterCTA
  * Route: /bottle
+ *
+ * Hardening v3:
+ * - Type selector is compact chips, not tall cards (less visual weight)
+ * - CTA label follows verb+context pattern: "Registrar mamadeira"
+ * - Section grouping is breathable and scannable
+ * - Microcopy is caregiver-friendly
  */
 
 import { useState } from 'react';
@@ -22,9 +28,14 @@ import {
   ReportToggle,
 } from '@/components/ds';
 
-const BOTTLE_COLOR = 'hsl(var(--color-feed))';
+const BOTTLE_COLOR = 'hsl(var(--color-bottle))';
 
 type FeedType = 'bottle' | 'formula';
+
+const TYPE_OPTIONS = [
+  { value: 'bottle',  label: '🍼 Leite materno' },
+  { value: 'formula', label: '🥛 Fórmula' },
+];
 
 const AMOUNT_OPTIONS = [
   { value: '30',  label: '30ml' },
@@ -97,19 +108,17 @@ export default function BottleScreen() {
     }
   }
 
-  const ctaLabel = saving
-    ? 'Salvando...'
-    : `Registrar ${feedType === 'formula' ? 'fórmula' : 'mamadeira'}${resolvedAmount ? ` · ${resolvedAmount}ml` : ''}`;
+  const typeLabel = feedType === 'formula' ? 'fórmula' : 'mamadeira';
+  const amountLabel = resolvedAmount ? ` · ${resolvedAmount}ml` : '';
+  const ctaLabel = saving ? 'Salvando...' : `Registrar ${typeLabel}${amountLabel}`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* DS Header */}
       <ScreenHeader
         title={feedType === 'formula' ? 'Registrar fórmula' : 'Registrar mamadeira'}
         childName={activeChild?.name}
       />
 
-      {/* Scrollable form body */}
       <div className="ds-form-body">
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -117,44 +126,15 @@ export default function BottleScreen() {
           className="space-y-6"
         >
 
-          {/* ── Type selection ── */}
+          {/* ── Type ── */}
           <div>
-            <SectionLabel>Tipo de alimentação</SectionLabel>
-            <div className="grid grid-cols-2 gap-3">
-              {([
-                { type: 'bottle'  as FeedType, emoji: '🍼', label: 'Leite materno', desc: 'Leite retirado' },
-                { type: 'formula' as FeedType, emoji: '🥛', label: 'Fórmula',       desc: 'Leite artificial' },
-              ]).map(opt => {
-                const active = feedType === opt.type;
-                return (
-                  <button
-                    key={opt.type}
-                    onClick={() => setFeedType(opt.type)}
-                    className="flex flex-col items-center gap-2 py-5 rounded-2xl transition-all active:scale-95"
-                    style={{
-                      backgroundColor: active
-                        ? `color-mix(in srgb, ${BOTTLE_COLOR} 10%, hsl(var(--card)))`
-                        : 'hsl(var(--card))',
-                      border: `2px solid ${active ? BOTTLE_COLOR : 'hsl(var(--border))'}`,
-                      boxShadow: active
-                        ? `0 2px 8px color-mix(in srgb, ${BOTTLE_COLOR} 18%, transparent)`
-                        : 'none',
-                    }}
-                  >
-                    <span className="text-[28px]">{opt.emoji}</span>
-                    <p
-                      className="text-[12px] font-bold font-nunito leading-tight text-center"
-                      style={{ color: active ? BOTTLE_COLOR : 'hsl(var(--foreground))' }}
-                    >
-                      {opt.label}
-                    </p>
-                    <p className="text-[10px] font-nunito text-muted-foreground font-normal">
-                      {opt.desc}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
+            <SectionLabel>Tipo</SectionLabel>
+            <ChipGroup
+              options={TYPE_OPTIONS}
+              value={feedType}
+              onToggle={v => setFeedType(v as FeedType)}
+              accentColor={BOTTLE_COLOR}
+            />
           </div>
 
           {/* ── Amount ── */}
@@ -166,17 +146,15 @@ export default function BottleScreen() {
               onToggle={v => { setAmount(p => p === v ? '' : v); setCustomAmount(''); }}
               accentColor={BOTTLE_COLOR}
             />
-            <div className="mt-3">
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="Outro valor (ml)"
-                value={customAmount}
-                onChange={e => { setCustomAmount(e.target.value); setAmount(''); }}
-                className="w-full h-11 px-4 rounded-2xl text-[13px] border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
-                style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': BOTTLE_COLOR } as React.CSSProperties}
-              />
-            </div>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="Outro valor em ml"
+              value={customAmount}
+              onChange={e => { setCustomAmount(e.target.value); setAmount(''); }}
+              className="mt-3 w-full h-11 px-4 rounded-2xl text-[13px] border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
+              style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': BOTTLE_COLOR } as React.CSSProperties}
+            />
           </div>
 
           {/* ── Temperature ── */}
@@ -202,7 +180,6 @@ export default function BottleScreen() {
             />
           </div>
 
-          {/* Divider */}
           <div className="h-px bg-border" />
 
           {/* ── Observations ── */}
@@ -217,16 +194,11 @@ export default function BottleScreen() {
             />
           </div>
 
-          {/* ── Medical report ── */}
-          <ReportToggle
-            checked={includeInReport}
-            onCheckedChange={setIncludeInReport}
-          />
+          <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
         </motion.div>
       </div>
 
-      {/* DS Sticky CTA */}
       <StickyFooterCTA
         primaryLabel={ctaLabel}
         onPrimary={handleSave}

@@ -25,7 +25,7 @@ function DailyStats({ logs }: { logs: RoutineLog[] }) {
     <div className="flex gap-2 mb-5">
       {[
         { emoji: '🤱', label: 'Mamadas', value: String(feeds) },
-        { emoji: '🧷', label: 'Trocas', value: String(diapers) },
+        { emoji: '🧷', label: 'Fraldas', value: String(diapers) },
         { emoji: '😴', label: 'Sono', value: sleepLabel },
       ].map(s => (
         <div key={s.label} className="flex-1 rounded-2xl py-3 flex flex-col items-center gap-0.5"
@@ -45,7 +45,7 @@ function FAB({ onFeed, onSleep, onDiaper }: { onFeed: () => void; onSleep: () =>
   const actions = [
     { emoji: '🤱', label: 'Amamentar', onClick: onFeed, color: 'hsl(152,15%,55%)' },
     { emoji: '😴', label: 'Sono', onClick: onSleep, color: 'hsl(270,12%,52%)' },
-    { emoji: '🧷', label: 'Troca', onClick: onDiaper, color: 'hsl(32,80%,57%)' },
+    { emoji: '🧷', label: 'Fralda', onClick: onDiaper, color: 'hsl(32,80%,57%)' },
   ];
   return (
     <>

@@ -301,7 +301,6 @@ export default function DiaperScreen() {
                     options={POOP_COLOR_OPTIONS}
                     value={poopColor}
                     onToggle={v => setPoopColor(p => p === v ? '' : v)}
-                    wrap
                   />
                 </div>
               )}
@@ -314,7 +313,6 @@ export default function DiaperScreen() {
                     options={TEXTURE_OPTIONS}
                     value={texture}
                     onToggle={v => setTexture(p => p === v ? '' : v)}
-                    wrap
                   />
                 </div>
               )}

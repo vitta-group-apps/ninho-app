@@ -217,12 +217,10 @@ export default function RotinaPage() {
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
-      const p = parsePayload(log.notes);
-      const notes = String(log.notes ?? '').toLowerCase();
+      const notesStr = String(log.notes ?? '').toLowerCase();
       const typeMatch = log.type.includes(q);
-      const notesMatch = notes.includes(q);
-      const kindMatch = String(p.kind ?? p.diaper_type ?? '').includes(q);
-      if (!typeMatch && !notesMatch && !kindMatch) return false;
+      const notesMatch = notesStr.includes(q);
+      if (!typeMatch && !notesMatch) return false;
     }
     return true;
   });

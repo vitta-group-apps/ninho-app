@@ -4,11 +4,12 @@
  * Anatomy:
  *   [BackButton]  [Title + ChildContext]  [StatusPill?]
  *
- * Rules:
- * - Fixed to top, safe-area aware.
- * - Never breaks on narrow screens.
- * - Child context always visible beneath title.
- * - Optional right-side status pill (active session indicator, etc.)
+ * Polish v2.1:
+ * - Taller hit-target back button (44×44 minimum, now 44px circle)
+ * - Title is larger and bolder — Quicksand 17px semibold
+ * - Child context sits tighter under title with dot separator
+ * - Status slot right-aligned, never wraps
+ * - More breathing room below header band (18px pb)
  */
 
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -35,35 +36,36 @@ export function ScreenHeader({ title, childName, onBack, statusSlot }: ScreenHea
       className="flex-shrink-0 flex items-center gap-3 px-4 bg-card border-b border-border"
       style={{
         paddingTop: 'max(52px, env(safe-area-inset-top))',
-        paddingBottom: '14px',
+        paddingBottom: '16px',
       }}
     >
-      {/* Back button */}
+      {/* Back button — 44×44 minimum, circle */}
       <button
         onClick={handleBack}
-        className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all active:scale-90 bg-muted"
+        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 bg-muted hover:bg-secondary"
         aria-label="Voltar"
       >
-        <ArrowLeftIcon className="w-5 h-5 text-foreground" />
+        <ArrowLeftIcon className="w-5 h-5 text-foreground" strokeWidth={2.5} />
       </button>
 
-      {/* Title + child context */}
+      {/* Title + child context — flexible middle */}
       <div className="flex-1 min-w-0">
-        <p
-          className="text-base font-bold leading-tight truncate text-foreground font-quicksand"
-        >
+        <p className="text-[17px] font-semibold leading-tight truncate text-foreground font-quicksand">
           {title}
         </p>
         {childName && (
-          <p className="text-xs text-muted-foreground font-nunito mt-0.5 leading-tight">
-            {childName}
-          </p>
+          <div className="flex items-center gap-1 mt-0.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 flex-shrink-0" />
+            <p className="text-[12px] text-muted-foreground font-nunito leading-tight truncate">
+              {childName}
+            </p>
+          </div>
         )}
       </div>
 
-      {/* Optional right slot */}
+      {/* Optional right slot — never wraps */}
       {statusSlot && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 ml-1">
           {statusSlot}
         </div>
       )}

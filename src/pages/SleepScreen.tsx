@@ -1,8 +1,6 @@
 /**
  * SleepScreen — Full-screen sleep session flow.
- * DS v2: uses ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle, InlineStatusPill.
- *
- * No gradient buttons. Solid primary (mauve). Chips always wrap.
+ * DS v2.1: Polish pass — better timer hierarchy, cleaner idle state, improved section separation.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -67,9 +65,9 @@ const SLEEP_HOW_OPTIONS = [
 ];
 
 const AWAKENINGS_OPTIONS = [
-  { value: '0', label: '0' },
-  { value: '1', label: '1' },
-  { value: '2', label: '2' },
+  { value: '0', label: '0×' },
+  { value: '1', label: '1×' },
+  { value: '2', label: '2×' },
   { value: '3+', label: '3+' },
 ];
 
@@ -90,14 +88,12 @@ export default function SleepScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Enrichment fields
   const [location, setLocation] = useState('');
   const [howFellAsleep, setHowFellAsleep] = useState('');
   const [awakenings, setAwakenings] = useState('');
   const [notes, setNotes] = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
-  // Load existing session on mount
   useEffect(() => {
     const existing = loadSleepSession();
     if (existing && existing.childId === activeChildId) {
@@ -111,7 +107,6 @@ export default function SleepScreen() {
     }
   }, [activeChildId]);
 
-  // Timer tick
   const tick = useCallback(() => {
     setSession(prev => {
       if (!prev || prev.pausedAt) return prev;
@@ -131,7 +126,6 @@ export default function SleepScreen() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [phase, tick]);
 
-  // Actions
   function handleStart() {
     const now = new Date().toISOString();
     const newSession: SleepSession = {
@@ -179,9 +173,9 @@ export default function SleepScreen() {
       const endTime = new Date(new Date(startIso).getTime() + totalSec * 1000).toISOString();
 
       const payload: Record<string, unknown> = {};
-      if (location)      payload.location        = location;
-      if (howFellAsleep) payload.how_fell_asleep  = howFellAsleep;
-      if (awakenings)    payload.awakenings       = awakenings;
+      if (location)        payload.location         = location;
+      if (howFellAsleep)   payload.how_fell_asleep  = howFellAsleep;
+      if (awakenings)      payload.awakenings        = awakenings;
       if (includeInReport) payload.include_in_report = true;
 
       const { error } = await supabase.from('routine_logs').insert({
@@ -219,7 +213,6 @@ export default function SleepScreen() {
     ? new Date(session.startIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  // Status pill for header
   const statusPill = (phase === 'active' || phase === 'paused') ? (
     <InlineStatusPill
       label={phase === 'active' ? 'Em andamento' : 'Pausado'}
@@ -230,59 +223,59 @@ export default function SleepScreen() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* DS Header */}
       <ScreenHeader
         title="Registrar sono"
         childName={activeChild?.name}
         statusSlot={statusPill}
       />
 
-      {/* Content */}
       <div className="ds-form-body">
 
-        {/* IDLE */}
+        {/* ── IDLE ────────────────────────────────────────────────── */}
         {phase === 'idle' && (
           <motion.div
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center pt-10 gap-6"
+            className="flex flex-col items-center justify-center pt-8 gap-8"
           >
+            {/* Large circle */}
             <div
-              className="w-32 h-32 rounded-full flex items-center justify-center"
+              className="w-36 h-36 rounded-full flex items-center justify-center"
               style={{
-                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 12%, transparent)`,
-                border: `2px dashed color-mix(in srgb, ${SLEEP_COLOR} 35%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 10%, transparent)`,
+                border: `2px dashed color-mix(in srgb, ${SLEEP_COLOR} 30%, transparent)`,
               }}
             >
-              <span className="text-5xl">😴</span>
+              <span className="text-[56px]">😴</span>
             </div>
-            <div className="text-center">
-              <p className="text-lg font-bold font-quicksand text-foreground">
+
+            <div className="text-center space-y-1.5">
+              <p className="text-[18px] font-bold font-quicksand text-foreground">
                 Pronto para dormir?
               </p>
-              <p className="text-sm mt-1 text-muted-foreground font-nunito">
+              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
                 Inicie o cronômetro quando colocar para dormir
               </p>
             </div>
           </motion.div>
         )}
 
-        {/* ACTIVE or PAUSED */}
+        {/* ── ACTIVE or PAUSED ─────────────────────────────────────── */}
         {(phase === 'active' || phase === 'paused') && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="flex flex-col items-center gap-6 pt-6"
+            className="flex flex-col items-center gap-7 pt-4"
           >
-            {/* Timer circle */}
+            {/* Timer circle — large and dominant */}
             <div
-              className="w-44 h-44 rounded-full flex flex-col items-center justify-center"
+              className="w-48 h-48 rounded-full flex flex-col items-center justify-center"
               style={{
-                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 10%, transparent)`,
-                border: `3px solid ${phase === 'active' ? SLEEP_COLOR : `color-mix(in srgb, ${SLEEP_COLOR} 40%, transparent)`}`,
+                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 8%, transparent)`,
+                border: `3px solid ${phase === 'active' ? SLEEP_COLOR : `color-mix(in srgb, ${SLEEP_COLOR} 35%, transparent)`}`,
               }}
             >
-              <span className="text-4xl mb-1">😴</span>
+              <span className="text-[40px] mb-1">😴</span>
               <p
-                className="text-2xl font-bold tabular-nums font-quicksand"
+                className="text-[34px] font-bold tabular-nums font-quicksand leading-none"
                 style={{ color: SLEEP_COLOR }}
               >
                 {fmtTimer(elapsed)}
@@ -290,39 +283,42 @@ export default function SleepScreen() {
             </div>
 
             {/* Status label */}
-            <div className="text-center">
+            <div className="text-center space-y-1">
               <div className="flex items-center gap-2 justify-center">
                 {phase === 'active' && (
                   <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: SLEEP_COLOR }} />
                 )}
-                <p className="text-sm font-semibold font-nunito" style={{ color: SLEEP_COLOR }}>
+                <p
+                  className="text-[14px] font-semibold font-nunito"
+                  style={{ color: SLEEP_COLOR }}
+                >
                   {phase === 'active' ? 'Sono em andamento' : 'Sono pausado'}
                 </p>
               </div>
               {sessionStartLabel && (
-                <p className="text-xs mt-0.5 text-muted-foreground font-nunito">
+                <p className="text-[12px] text-muted-foreground font-nunito">
                   Iniciado às {sessionStartLabel}
                 </p>
               )}
             </div>
 
-            {/* Session controls — DS Secondary + Primary pattern */}
+            {/* Controls */}
             <div className="w-full flex gap-3">
               {phase === 'active' ? (
                 <button
                   onClick={handlePause}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 bg-muted text-foreground"
+                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 bg-secondary text-foreground"
                 >
                   ⏸ Pausar
                 </button>
               ) : (
                 <button
                   onClick={handleResume}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95"
+                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 12%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 10%, transparent)`,
                     color: SLEEP_COLOR,
-                    border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 35%, transparent)`,
+                    border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 30%, transparent)`,
                   }}
                 >
                   ▶ Continuar
@@ -330,7 +326,7 @@ export default function SleepScreen() {
               )}
               <button
                 onClick={handleEnd}
-                className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 text-white"
+                className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 text-white"
                 style={{ backgroundColor: SLEEP_COLOR }}
               >
                 ⏹ Encerrar
@@ -339,26 +335,34 @@ export default function SleepScreen() {
           </motion.div>
         )}
 
-        {/* ENDED — enrichment form */}
+        {/* ── ENDED — enrichment form ───────────────────────────────── */}
         {phase === 'ended' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="ds-section"
+            className="space-y-6"
           >
-            {/* Summary */}
+            {/* Summary card */}
             <div
-              className="flex items-center gap-3 p-4 rounded-2xl"
+              className="flex items-center gap-4 p-4 rounded-2xl"
               style={{
-                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 10%, transparent)`,
-                border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 25%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 9%, hsl(var(--card)))`,
+                border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 22%, transparent)`,
               }}
             >
-              <span className="text-2xl">😴</span>
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 18%, transparent)` }}
+              >
+                😴
+              </div>
               <div>
-                <p className="text-sm font-bold font-quicksand text-foreground">
+                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
                   Sono encerrado
                 </p>
-                <p className="text-xs font-semibold font-nunito" style={{ color: SLEEP_COLOR }}>
+                <p
+                  className="text-[13px] font-semibold font-nunito mt-0.5"
+                  style={{ color: SLEEP_COLOR }}
+                >
                   Duração: {fmtTimer(session?.accumulatedSec ?? 0)}
                 </p>
               </div>
@@ -397,6 +401,9 @@ export default function SleepScreen() {
               />
             </div>
 
+            {/* Divider */}
+            <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
+
             {/* Notes */}
             <div>
               <SectionLabel>Observações</SectionLabel>
@@ -415,10 +422,10 @@ export default function SleepScreen() {
               onCheckedChange={setIncludeInReport}
             />
 
-            {/* Discard — tertiary link action */}
+            {/* Discard — tertiary */}
             <button
               onClick={handleDiscard}
-              className="w-full py-2 text-xs font-semibold text-center text-muted-foreground font-nunito"
+              className="w-full py-2.5 text-[12px] font-semibold text-center text-muted-foreground font-nunito"
             >
               Descartar sessão
             </button>
@@ -437,11 +444,11 @@ export default function SleepScreen() {
       )}
       {(phase === 'active' || phase === 'paused') && (
         <div
-          className="fixed bottom-0 left-0 right-0 flex justify-center bg-card border-t border-border z-30"
-          style={{ padding: '12px 16px', paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+          className="fixed bottom-0 left-0 right-0 flex justify-center bg-card/95 backdrop-blur-sm border-t border-border z-30"
+          style={{ padding: '14px 20px', paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
         >
-          <p className="text-xs text-center text-muted-foreground font-nunito">
-            Encerre o sono para salvar o registro
+          <p className="text-[12px] text-center text-muted-foreground font-nunito">
+            Encerre para salvar o registro desta soneca
           </p>
         </div>
       )}

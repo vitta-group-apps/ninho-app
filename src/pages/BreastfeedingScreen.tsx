@@ -94,41 +94,55 @@ function SideCard({
     <button
       onClick={onClick}
       disabled={!onClick}
-      className="flex-1 rounded-3xl p-4 text-center transition-all duration-200 select-none"
+      className="flex-1 rounded-3xl py-5 px-3 text-center transition-all duration-200 select-none"
       style={{
-        backgroundColor: active ? `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)` : 'hsl(var(--muted))',
-        border: `2px solid ${active ? `color-mix(in srgb, ${FEED_COLOR} 40%, transparent)` : 'transparent'}`,
-        opacity: active ? 1 : 0.5,
-        transform: active ? 'scale(1.02)' : 'scale(1)',
+        backgroundColor: active
+          ? `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))`
+          : 'hsl(var(--muted) / 0.6)',
+        border: `2px solid ${active
+          ? `color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`
+          : 'transparent'}`,
+        opacity: active ? 1 : 0.55,
+        boxShadow: active
+          ? `0 2px 10px color-mix(in srgb, ${FEED_COLOR} 14%, transparent)`
+          : 'none',
       }}
     >
+      {/* Side indicator */}
       <div
-        className="w-10 h-10 rounded-full mx-auto flex items-center justify-center text-lg font-bold"
+        className="w-11 h-11 rounded-full mx-auto flex items-center justify-center text-[18px] font-bold"
         style={{
-          backgroundColor: active ? `color-mix(in srgb, ${FEED_COLOR} 20%, transparent)` : 'hsl(var(--border))',
+          backgroundColor: active
+            ? `color-mix(in srgb, ${FEED_COLOR} 18%, transparent)`
+            : 'hsl(var(--border))',
           color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))',
         }}
       >
         {arrow}
       </div>
+
       <p
-        className="text-[11px] mt-2 font-bold uppercase tracking-wide font-nunito"
+        className="text-[11px] mt-2.5 font-bold uppercase tracking-[0.06em] font-nunito"
         style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
       >
         {label}
       </p>
-      {/* Timer — stable height */}
-      <div className="h-9 flex items-center justify-center mt-1">
+
+      {/* Timer — stable fixed height so layout never jumps */}
+      <div className="h-10 flex items-center justify-center mt-1">
         <p
-          className="text-2xl font-bold tabular-nums font-quicksand"
+          className="text-[28px] font-bold tabular-nums font-quicksand leading-none"
           style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
         >
           {fmtTimer(Math.floor(totalMs / 1000))}
         </p>
       </div>
-      {/* Status dot — always occupies space */}
-      <div className="h-5 flex items-center justify-center gap-1 mt-1">
-        {showPulse && <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />}
+
+      {/* Status indicator — always occupies space to prevent layout shift */}
+      <div className="h-5 flex items-center justify-center gap-1.5 mt-1">
+        {showPulse && (
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />
+        )}
         <span
           className="text-[10px] font-semibold font-nunito"
           style={{ color: active ? FEED_COLOR : 'transparent' }}
@@ -425,20 +439,20 @@ export default function BreastfeedingScreen() {
         {phase === 'suggest' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-6 pt-6"
+            className="flex flex-col items-center gap-8 pt-6"
           >
             <div
-              className="w-28 h-28 rounded-full flex items-center justify-center"
+              className="w-32 h-32 rounded-full flex items-center justify-center"
               style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)`,
-                border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
+                border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
               }}
             >
-              <span className="text-5xl">🤱</span>
+              <span className="text-[52px]">🤱</span>
             </div>
-            <div className="text-center">
-              <p className="text-base font-bold font-quicksand text-foreground">Pronta para mamar?</p>
-              <p className="text-sm mt-1 text-muted-foreground font-nunito">
+            <div className="text-center space-y-1.5">
+              <p className="text-[18px] font-bold font-quicksand text-foreground">Pronta para mamar?</p>
+              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
                 Escolha o lado e inicie o cronômetro
               </p>
             </div>
@@ -457,23 +471,36 @@ export default function BreastfeedingScreen() {
         {/* ── SESSION ─────────────────────────────────────────────── */}
         {phase === 'session' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-            {/* Total timer */}
+            {/* Total timer — dominant visual element */}
             <div
-              className="flex flex-col items-center py-5 px-4 rounded-2xl"
+              className="flex flex-col items-center py-6 px-4 rounded-2xl"
               style={{
-                backgroundColor: 'hsl(var(--card))',
-                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 28%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 7%, hsl(var(--card)))`,
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
               }}
             >
-              <p className="text-xs font-bold uppercase tracking-wider mb-1 text-muted-foreground font-nunito">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-2 text-muted-foreground font-nunito">
                 Tempo total
               </p>
               <p
-                className="text-5xl font-bold tabular-nums font-quicksand"
+                className="text-[52px] font-bold tabular-nums font-quicksand leading-none"
                 style={{ color: FEED_COLOR }}
               >
                 {fmtTimer(Math.floor(display.total / 1000))}
               </p>
+              {sessionStatus === 'ACTIVE' && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />
+                  <p className="text-[11px] font-semibold font-nunito" style={{ color: FEED_COLOR }}>
+                    Sessão em andamento
+                  </p>
+                </div>
+              )}
+              {sessionStatus === 'PAUSED' && (
+                <p className="text-[11px] font-semibold font-nunito mt-2 text-muted-foreground">
+                  Sessão pausada
+                </p>
+              )}
             </div>
 
             {/* Side cards */}
@@ -489,7 +516,7 @@ export default function BreastfeedingScreen() {
                 ))}
               </div>
               {switchCount > 0 && (
-                <p className="text-center text-xs mt-2 text-muted-foreground font-nunito">
+                <p className="text-center text-[12px] mt-2 text-muted-foreground font-nunito">
                   {switchCount} troca{switchCount > 1 ? 's' : ''} de lado
                 </p>
               )}
@@ -500,18 +527,18 @@ export default function BreastfeedingScreen() {
               {sessionStatus === 'ACTIVE' ? (
                 <button
                   onClick={handlePause}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 bg-muted text-foreground"
+                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 bg-secondary text-foreground"
                 >
                   ⏸ Pausar
                 </button>
               ) : (
                 <button
                   onClick={handleResume}
-                  className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95"
+                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 12%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
                     color: FEED_COLOR,
-                    border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`,
+                    border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
                   }}
                 >
                   ▶ Continuar
@@ -519,7 +546,7 @@ export default function BreastfeedingScreen() {
               )}
               <button
                 onClick={handleEnd}
-                className="flex-1 py-4 rounded-2xl text-sm font-bold font-nunito transition-all active:scale-95 text-white"
+                className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 text-white"
                 style={{ backgroundColor: FEED_COLOR }}
               >
                 ⏹ Encerrar
@@ -530,23 +557,28 @@ export default function BreastfeedingScreen() {
 
         {/* ── ENDED ───────────────────────────────────────────────── */}
         {phase === 'ended' && finishedData && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ds-section">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-            {/* Summary */}
+            {/* Summary card */}
             <div
-              className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+              className="flex items-center gap-4 p-4 rounded-2xl"
               style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
-                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 25%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
+                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
               }}
             >
-              <span className="text-3xl">🤱</span>
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
+              >
+                🤱
+              </div>
               <div>
-                <p className="text-sm font-bold font-quicksand text-foreground">Sessão encerrada</p>
-                <p className="text-xs font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
+                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">Sessão encerrada</p>
+                <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
                   {[
-                    finishedData.leftSec  > 0 ? `E: ${fmtDurationShort(finishedData.leftSec)}`  : null,
-                    finishedData.rightSec > 0 ? `D: ${fmtDurationShort(finishedData.rightSec)}` : null,
+                    finishedData.leftSec  > 0 ? `Esq: ${fmtDurationShort(finishedData.leftSec)}`  : null,
+                    finishedData.rightSec > 0 ? `Dir: ${fmtDurationShort(finishedData.rightSec)}` : null,
                     finishedData.switches > 0
                       ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
                   ].filter(Boolean).join(' · ')}
@@ -565,6 +597,9 @@ export default function BreastfeedingScreen() {
                 multiSelect
               />
             </div>
+
+            {/* Divider */}
+            <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
             {/* Observations */}
             <div>

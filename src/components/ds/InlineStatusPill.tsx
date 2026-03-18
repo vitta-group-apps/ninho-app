@@ -1,11 +1,10 @@
 /**
  * InlineStatusPill — Ninho DS v2 status indicator pill.
  *
- * Variants:
- *  - active: pulsing dot + green/brand color
- *  - paused: no dot + muted
- *  - info: neutral
- *  - report: warm accent
+ * Polish v2.1:
+ * - Pill is taller (py-1.5) for better readability in header
+ * - Active dot is slightly larger (2×2)
+ * - Font is 11px bold — clear but not oversized
  */
 
 type PillVariant = 'active' | 'paused' | 'info';
@@ -25,20 +24,22 @@ export function InlineStatusPill({ label, variant, color }: InlineStatusPillProp
 
   return (
     <div
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full"
       style={{
-        backgroundColor: isPaused ? 'hsl(var(--muted))' : `color-mix(in srgb, ${resolvedColor} 15%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${resolvedColor} 30%, transparent)`,
+        backgroundColor: isPaused
+          ? 'hsl(var(--muted))'
+          : `color-mix(in srgb, ${resolvedColor} 14%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${resolvedColor} 28%, transparent)`,
       }}
     >
       {isActive && (
         <div
-          className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0"
+          className="w-2 h-2 rounded-full animate-pulse flex-shrink-0"
           style={{ backgroundColor: resolvedColor }}
         />
       )}
       <span
-        className="text-[11px] font-bold font-nunito leading-none"
+        className="text-[11px] font-bold font-nunito leading-none whitespace-nowrap"
         style={{ color: resolvedColor }}
       >
         {label}

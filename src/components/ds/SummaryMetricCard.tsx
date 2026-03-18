@@ -1,11 +1,12 @@
 /**
  * SummaryMetricCard — Ninho DS v2 daily metric card.
  *
- * Anatomy:
- *   [icon container]
- *   [section label]
- *   [primary value]
- *   [secondary helper line?]
+ * Polish v2.1:
+ * - Icon container is larger (36×36) with softer radius
+ * - Label is clearly separated from value with more space
+ * - Value is bolder and larger (text-base)
+ * - Sub line has better contrast
+ * - Card padding increased to 16px with 14px gap
  */
 
 interface SummaryMetricCardProps {
@@ -23,30 +24,31 @@ export function SummaryMetricCard({
   emoji, label, value, sub, empty, accentColor,
 }: SummaryMetricCardProps) {
   const tint = accentColor
-    ? `color-mix(in srgb, ${accentColor} 15%, transparent)`
+    ? `color-mix(in srgb, ${accentColor} 16%, transparent)`
     : 'hsl(var(--muted))';
 
   return (
-    <div className="flex-1 min-w-0 rounded-2xl p-4 flex flex-col gap-2 bg-card border border-border">
+    <div className="flex-1 min-w-0 rounded-2xl px-4 pt-4 pb-3.5 flex flex-col gap-3 bg-card border border-border">
       {/* Icon */}
       <div
-        className="w-8 h-8 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+        className="w-9 h-9 rounded-xl flex items-center justify-center text-[17px] flex-shrink-0"
         style={{ backgroundColor: tint }}
       >
         {emoji}
       </div>
+
       {/* Data */}
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito leading-none">
+      <div className="space-y-0.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-nunito leading-none">
           {label}
         </p>
         <p
-          className={`text-sm font-bold leading-tight mt-1 font-quicksand text-foreground ${empty ? 'opacity-40' : ''}`}
+          className={`text-[15px] font-bold leading-snug font-quicksand text-foreground ${empty ? 'opacity-35' : ''}`}
         >
           {value}
         </p>
         {sub && (
-          <p className="text-[10px] mt-0.5 text-muted-foreground font-nunito">
+          <p className="text-[11px] text-muted-foreground font-nunito leading-tight">
             {sub}
           </p>
         )}

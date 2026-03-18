@@ -1,8 +1,13 @@
 /**
  * ActiveSessionBanner — DS v2 persistent active-session surface.
  *
- * Sits below the home/rotina header when a timed session is running.
- * Supports: sleep + breastfeeding.
+ * Polish v2.1:
+ * - Reduced outer padding to integrate tighter with page content
+ * - Banner height is more compact and intentional
+ * - Timer is right-aligned with stronger emphasis
+ * - Pulsing dot is now inside the emoji pill rather than floating
+ * - Status sub-text uses the accent color directly
+ * - Arrow replaced with ChevronRight icon for consistency
  *
  * Uses semantic tokens. No hardcoded hex.
  */
@@ -10,6 +15,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { fmtTimer } from '@/lib/routineUtils';
 import { loadSleepSession } from '@/pages/SleepScreen';
 
@@ -84,7 +90,7 @@ export function ActiveSessionBanner() {
   if (items.length === 0) return null;
 
   return (
-    <div className="px-4 pt-3 space-y-2">
+    <div className="px-4 pt-2.5 space-y-2">
       {items.map(item => (
         <BannerItem key={item.id} item={item} />
       ))}
@@ -98,6 +104,7 @@ function BannerItem({ item }: { item: ActiveBannerItem }) {
 
   useEffect(() => {
     setElapsed(item.elapsed);
+    if (ref.current) clearInterval(ref.current);
     if (item.sub !== 'Pausado') {
       ref.current = setInterval(() => setElapsed(e => e + 1), 1000);
     }
@@ -108,36 +115,50 @@ function BannerItem({ item }: { item: ActiveBannerItem }) {
 
   return (
     <motion.button
-      initial={{ opacity: 0, y: -8 }}
+      initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.2 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.18 }}
       onClick={item.onClick}
       className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[0.98]"
       style={{
-        backgroundColor: `color-mix(in srgb, ${item.color} 10%, transparent)`,
-        border: `1.5px solid color-mix(in srgb, ${item.color} 25%, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${item.color} 9%, hsl(var(--card)))`,
+        border: `1.5px solid color-mix(in srgb, ${item.color} 22%, transparent)`,
       }}
     >
-      <span className="text-xl flex-shrink-0">{item.emoji}</span>
+      {/* Emoji with optional pulse */}
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0 relative"
+        style={{ backgroundColor: `color-mix(in srgb, ${item.color} 18%, transparent)` }}
+      >
+        {item.emoji}
+        {!isPaused && (
+          <div
+            className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse border-2 border-card"
+            style={{ backgroundColor: item.color }}
+          />
+        )}
+      </div>
 
+      {/* Text */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold leading-tight text-foreground font-quicksand truncate">
+        <p className="text-[13px] font-bold leading-tight text-foreground font-quicksand truncate">
           {item.label}
         </p>
-        <p className="text-xs font-nunito" style={{ color: item.color }}>
-          {isPaused ? 'Pausado' : `Há ${fmtTimer(elapsed)}`}
+        <p className="text-[11px] font-semibold font-nunito mt-0.5" style={{ color: item.color }}>
+          {isPaused ? 'Pausado — toque para retomar' : `Há ${fmtTimer(elapsed)}`}
         </p>
       </div>
 
+      {/* Timer + chevron */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        {!isPaused && (
-          <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: item.color }} />
-        )}
-        <span className="text-xs font-bold tabular-nums font-nunito" style={{ color: item.color }}>
+        <span
+          className="text-[14px] font-bold tabular-nums font-quicksand"
+          style={{ color: item.color }}
+        >
           {fmtTimer(elapsed)}
         </span>
-        <span className="text-sm" style={{ color: item.color }}>›</span>
+        <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: item.color }} strokeWidth={2.5} />
       </div>
     </motion.button>
   );

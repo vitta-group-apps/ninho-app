@@ -1,9 +1,14 @@
 /**
  * HomePage — Ninho DS v2 harmonized home screen.
  *
- * Uses: SummaryMetricCard, QuickActionTile, EventCard (shared), ActiveSessionBanner.
- * No gradient buttons. No improvised one-off components.
- * 4-column quick actions, 2-column metric grid.
+ * Polish v2.1:
+ * - Header band uses a calm, non-gradient solid mauve background
+ * - Child identity block has more breathing room
+ * - Section labels have consistent spacing above them
+ * - Metric cards are in a tighter grid with better proportions
+ * - Quick actions grid has equal columns with proper tap targets
+ * - Timeline section header shows today's date
+ * - Empty state is more intentional and less dense
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -86,14 +91,19 @@ export default function HomePage() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
+  // Today's date label
+  const todayLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero header — gradient stays only in the header band */}
+      {/* Hero header — calm solid mauve, no gradient */}
       <div
-        className="px-5 pt-12 pb-5"
-        style={{ background: 'linear-gradient(135deg, hsl(var(--ninho-mauve)), hsl(var(--ninho-sage)))' }}
+        className="px-5 pt-12 pb-6"
+        style={{ backgroundColor: 'hsl(270,12%,38%)' }}
       >
-        <p className="text-sm text-white/70 mb-3 font-nunito">{greeting} 👋</p>
+        <p className="text-[13px] text-white/65 mb-2.5 font-nunito font-medium">
+          {greeting} 👋
+        </p>
         <ChildSwitcher />
       </div>
 
@@ -120,56 +130,58 @@ export default function HomePage() {
         </div>
       ) : !activeChild ? (
         <div className="flex flex-col items-center justify-center px-4 pt-16 text-center">
-          <p className="text-base font-bold font-quicksand text-foreground">Nenhuma criança encontrada</p>
-          <p className="text-sm mt-1 text-muted-foreground font-nunito">Complete o cadastro para ver o painel.</p>
+          <p className="text-[17px] font-bold font-quicksand text-foreground">Nenhuma criança encontrada</p>
+          <p className="text-sm mt-1.5 text-muted-foreground font-nunito">Complete o cadastro para ver o painel.</p>
         </div>
       ) : (
         <motion.div
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
-          className="pb-8 space-y-5"
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+          className="pb-10"
         >
-          {/* Active session surface */}
-          <ActiveSessionBanner />
+          {/* Active session surface — sits just below hero */}
+          <div className="pt-3">
+            <ActiveSessionBanner />
+          </div>
 
-          <div className="px-4 space-y-5">
+          <div className="px-4 mt-4 space-y-6">
 
             {/* ── Summary metrics ─────────────────────────────────── */}
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-3 text-muted-foreground font-nunito">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
                 Resumo do dia
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <SummaryMetricCard
                   emoji="🤱" label="Mamadas" accentColor={FEED_COLOR}
-                  value={logsLoading ? '...' : feedCount > 0 ? `${feedCount}x` : 'Nenhuma'}
+                  value={logsLoading ? '...' : feedCount > 0 ? `${feedCount}×` : 'Nenhuma'}
                   sub={feedCount > 0 ? 'hoje' : undefined}
                   empty={!logsLoading && feedCount === 0}
                 />
                 <SummaryMetricCard
                   emoji="🧷" label="Fraldas" accentColor={DIAPER_COLOR}
-                  value={logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}x` : 'Nenhuma'}
+                  value={logsLoading ? '...' : diaperCount > 0 ? `${diaperCount}×` : 'Nenhuma'}
                   sub={diaperCount > 0 ? 'hoje' : undefined}
                   empty={!logsLoading && diaperCount === 0}
                 />
                 <SummaryMetricCard
                   emoji="😴" label="Sono" accentColor={SLEEP_COLOR}
-                  value={logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : 'Nenhum')}
+                  value={logsLoading ? '...' : sleepLabel ?? (ongoingSleep ? 'Em andamento' : '—')}
                   sub={lastSleepSub}
                   empty={!logsLoading && !sleepLabel && !ongoingSleep}
                 />
                 <SummaryMetricCard
                   emoji="📅" label="Próx. consulta" accentColor="hsl(var(--primary))"
-                  value="Nenhuma" empty
+                  value="—" empty
                 />
               </div>
             </div>
 
-            {/* ── Quick actions — 4 tiles, locked ─────────────────── */}
+            {/* ── Quick actions — 4 tiles ──────────────────────────── */}
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-3 text-muted-foreground font-nunito">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
                 Registrar agora
               </p>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-2.5">
                 <QuickActionTile emoji="🤱" label="Amamentar" accentColor={FEED_COLOR}   onClick={() => navigate('/breastfeeding')} />
                 <QuickActionTile emoji="🍼" label="Mamadeira"  accentColor={BOTTLE_COLOR} onClick={() => navigate('/bottle')} />
                 <QuickActionTile emoji="😴" label="Sono"       accentColor={SLEEP_COLOR}  onClick={() => navigate('/sleep')} />
@@ -179,9 +191,14 @@ export default function HomePage() {
 
             {/* ── Today's timeline ─────────────────────────────────── */}
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-3 text-muted-foreground font-nunito">
-                Hoje
-              </p>
+              <div className="flex items-baseline justify-between mb-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
+                  Hoje
+                </p>
+                <p className="text-[11px] text-muted-foreground font-nunito capitalize">
+                  {todayLabel}
+                </p>
+              </div>
 
               {logsError && (
                 <div
@@ -194,16 +211,16 @@ export default function HomePage() {
               )}
 
               {logsLoading ? (
-                <div className="space-y-2">
-                  {[0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}
+                <div className="space-y-2.5">
+                  {[0,1,2].map(i => <Skeleton key={i} className="h-[72px] rounded-2xl" />)}
                 </div>
               ) : logs.length === 0 ? (
-                <div
-                  className="rounded-2xl px-5 py-8 text-center bg-card border border-border"
-                >
-                  <p className="text-3xl mb-2">🌤️</p>
-                  <p className="text-sm font-bold font-quicksand text-foreground">Nenhum evento registrado hoje</p>
-                  <p className="text-xs mt-1 text-muted-foreground font-nunito">Use os botões acima para começar.</p>
+                <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
+                  <p className="text-4xl mb-3">🌤️</p>
+                  <p className="text-[15px] font-bold font-quicksand text-foreground">Nenhum evento hoje</p>
+                  <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
+                    Use os botões acima para começar a registrar.
+                  </p>
                 </div>
               ) : (
                 <div className="pb-2">

@@ -227,14 +227,9 @@ export default function RotinaPage() {
     return true;
   });
 
-  function handleTap(log: RoutineLog) {
-    const p = parsePayload(log.notes);
-    if (log.type === 'feed' && p.session_type === 'breastfeed') {
-      setDetailLog(log); setDetailKind('breastfeed');
-    } else if (log.type === 'diaper') {
-      navigate(`/diaper/edit/${log.id}`);
-    }
-  }
+  // EventCard navigation is handled by EventCard itself via eventSystem editPath.
+  // handleTap is kept as legacy prop signature for GroupedSection but does nothing.
+  function handleTap(_log: RoutineLog) { /* navigation handled by EventCard */ }
 
   const hasActiveFilters = typeFilter !== 'all' || !!todFilter || !!search || period !== 'today';
 

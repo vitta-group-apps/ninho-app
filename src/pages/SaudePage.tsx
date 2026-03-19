@@ -411,9 +411,9 @@ export default function SaudePage() {
             Visão geral
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <OverviewStat
+        <OverviewStat
               emoji="💉" label="Vacinas"
-              value={`${vaccineState.applied.length}`}
+              value={vaccineState.due.length > 0 ? `${vaccineState.due.length}` : '—'}
               sub={vaccineState.upcoming.length > 0
                 ? `${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`
                 : 'Calendário em dia'}

@@ -126,6 +126,9 @@ export default function HomePage() {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+  // Consultation count — used by priority engine to avoid false "no consultation" alerts
+  const [consultationCount, setConsultationCount] = useState(-1);
+  const [appliedVaccineCount, setAppliedVaccineCount] = useState(-1);
 
   // ─── Load today's logs ─────────────────────────────────────────────────
   const loadLogs = useCallback(async () => {

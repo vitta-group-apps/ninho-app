@@ -420,8 +420,34 @@ export default function RotinaPage() {
         <ActiveSessionBanner />
       </div>
 
-      {/* Search + filter */}
-      <div className="px-4 pt-3 space-y-2">
+      {/* Content — daily stats above timeline, search+filter directly above the list */}
+      <div className="px-4 pt-3">
+        {childLoading ? (
+          <div className="space-y-3">
+            <div className="flex gap-2">{[0,1,2].map(i => <Skeleton key={i} className="flex-1 h-24 rounded-2xl" />)}</div>
+            {[0,1,2].map(i => <Skeleton key={i} className="h-[72px] rounded-2xl" />)}
+          </div>
+        ) : !activeChild ? (
+          <div className="flex flex-col items-center justify-center pt-16 text-center">
+            <p className="text-4xl mb-3">👶</p>
+            <p className="text-[16px] font-bold font-quicksand text-foreground">Nenhuma criança ativa</p>
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {/* Daily stats — above the timeline, below the header */}
+            {allLogs.length > 0 && period === 'today' && !search && typeFilter === 'all' && (
+              <DailyStats logs={allLogs} />
+            )}
+          </motion.div>
+        )}
+      </div>
+
+      {/* Search + filter — directly above the event list */}
+      <div className="px-4 pt-2 space-y-2">
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-card border border-border">
           <MagnifyingGlassIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" strokeWidth={2} />
           <input

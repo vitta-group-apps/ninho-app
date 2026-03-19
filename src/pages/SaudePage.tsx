@@ -970,15 +970,44 @@ export default function SaudePage() {
             {/* History */}
             <div>
               <SectionLabel>Histórico</SectionLabel>
-              <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
-                <p className="text-3xl mb-2">📏</p>
-                <p className="text-[14px] font-bold font-quicksand text-foreground">
-                  Nenhuma medição registrada
-                </p>
-                <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
-                  Acompanhe o crescimento registrando peso e altura regularmente.
-                </p>
-              </div>
+              {growthHistory.length === 0 ? (
+                <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
+                  <p className="text-3xl mb-2">📏</p>
+                  <p className="text-[14px] font-bold font-quicksand text-foreground">
+                    Nenhuma medição registrada
+                  </p>
+                  <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
+                    Acompanhe o crescimento registrando peso e altura regularmente.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {growthHistory.map(entry => (
+                    <div key={entry.id} className="rounded-2xl px-4 py-3 bg-card border border-border flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {entry.weight && (
+                            <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
+                              {entry.weight} kg
+                            </span>
+                          )}
+                          {entry.height && (
+                            <span className="text-[15px] font-bold font-quicksand" style={{ color: MAUVE }}>
+                              {entry.height} cm
+                            </span>
+                          )}
+                        </div>
+                        {entry.note && (
+                          <p className="text-[11px] text-muted-foreground font-nunito mt-1">{entry.note}</p>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-nunito flex-shrink-0">
+                        {entry.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </ExpandableSection>
         </div>

@@ -1,18 +1,12 @@
 /**
  * SaudePage — Ninho health assistant.
  *
- * IA: sections-based (no horizontal tab rail).
- *  1. Health overview — status summary
- *  2. Priority layer — what needs attention
- *  3. Vaccines — SUS + private guidance
- *  4. Consultations
- *  5. Symptoms
- *  6. Medications
- *  7. Growth
- *  8. Report
+ * IA: vertical sections — no horizontal tab rail.
+ *  1. Overview:  status summary grid (vaccines, consultations, symptoms, meds, growth)
+ *  2. Attention: priority layer (what needs action now)
+ *  3. Sections:  each expandable, each with status + CTA + empty state
  *
- * Each section has: short summary · status · clear CTA · empty state.
- * The user reads top-to-bottom, not left-to-right.
+ * Tone: calm, supportive, practical. Not clinical, not alarming.
  */
 
 import { useState } from 'react';
@@ -23,11 +17,11 @@ import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { InlineStatusPill, SectionLabel } from '@/components/ds';
 import { getAgeContext } from '@/lib/eventSystem';
 
-const SAGE     = 'hsl(152,15%,50%)';
-const AMBER    = 'hsl(37,90%,55%)';
-const MAUVE    = 'hsl(270,12%,52%)';
+const SAGE  = 'hsl(152,15%,50%)';
+const AMBER = 'hsl(37,90%,55%)';
+const MAUVE = 'hsl(270,12%,52%)';
 
-// ─── Mock vaccine data (will be DB-driven in future sprint) ─────────────────
+// ─── Mock vaccine data (will be DB-driven) ──────────────────────────────────
 
 const UPCOMING_VACCINES = [
   { id: 'penta-3', name: 'Pentavalente', dose: '3ª dose', age: '6 meses' },
@@ -48,25 +42,76 @@ const COMPLETED_VACCINES = [
   { id: 'rota-2',   name: 'Rotavírus',    dose: '2ª dose',    age: '4 meses' },
 ];
 
-// ─── Expandable section wrapper ─────────────────────────────────────────────
+// ─── Overview stat card ──────────────────────────────────────────────────────
+
+function OverviewStat({
+  emoji, label, value, sub, color, onTap,
+}: {
+  emoji: string; label: string; value: string;
+  sub: string; color: string; onTap?: () => void;
+}) {
+  return (
+    <button
+      onClick={onTap}
+      className="rounded-2xl p-3 text-left w-full transition-all active:scale-[0.98]"
+      style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[16px]">{emoji}</span>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-nunito leading-none truncate">
+          {label}
+        </p>
+      </div>
+      <p className="text-[22px] font-bold font-quicksand leading-none" style={{ color }}>
+        {value}
+      </p>
+      <p className="text-[10px] text-muted-foreground font-nunito mt-1 leading-tight">{sub}</p>
+    </button>
+  );
+}
+
+// ─── Priority item ────────────────────────────────────────────────────────────
+
+function PriorityItem({
+  emoji, title, body, ctaLabel, onCta,
+}: {
+  emoji: string; title: string; body: string;
+  ctaLabel?: string; onCta?: () => void;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
+      style={{
+        backgroundColor: `color-mix(in srgb, ${AMBER} 8%, hsl(var(--card)))`,
+        border: `1px solid color-mix(in srgb, ${AMBER} 22%, transparent)`,
+      }}
+    >
+      <span className="text-[18px] mt-0.5 flex-shrink-0">{emoji}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-bold font-quicksand text-foreground">{title}</p>
+        <p className="text-[12px] text-muted-foreground font-nunito mt-0.5 leading-snug">{body}</p>
+      </div>
+      {ctaLabel && onCta && (
+        <button
+          onClick={onCta}
+          className="text-[11px] font-bold font-nunito px-2.5 py-1.5 rounded-xl text-white flex-shrink-0 transition-all active:scale-95"
+          style={{ backgroundColor: AMBER }}
+        >
+          {ctaLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Expandable section ───────────────────────────────────────────────────────
 
 function ExpandableSection({
-  id,
-  emoji,
-  title,
-  statusPill,
-  summary,
-  open,
-  onToggle,
-  children,
+  id, emoji, title, statusPill, summary, open, onToggle, children,
 }: {
-  id: string;
-  emoji: string;
-  title: string;
-  statusPill?: React.ReactNode;
-  summary?: string;
-  open: boolean;
-  onToggle: () => void;
+  id: string; emoji: string; title: string;
+  statusPill?: React.ReactNode; summary?: string;
+  open: boolean; onToggle: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -121,58 +166,32 @@ function ExpandableSection({
   );
 }
 
-// ─── Priority item ───────────────────────────────────────────────────────────
+// ─── Symptom chips ────────────────────────────────────────────────────────────
 
-function PriorityItem({
-  emoji, title, body, ctaLabel, onCta,
-}: {
-  emoji: string; title: string; body: string;
-  ctaLabel?: string; onCta?: () => void;
-}) {
-  return (
-    <div
-      className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
-      style={{
-        backgroundColor: `color-mix(in srgb, ${AMBER} 8%, hsl(var(--card)))`,
-        border: `1px solid color-mix(in srgb, ${AMBER} 20%, transparent)`,
-      }}
-    >
-      <span className="text-[18px] mt-0.5 flex-shrink-0">{emoji}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold font-quicksand text-foreground">{title}</p>
-        <p className="text-[12px] text-muted-foreground font-nunito mt-0.5 leading-snug">{body}</p>
-      </div>
-      {ctaLabel && onCta && (
-        <button
-          onClick={onCta}
-          className="text-[11px] font-bold font-nunito px-2.5 py-1.5 rounded-xl text-white flex-shrink-0 transition-all active:scale-95"
-          style={{ backgroundColor: AMBER }}
-        >
-          {ctaLabel}
-        </button>
-      )}
-    </div>
-  );
-}
+const SYMPTOM_CHIPS = [
+  '🌡️ Febre', '😮‍💨 Tosse', '🤧 Coriza',
+  '🤢 Vômito', '💩 Diarreia', '😭 Choro intenso',
+  '😴 Sonolência excessiva', '🍽️ Sem apetite',
+];
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SaudePage() {
   const navigate = useNavigate();
   const { activeChild } = useActiveChild();
   const childName = activeChild?.name ?? 'seu filho';
-  const ageCtx = activeChild ? getAgeContext(activeChild.birth_date) : null;
+  const ageCtx    = activeChild ? getAgeContext(activeChild.birth_date) : null;
 
-  // Track which section is open
   const [openSection, setOpenSection] = useState<string | null>('vaccines');
   function toggle(id: string) {
     setOpenSection(prev => prev === id ? null : id);
   }
 
-  const [showCompletedVaccines, setShowCompletedVaccines] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   return (
     <div className="min-h-screen pb-28 bg-background">
+
       {/* Header */}
       <div
         className="px-5 pb-5"
@@ -188,70 +207,78 @@ export default function SaudePage() {
         </p>
       </div>
 
-      <div className="px-4 pt-5 space-y-4">
+      <div className="px-4 pt-5 space-y-5">
 
-        {/* ── Health overview card ──────────────────────────────────── */}
-        <div className="rounded-2xl p-4 bg-card border border-border space-y-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
+        {/* ── 1. HEALTH OVERVIEW ────────────────────────────────────── */}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
             Visão geral
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              {
-                emoji: '💉', label: 'Vacinas',
-                value: `${COMPLETED_VACCINES.length}`, unit: 'aplicadas',
-                sub: `${UPCOMING_VACCINES.length} pendentes`,
-                color: SAGE,
-              },
-              {
-                emoji: '📅', label: 'Consultas',
-                value: '0', unit: 'agendadas',
-                sub: 'Nenhuma consulta marcada',
-                color: MAUVE,
-              },
-            ].map(item => (
-              <div
-                key={item.label}
-                className="rounded-xl p-3"
-                style={{ backgroundColor: 'hsl(var(--muted) / 0.6)' }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[16px]">{item.emoji}</span>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-nunito">
-                    {item.label}
-                  </p>
-                </div>
-                <p className="text-[24px] font-bold font-quicksand leading-none" style={{ color: item.color }}>
-                  {item.value}
-                </p>
-                <p className="text-[10px] text-muted-foreground font-nunito mt-0.5">{item.sub}</p>
-              </div>
-            ))}
+            <OverviewStat
+              emoji="💉" label="Vacinas"
+              value={`${COMPLETED_VACCINES.length}`}
+              sub={`${UPCOMING_VACCINES.length} pendentes`}
+              color={SAGE}
+              onTap={() => toggle('vaccines')}
+            />
+            <OverviewStat
+              emoji="🩺" label="Consultas"
+              value="0"
+              sub="Nenhuma consulta agendada"
+              color={MAUVE}
+              onTap={() => toggle('appointments')}
+            />
+            <OverviewStat
+              emoji="🌡️" label="Sintomas"
+              value="0"
+              sub="Nenhum recente"
+              color={SAGE}
+              onTap={() => toggle('symptoms')}
+            />
+            <OverviewStat
+              emoji="📏" label="Crescimento"
+              value="—"
+              sub="Sem medições registradas"
+              color={MAUVE}
+              onTap={() => toggle('growth')}
+            />
           </div>
         </div>
 
-        {/* ── Priority layer — what needs attention ─────────────────── */}
-        <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
+        {/* ── 2. ATTENTION — what needs action ─────────────────────── */}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
             Atenção
           </p>
-          <PriorityItem
-            emoji="💉"
-            title={`${UPCOMING_VACCINES.length} vacinas pendentes`}
-            body={`Próxima dose prevista para ${UPCOMING_VACCINES[0]?.age ?? 'em breve'}. Confirme com o pediatra.`}
-            ctaLabel="Ver vacinas"
-            onCta={() => setOpenSection('vaccines')}
-          />
-          <PriorityItem
-            emoji="📅"
-            title="Nenhuma consulta agendada"
-            body="Agende a próxima consulta do pediatra para acompanhar o desenvolvimento."
-            ctaLabel="Agendar"
-            onCta={() => setOpenSection('appointments')}
-          />
+          <div className="space-y-2">
+            {UPCOMING_VACCINES.length > 0 && (
+              <PriorityItem
+                emoji="💉"
+                title={`${UPCOMING_VACCINES.length} vacinas pendentes`}
+                body={`Próxima dose prevista para ${UPCOMING_VACCINES[0]?.age ?? 'em breve'}. Confirme com o pediatra.`}
+                ctaLabel="Ver"
+                onCta={() => { setOpenSection('vaccines'); }}
+              />
+            )}
+            <PriorityItem
+              emoji="🩺"
+              title="Nenhuma consulta agendada"
+              body="Manter consultas em dia ajuda a acompanhar o desenvolvimento e prevenir problemas."
+              ctaLabel="Agendar"
+              onCta={() => toggle('appointments')}
+            />
+            <PriorityItem
+              emoji="📏"
+              title="Crescimento sem medições"
+              body="Registre o peso e a altura para acompanhar a evolução de {name}.".replace('{name}', childName)
+              ctaLabel="Registrar"
+              onCta={() => toggle('growth')}
+            />
+          </div>
         </div>
 
-        {/* ── Sections ──────────────────────────────────────────────── */}
+        {/* ── 3. SECTIONS ──────────────────────────────────────────── */}
 
         {/* Vaccines */}
         <ExpandableSection
@@ -267,7 +294,7 @@ export default function SaudePage() {
           open={openSection === 'vaccines'}
           onToggle={() => toggle('vaccines')}
         >
-          {/* SUS summary */}
+          {/* Summary bar */}
           <div
             className="flex gap-3 rounded-xl p-3"
             style={{ backgroundColor: 'hsl(var(--muted) / 0.6)' }}
@@ -291,7 +318,7 @@ export default function SaudePage() {
             </div>
           </div>
 
-          {/* Upcoming */}
+          {/* Upcoming doses */}
           <div>
             <SectionLabel>Próximas doses</SectionLabel>
             <div className="space-y-2">
@@ -315,16 +342,16 @@ export default function SaudePage() {
 
           {/* Completed toggle */}
           <button
-            onClick={() => setShowCompletedVaccines(v => !v)}
+            onClick={() => setShowCompleted(v => !v)}
             className="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground font-nunito"
           >
-            <span>{showCompletedVaccines ? '▾' : '▸'}</span>
+            <span>{showCompleted ? '▾' : '▸'}</span>
             Aplicadas ({COMPLETED_VACCINES.length})
           </button>
-          {showCompletedVaccines && (
+          {showCompleted && (
             <div className="space-y-2">
               {COMPLETED_VACCINES.map(v => (
-                <div key={v.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-card border border-border opacity-75">
+                <div key={v.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-card border border-border opacity-70">
                   <div
                     className="w-8 h-8 rounded-xl flex items-center justify-center text-[15px] flex-shrink-0"
                     style={{ backgroundColor: `color-mix(in srgb, ${SAGE} 12%, transparent)` }}
@@ -349,7 +376,7 @@ export default function SaudePage() {
               border: `1px solid color-mix(in srgb, ${MAUVE} 18%, transparent)`,
             }}
           >
-            <p className="text-[12px] font-bold font-quicksand text-foreground">Vacinas particulares</p>
+            <p className="text-[12px] font-bold font-quicksand text-foreground">Vacinas complementares</p>
             <p className="text-[11px] text-muted-foreground font-nunito leading-relaxed">
               Além do calendário SUS, existem vacinas complementares recomendadas por pediatras em algumas fases. Converse com o profissional de saúde sobre o que pode ser indicado para {childName}.
             </p>
@@ -362,37 +389,27 @@ export default function SaudePage() {
           emoji="🩺"
           title="Consultas"
           statusPill={<InlineStatusPill label="Nenhuma agendada" variant="paused" color={MAUVE} />}
-          summary="Adicione a próxima consulta do pediatra"
+          summary="Registre e acompanhe as consultas do pediatra"
           open={openSection === 'appointments'}
           onToggle={() => toggle('appointments')}
         >
+          {/* CTA */}
           <button
             className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
             style={{ backgroundColor: SAGE }}
           >
-            Agendar consulta
+            Registrar consulta
           </button>
 
-          <div>
-            <SectionLabel>Próximas</SectionLabel>
-            <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
-              <p className="text-3xl mb-2">📅</p>
-              <p className="text-[14px] font-bold font-quicksand text-foreground">
-                Nenhuma consulta agendada
-              </p>
-              <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug">
-                Registre a próxima consulta para acompanhar o calendário de saúde.
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <SectionLabel>Histórico</SectionLabel>
-            <div className="rounded-2xl px-5 py-5 text-center bg-muted/40 border border-border">
-              <p className="text-[12px] text-muted-foreground font-nunito">
-                Consultas realizadas aparecerão aqui.
-              </p>
-            </div>
+          {/* Empty state — consultations */}
+          <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
+            <p className="text-3xl mb-2">🩺</p>
+            <p className="text-[14px] font-bold font-quicksand text-foreground">
+              Nenhuma consulta registrada
+            </p>
+            <p className="text-[12px] mt-1.5 text-muted-foreground font-nunito leading-snug max-w-[220px] mx-auto">
+              Acompanhar as consultas ajuda a manter o cuidado em dia e facilita o histórico para o pediatra.
+            </p>
           </div>
         </ExpandableSection>
 
@@ -406,14 +423,11 @@ export default function SaudePage() {
           open={openSection === 'symptoms'}
           onToggle={() => toggle('symptoms')}
         >
-          <div className="space-y-2">
-            <SectionLabel>Registro rápido</SectionLabel>
+          {/* Quick log */}
+          <div>
+            <SectionLabel>Registrar sintoma</SectionLabel>
             <div className="flex flex-wrap gap-2">
-              {[
-                '🌡️ Febre', '😮‍💨 Tosse', '🤧 Coriza',
-                '🤢 Vômito', '💩 Diarreia', '😭 Choro intenso',
-                '😴 Sonolência', '🍽️ Sem apetite',
-              ].map(s => (
+              {SYMPTOM_CHIPS.map(s => (
                 <button
                   key={s}
                   className="py-2.5 px-4 rounded-2xl text-[12px] font-bold font-nunito transition-all active:scale-95 bg-muted text-foreground"
@@ -424,15 +438,16 @@ export default function SaudePage() {
             </div>
           </div>
 
+          {/* History */}
           <div>
-            <SectionLabel>Histórico de sintomas</SectionLabel>
+            <SectionLabel>Histórico</SectionLabel>
             <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
               <p className="text-3xl mb-2">🌡️</p>
               <p className="text-[14px] font-bold font-quicksand text-foreground">
                 Nenhum sintoma registrado
               </p>
-              <p className="text-[12px] mt-1 text-muted-foreground font-nunito">
-                Registre sintomas para compartilhar com o pediatra.
+              <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug">
+                Registre sintomas para facilitar a conversa com o pediatra.
               </p>
             </div>
           </div>
@@ -459,8 +474,8 @@ export default function SaudePage() {
             <p className="text-[14px] font-bold font-quicksand text-foreground">
               Nenhum medicamento ativo
             </p>
-            <p className="text-[12px] mt-1 text-muted-foreground font-nunito">
-              Adicione medicamentos recorrentes ou pontuais para acompanhar o uso.
+            <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug">
+              Adicione medicamentos recorrentes ou pontuais para acompanhar o uso e os horários.
             </p>
           </div>
         </ExpandableSection>
@@ -471,10 +486,11 @@ export default function SaudePage() {
           emoji="📏"
           title="Crescimento"
           statusPill={<InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />}
-          summary="Peso e altura de {childName}"
+          summary={`Peso e altura de ${childName}`}
           open={openSection === 'growth'}
           onToggle={() => toggle('growth')}
         >
+          {/* Last measurements */}
           <div className="grid grid-cols-2 gap-3">
             {[
               { emoji: '⚖️', label: 'Último peso', value: '—', unit: 'kg' },
@@ -501,24 +517,25 @@ export default function SaudePage() {
               Registrar medição
             </button>
           </div>
+
           <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
             <p className="text-3xl mb-2">📏</p>
             <p className="text-[14px] font-bold font-quicksand text-foreground">
               Nenhuma medição registrada
             </p>
-            <p className="text-[12px] mt-1 text-muted-foreground font-nunito">
-              Registre peso e altura regularmente para acompanhar o crescimento.
+            <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
+              Acompanhe o crescimento registrando peso e altura regularmente.
             </p>
           </div>
         </ExpandableSection>
 
-        {/* Report */}
+        {/* Medical report */}
         <ExpandableSection
           id="report"
           emoji="📋"
           title="Relatório médico"
           statusPill={<InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />}
-          summary="Eventos marcados para o pediatra"
+          summary="Eventos marcados para compartilhar com o pediatra"
           open={openSection === 'report'}
           onToggle={() => toggle('report')}
         >
@@ -528,7 +545,7 @@ export default function SaudePage() {
           >
             <p className="text-[12px] font-bold font-nunito text-foreground">Como usar o relatório</p>
             <p className="text-[11px] text-muted-foreground font-nunito leading-relaxed">
-              Ative <strong>"Incluir no relatório"</strong> em qualquer registro de amamentação, fralda, sono ou sintoma para que ele apareça aqui.
+              Ative <strong>"Incluir no relatório"</strong> em qualquer registro de amamentação, fralda, sono ou sintoma para que ele apareça aqui e facilite a consulta com o pediatra.
             </p>
           </div>
 
@@ -548,11 +565,11 @@ export default function SaudePage() {
               O que vale incluir
             </p>
             {[
-              '🤱 Mamadas com dificuldade ou observação',
-              '💩 Fraldas com cor incomum',
-              '🌡️ Febre ou sintomas registrados',
-              '💊 Medicamentos e reações',
-              '😴 Sono muito longo ou com muitos despertares',
+              '🤱 Mamadas com dificuldade ou comportamento diferente',
+              '💩 Fraldas com cor ou consistência incomum',
+              '🌡️ Febre ou sintomas que persistem',
+              '💊 Medicamentos e possíveis reações',
+              '😴 Sono muito longo ou muitos despertares',
             ].map(item => (
               <p key={item} className="text-[11px] text-muted-foreground font-nunito">{item}</p>
             ))}

@@ -910,7 +910,11 @@ export default function SaudePage() {
             id="growth"
             emoji="📏"
             title="Crescimento"
-            statusPill={<InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />}
+            statusPill={
+              growthHistory.length > 0
+                ? <InlineStatusPill label={`${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`} variant="active" color={SAGE} />
+                : <InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />
+            }
             summary={`Peso e altura de ${childName}`}
             open={openSection === 'growth'}
             onToggle={() => toggle('growth')}

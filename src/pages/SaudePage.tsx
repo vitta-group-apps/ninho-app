@@ -1757,12 +1757,12 @@ export default function SaudePage() {
                     {latest.weight != null && (
                       <div>
                         <p className="text-[28px] font-bold font-quicksand leading-none" style={{ color: SAGE }}>
-                          {latest.weight}<span className="text-[14px] font-semibold ml-0.5">kg</span>
+                          {fmtWeight(latest.weight)}
                         </p>
                         {deltaW != null && (
                           <p className="text-[11px] font-semibold font-nunito mt-1"
                             style={{ color: deltaW >= 0 ? SAGE : AMBER }}>
-                            {deltaW >= 0 ? '▲' : '▼'} {Math.abs(deltaW)} kg vs anterior
+                            {deltaW >= 0 ? '▲' : '▼'} {fmtWeightDelta(deltaW, latest.weight >= 1000)} vs anterior
                           </p>
                         )}
                       </div>

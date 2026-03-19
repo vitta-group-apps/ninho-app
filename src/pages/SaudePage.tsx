@@ -283,18 +283,32 @@ function VaccineConfirmModal({
     if (!appliedDate) return;
     setSaving(true);
     try {
-      // Upsert into child_vaccines using the vaccine id as a stable reference
-      const { error } = await supabase.from('child_vaccines').insert({
-        child_id: childId,
-        vaccine_id: vaccine.id,
-        status: 'applied',
-        applied_on: appliedDate,
+      // child_vaccines.vaccine_id is a UUID FK to vaccines_catalog.
+      // vaccineSchedule uses stable string IDs (e.g. 'bcg', 'penta-1').
+      // We store confirmed vaccines in health_logs instead, which accepts any childId + note.
+      // This avoids FK constraint violation and keeps confirmation flexible.
+      const { error } = await supabase.from('health_logs').insert({
+        child_id:    childId,
+        author_id:   userId,
+        type:        'vaccine',
+        occurred_at: new Date(appliedDate + 'T12:00:00').toISOString(),
+        details: {
+          type:          'vaccine_confirmation',
+          vaccine_id:    vaccine.id,
+          vaccine_name:  vaccine.shortName,
+          vaccine_label: vaccine.name,
+          diseases:      vaccine.diseases,
+          doses:         vaccine.doses ?? null,
+          applied_on:    appliedDate,
+          source:        'manual_confirm',
+        },
       });
       if (error) throw error;
       onConfirmed(vaccine.id, appliedDate);
       toast({ title: `✅ ${vaccine.shortName} confirmada` });
       onClose();
-    } catch {
+    } catch (e) {
+      console.error('[vaccine confirm]', e);
       toast({ title: 'Erro ao confirmar vacina', variant: 'destructive' });
     } finally {
       setSaving(false);

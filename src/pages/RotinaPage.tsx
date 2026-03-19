@@ -498,9 +498,7 @@ export default function RotinaPage() {
         </AnimatePresence>
       </div>
 
-      {/* Event list */}
-      <div className="px-4 pt-3">
-        {childLoading ? (
+      {/* Search + filter */}
 
       {/* Search + filter — directly above the event list */}
       <div className="px-4 pt-2 space-y-2">

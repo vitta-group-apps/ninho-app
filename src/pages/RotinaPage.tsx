@@ -501,29 +501,6 @@ export default function RotinaPage() {
       {/* Event list */}
       <div className="px-4 pt-3">
         {childLoading ? (
-        {childLoading ? (
-          <div className="space-y-3">
-            <div className="flex gap-2">{[0,1,2].map(i => <Skeleton key={i} className="flex-1 h-24 rounded-2xl" />)}</div>
-            {[0,1,2].map(i => <Skeleton key={i} className="h-[72px] rounded-2xl" />)}
-          </div>
-        ) : !activeChild ? (
-          <div className="flex flex-col items-center justify-center pt-16 text-center">
-            <p className="text-4xl mb-3">👶</p>
-            <p className="text-[16px] font-bold font-quicksand text-foreground">Nenhuma criança ativa</p>
-          </div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Daily stats — above the timeline, below the header */}
-            {allLogs.length > 0 && period === 'today' && !search && typeFilter === 'all' && (
-              <DailyStats logs={allLogs} />
-            )}
-          </motion.div>
-        )}
-      </div>
 
       {/* Search + filter — directly above the event list */}
       <div className="px-4 pt-2 space-y-2">

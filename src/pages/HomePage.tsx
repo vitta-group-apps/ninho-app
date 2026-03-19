@@ -447,10 +447,10 @@ export default function HomePage() {
                 <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
                   <p className="text-4xl mb-3">🌤️</p>
                   <p className="text-[15px] font-bold font-quicksand text-foreground">
-                    O dia ainda não começou
+                    Nenhum registro ainda
                   </p>
                   <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
-                    Use os atalhos acima para registrar a primeira atividade.
+                    Use os atalhos acima para registrar a primeira atividade do dia.
                   </p>
                 </div>
               ) : (

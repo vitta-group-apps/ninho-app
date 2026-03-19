@@ -27,34 +27,34 @@ export function SummaryMetricCard({
     : 'hsl(var(--muted))';
 
   return (
-    <div className="flex-1 min-w-0 rounded-2xl px-4 pt-4 pb-3.5 flex flex-col gap-2 bg-card border border-border">
+    <div className="flex-1 min-w-0 rounded-2xl px-3 pt-3.5 pb-3 flex flex-col gap-1.5 bg-card border border-border">
       {/* Icon + label row */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-[14px] flex-shrink-0"
+          className="w-6 h-6 rounded-lg flex items-center justify-center text-[12px] flex-shrink-0"
           style={{ backgroundColor: tint }}
         >
           {emoji}
         </div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-nunito leading-none truncate">
+        <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground font-nunito leading-none">
           {label}
         </p>
       </div>
 
       {/* BIG NUMBER — dominant visual */}
-      <div>
-        <p
-          className={`text-[28px] font-bold leading-none font-quicksand ${empty ? 'opacity-30' : 'text-foreground'}`}
-          style={!empty && accentColor ? { color: accentColor } : undefined}
-        >
-          {value}
+      <p
+        className={`text-[26px] font-bold leading-none font-quicksand ${empty ? 'opacity-30' : 'text-foreground'}`}
+        style={!empty && accentColor ? { color: accentColor } : undefined}
+      >
+        {value}
+      </p>
+
+      {/* Sub line — 2 lines max, small */}
+      {sub && (
+        <p className="text-[10px] text-muted-foreground font-nunito leading-tight line-clamp-2">
+          {sub}
         </p>
-        {sub && (
-          <p className="text-[11px] mt-1 text-muted-foreground font-nunito leading-tight">
-            {sub}
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 }

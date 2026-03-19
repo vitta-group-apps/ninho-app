@@ -130,14 +130,17 @@ export function runPriorityEngine(params: {
     });
   }
 
-  // No consultation scheduled (always relevant)
+  // No consultation — only add as attention item, NOT as main message
+  // (the ConsultationCard on Home already surfaces this prominently)
+  // We still add it but at a lower priority so it only shows in attentionItems
+  // when nothing else is more urgent.
   allItems.push({
     id: 'no-consultation',
-    level: 'health_risk',
+    level: 'suggested_next',
     emoji: '🩺',
     title: 'Nenhuma consulta agendada',
     body: 'Manter as consultas em dia facilita o acompanhamento do desenvolvimento.',
-    ctaLabel: 'Agendar',
+    ctaLabel: 'Ver',
     path: '/health',
   });
 

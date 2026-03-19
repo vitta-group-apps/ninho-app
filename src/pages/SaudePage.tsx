@@ -59,15 +59,30 @@ const OPTIONAL_VACCINES: { name: string; description: string; ageHint: string }[
 ];
 
 // ─── Vaccine state helper (age-based, truthful) ───────────────────────────
-
+//
+// IMPORTANT: No vaccine is auto-marked as "applied".
+// Vaccines are never pre-populated as confirmed doses — that contradicts reality.
+// The caregiver must manually confirm application.
+//
+// What we CAN infer by age:
+//   - "due now or recently" (ageMonths within window): "upcoming/due"
+//   - "scheduled for later": "future"
+//   - Vaccines from past age windows appear as "due" until manually confirmed
+//
+// "applied" list is ALWAYS empty until real DB records exist.
 function computeVaccineState(ageMonths: number) {
-  const applied   = vaccineSchedule.filter(v => (v.ageMonths ?? 0) <= ageMonths);
-  const upcoming  = vaccineSchedule.filter(v => {
+  // Vaccines that are due now (scheduled age ≤ child age) — need confirmation
+  const due = vaccineSchedule.filter(v => (v.ageMonths ?? 0) <= ageMonths);
+  // Vaccines coming up in the next 3 months
+  const upcoming = vaccineSchedule.filter(v => {
     const vm = v.ageMonths ?? 0;
     return vm > ageMonths && vm <= ageMonths + 3;
   });
+  // Vaccines scheduled further ahead
   const future = vaccineSchedule.filter(v => (v.ageMonths ?? 0) > ageMonths + 3);
-  return { applied, upcoming, future };
+  // applied = empty until user marks them
+  const applied: typeof due = [];
+  return { applied, due, upcoming, future };
 }
 
 // ─── Helper: symptom quick-log ────────────────────────────────────────────
@@ -287,6 +302,8 @@ export default function SaudePage() {
   // Quick note / report note
   const [quickNote, setQuickNote]   = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [savedNotes, setSavedNotes] = useState<{ text: string; date: Date }[]>([]);
+  const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
 
   async function saveQuickNote() {
     if (!quickNote.trim() || !activeChild) return;
@@ -294,14 +311,19 @@ export default function SaudePage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      const now = new Date();
       await supabase.from('health_logs').insert({
         child_id: activeChild.id,
         author_id: user.id,
         type: 'note',
-        occurred_at: new Date().toISOString(),
+        occurred_at: now.toISOString(),
         details: { note: quickNote.trim(), source: 'report' },
       });
+      // Add to local list immediately for instant feedback
+      setSavedNotes(prev => [{ text: quickNote.trim(), date: now }, ...prev]);
       setQuickNote('');
+      setNoteSavedFeedback(true);
+      setTimeout(() => setNoteSavedFeedback(false), 2500);
     } catch { /* silent */ } finally {
       setSavingNote(false);
     }
@@ -334,12 +356,21 @@ export default function SaudePage() {
   // Priority items (health-specific)
   const priorityItems: { emoji: string; title: string; body: string; cta: string; sectionId: string }[] = [];
 
-  if (vaccineState.upcoming.length > 0) {
+  if (vaccineState.due.length > 0) {
+    const first = vaccineState.due[0];
+    priorityItems.push({
+      emoji: '💉',
+      title: `${vaccineState.due.length} vacina${vaccineState.due.length > 1 ? 's' : ''} a confirmar`,
+      body: `${first.shortName} (${first.doses}) está prevista para ${first.ageLabel}. Registre quando for aplicada.`,
+      cta: 'Ver',
+      sectionId: 'vaccines',
+    });
+  } else if (vaccineState.upcoming.length > 0) {
     const next = vaccineState.upcoming[0];
     priorityItems.push({
       emoji: '💉',
-      title: `${vaccineState.upcoming.length} vacina${vaccineState.upcoming.length > 1 ? 's' : ''} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`,
-      body: `${next.shortName} (${next.doses}) está prevista para ${next.ageLabel}. Confirme com o pediatra.`,
+      title: `Vacina prevista em breve`,
+      body: `${next.shortName} (${next.doses}) está próxima — ${next.ageLabel}. Confirme com o pediatra.`,
       cta: 'Ver',
       sectionId: 'vaccines',
     });
@@ -389,14 +420,16 @@ export default function SaudePage() {
             Visão geral
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <OverviewStat
+        <OverviewStat
               emoji="💉" label="Vacinas"
-              value={`${vaccineState.applied.length}`}
-              sub={vaccineState.upcoming.length > 0
+              value={vaccineState.due.length > 0 ? `${vaccineState.due.length}` : '—'}
+              sub={vaccineState.due.length > 0
+                ? `${vaccineState.due.length} a confirmar`
+                : vaccineState.upcoming.length > 0
                 ? `${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`
                 : 'Calendário em dia'}
-              color={vaccineState.upcoming.length > 0 ? AMBER : SAGE}
-              urgent={vaccineState.upcoming.length > 0}
+              color={vaccineState.due.length > 0 ? AMBER : SAGE}
+              urgent={vaccineState.due.length > 0}
               onTap={() => toggle('vaccines')}
             />
             <OverviewStat
@@ -457,15 +490,17 @@ export default function SaudePage() {
             emoji="💉"
             title="Vacinas"
             statusPill={
-              vaccineState.upcoming.length > 0
+              vaccineState.due.length > 0
+                ? <InlineStatusPill label={`${vaccineState.due.length} a confirmar`} variant="paused" color={AMBER} />
+                : vaccineState.upcoming.length > 0
                 ? <InlineStatusPill label={`${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`} variant="paused" color={AMBER} />
                 : <InlineStatusPill label="Em dia" variant="active" color={SAGE} />
             }
-            summary={`Calendário SUS · ${vaccineState.applied.length} aplicadas`}
+            summary={`Calendário SUS · ${vaccineState.due.length > 0 ? `${vaccineState.due.length} a confirmar` : 'acompanhando'}`}
             open={openSection === 'vaccines'}
             onToggle={() => toggle('vaccines')}
           >
-            {/* Stats */}
+            {/* Stats — shows due (to confirm) / upcoming / future */}
             <div
               className="flex gap-4 rounded-xl p-3"
               style={{ backgroundColor: 'hsl(var(--muted) / 0.6)' }}
@@ -481,22 +516,53 @@ export default function SaudePage() {
               <div className="w-px bg-border" />
               <div className="flex-1 text-center">
                 <p className="text-[22px] font-bold font-quicksand" style={{ color: AMBER }}>
+                  {vaccineState.due.length}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
+                  A confirmar
+                </p>
+              </div>
+              <div className="w-px bg-border" />
+              <div className="flex-1 text-center">
+                <p className="text-[22px] font-bold font-quicksand" style={{ color: AMBER }}>
                   {vaccineState.upcoming.length}
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
                   Próximas
                 </p>
               </div>
-              <div className="w-px bg-border" />
-              <div className="flex-1 text-center">
-                <p className="text-[22px] font-bold font-quicksand" style={{ color: MAUVE }}>
-                  {vaccineState.future.length}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
-                  Futuras
-                </p>
-              </div>
             </div>
+
+            {/* Info about confirmation */}
+            <div
+              className="rounded-xl px-3 py-2.5 flex items-start gap-2"
+              style={{ backgroundColor: 'hsl(var(--muted) / 0.7)' }}
+            >
+              <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
+              <p className="text-[11px] text-muted-foreground font-nunito leading-snug">
+                Vacinas são confirmadas pelo cuidador. Nenhuma dose é marcada automaticamente — você registra quando for aplicada.
+              </p>
+            </div>
+
+            {/* Due / to confirm (age-based) */}
+            {vaccineState.due.length > 0 && (
+              <div>
+                <SectionLabel>Previstas para esta fase (a confirmar)</SectionLabel>
+                <div className="space-y-2">
+                  {vaccineState.due.slice(0, showApplied ? vaccineState.due.length : 5).map(v => (
+                    <VaccineRow key={v.id} vaccine={v} state="upcoming" />
+                  ))}
+                  {!showApplied && vaccineState.due.length > 5 && (
+                    <button
+                      onClick={() => setShowApplied(true)}
+                      className="text-[12px] font-semibold text-muted-foreground font-nunito ml-1"
+                    >
+                      ▸ Ver todas ({vaccineState.due.length})
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Upcoming doses */}
             {vaccineState.upcoming.length > 0 && (
@@ -510,21 +576,16 @@ export default function SaudePage() {
               </div>
             )}
 
-            {/* Applied toggle */}
-            <button
-              onClick={() => setShowApplied(v => !v)}
-              className="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground font-nunito"
+            {/* Applied — always 0 until user confirms */}
+            <div
+              className="rounded-xl px-3 py-2.5 flex items-center gap-2"
+              style={{ backgroundColor: 'hsl(var(--muted) / 0.5)' }}
             >
-              <span>{showApplied ? '▾' : '▸'}</span>
-              Aplicadas ({vaccineState.applied.length})
-            </button>
-            {showApplied && (
-              <div className="space-y-2">
-                {vaccineState.applied.map(v => (
-                  <VaccineRow key={v.id} vaccine={v} state="applied" />
-                ))}
-              </div>
-            )}
+              <span className="text-[13px] flex-shrink-0">✓</span>
+              <p className="text-[11px] text-muted-foreground font-nunito leading-snug flex-1">
+                Nenhuma vacina confirmada ainda. Conforme forem aplicadas, você poderá registrar a data aqui.
+              </p>
+            </div>
 
             {/* Future toggle */}
             {vaccineState.future.length > 0 && (
@@ -796,7 +857,11 @@ export default function SaudePage() {
           id="report"
           emoji="📋"
           title="Relatório médico"
-          statusPill={<InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />}
+          statusPill={
+            savedNotes.length > 0
+              ? <InlineStatusPill label={`${savedNotes.length} nota${savedNotes.length > 1 ? 's' : ''}`} variant="active" color={SAGE} />
+              : <InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />
+          }
           summary="Notas e eventos para compartilhar com o pediatra"
           open={openSection === 'report'}
           onToggle={() => toggle('report')}
@@ -819,7 +884,41 @@ export default function SaudePage() {
             >
               {savingNote ? 'Salvando…' : 'Salvar nota'}
             </button>
+            {noteSavedFeedback && (
+              <div
+                className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl"
+                style={{ backgroundColor: `color-mix(in srgb, ${SAGE} 12%, transparent)` }}
+              >
+                <span className="text-[13px]">✓</span>
+                <p className="text-[12px] font-semibold font-nunito" style={{ color: SAGE }}>
+                  Nota salva no relatório
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Saved notes list */}
+          {savedNotes.length > 0 && (
+            <div>
+              <SectionLabel>Notas salvas</SectionLabel>
+              <div className="space-y-2">
+                {savedNotes.map((n, i) => (
+                  <div
+                    key={i}
+                    className="rounded-2xl px-4 py-3 bg-card border border-border"
+                  >
+                    <p className="text-[12px] text-foreground font-nunito leading-snug">{n.text}</p>
+                    <p className="text-[10px] text-muted-foreground font-nunito mt-1.5">
+                      {n.date.toLocaleString('pt-BR', {
+                        day: '2-digit', month: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* How-to guidance */}
           <div

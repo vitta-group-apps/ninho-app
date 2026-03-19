@@ -165,6 +165,9 @@ export default function HomePage() {
   // Consultation count — used by priority engine to avoid false "no consultation" alerts
   const [consultationCount, setConsultationCount] = useState(-1);
   const [appliedVaccineCount, setAppliedVaccineCount] = useState(-1);
+  // Next upcoming consultation date for the summary card
+  const [nextConsultDate, setNextConsultDate] = useState<string | null>(null);
+  const [hasConsultHistory, setHasConsultHistory] = useState(false);
 
   // ─── Load today's logs ─────────────────────────────────────────────────
   const loadLogs = useCallback(async () => {

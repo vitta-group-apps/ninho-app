@@ -126,6 +126,9 @@ export default function HomePage() {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+  // Consultation count — used by priority engine to avoid false "no consultation" alerts
+  const [consultationCount, setConsultationCount] = useState(-1);
+  const [appliedVaccineCount, setAppliedVaccineCount] = useState(-1);
 
   // ─── Load today's logs ─────────────────────────────────────────────────
   const loadLogs = useCallback(async () => {
@@ -177,12 +180,29 @@ export default function HomePage() {
   const hour     = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
+  // Load consultation count for priority engine (avoid false "no consultation" alerts)
+  useEffect(() => {
+    if (!activeChild) return;
+    supabase.from('health_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('child_id', activeChild.id)
+      .eq('type', 'note')
+      .then(({ count }) => setConsultationCount(count ?? 0));
+    supabase.from('health_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('child_id', activeChild.id)
+      .eq('type', 'vaccine')
+      .then(({ count }) => setAppliedVaccineCount(count ?? 0));
+  }, [activeChild]);
+
   // ─── Priority engine ───────────────────────────────────────────────────
   const { mainMessage, attentionItems } = runPriorityEngine({
     logs,
     logsLoading,
     activeChild,
     hour,
+    consultationCount,
+    appliedVaccineCount,
   });
 
   // ─── Metric card sublines ──────────────────────────────────────────────

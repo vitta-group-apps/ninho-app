@@ -444,7 +444,11 @@ export default function HomePage() {
                 ))}
               </div>
               {/* Consultation card — full-width, contextual empty state */}
-              <ConsultationCard onSchedule={() => navigate('/health')} />
+              <ConsultationCard
+                onSchedule={() => navigate('/health')}
+                nextDate={nextConsultDate}
+                hasHistory={hasConsultHistory}
+              />
             </div>
 
             {/* ── 3. ATTENTION — what needs action ─────────────────── */}

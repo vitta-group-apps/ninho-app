@@ -1960,11 +1960,11 @@ export default function SaudePage() {
                             <div className="flex items-center gap-3 flex-wrap">
                               {entry.weight != null && (
                                 <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
-                                  {entry.weight} kg
+                                  {fmtWeight(entry.weight)}
                                   {deltaW != null && (
                                     <span className="text-[10px] font-semibold ml-1"
                                       style={{ color: deltaW >= 0 ? SAGE : AMBER }}>
-                                      {deltaW >= 0 ? '▲' : '▼'}{Math.abs(deltaW)}
+                                      {deltaW >= 0 ? '▲' : '▼'}{fmtWeightDelta(deltaW, entry.weight >= 1000)}
                                     </span>
                                   )}
                                 </span>

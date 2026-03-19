@@ -572,7 +572,7 @@ export default function BreastfeedingScreen() {
             {/* Side cards */}
             <div>
               <SectionLabel>
-                {sessionStatus === 'ACTIVE' ? 'Toque no lado para alternar' : 'Sessão pausada'}
+                {sessionStatus === 'ACTIVE' ? 'Toque no lado para alternar' : 'Sessão pausada — retome para continuar'}
               </SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (

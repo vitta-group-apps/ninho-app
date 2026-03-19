@@ -72,7 +72,21 @@ function AttentionItem({
 
 // ─── Consultation card (special behavior) ────────────────────────────────
 
-function ConsultationCard({ onSchedule }: { onSchedule: () => void }) {
+function ConsultationCard({
+  onSchedule,
+  nextDate,
+  hasHistory,
+}: {
+  onSchedule: () => void;
+  nextDate?: string | null;
+  hasHistory?: boolean;
+}) {
+  const upcoming = nextDate
+    ? new Date(nextDate + 'T12:00:00').toLocaleDateString('pt-BR', {
+        day: '2-digit', month: 'long',
+      })
+    : null;
+
   return (
     <div
       className="flex-1 min-w-0 rounded-2xl overflow-hidden border"
@@ -91,14 +105,36 @@ function ConsultationCard({ onSchedule }: { onSchedule: () => void }) {
             Consulta
           </p>
         </div>
-        {/* Empty state content */}
+        {/* Content */}
         <div className="flex-1">
-          <p className="text-[13px] font-bold font-quicksand text-foreground leading-tight">
-            Sem consulta agendada
-          </p>
-          <p className="text-[10px] text-muted-foreground font-nunito mt-1 leading-tight">
-            Agende o próximo acompanhamento
-          </p>
+          {upcoming ? (
+            <>
+              <p className="text-[13px] font-bold font-quicksand text-foreground leading-tight">
+                {upcoming}
+              </p>
+              <p className="text-[10px] text-muted-foreground font-nunito mt-1 leading-tight">
+                Próxima consulta agendada
+              </p>
+            </>
+          ) : hasHistory ? (
+            <>
+              <p className="text-[13px] font-bold font-quicksand text-foreground leading-tight">
+                Histórico registrado
+              </p>
+              <p className="text-[10px] text-muted-foreground font-nunito mt-1 leading-tight">
+                Nenhuma próxima consulta
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[13px] font-bold font-quicksand text-foreground leading-tight">
+                Sem consulta agendada
+              </p>
+              <p className="text-[10px] text-muted-foreground font-nunito mt-1 leading-tight">
+                Agende o próximo acompanhamento
+              </p>
+            </>
+          )}
         </div>
         {/* CTA */}
         <button
@@ -110,7 +146,7 @@ function ConsultationCard({ onSchedule }: { onSchedule: () => void }) {
             border: `1px solid color-mix(in srgb, ${SAGE} 25%, transparent)`,
           }}
         >
-          Agendar
+          {upcoming ? 'Ver detalhes' : 'Agendar'}
         </button>
       </div>
     </div>

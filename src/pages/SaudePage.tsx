@@ -1,35 +1,32 @@
 /**
- * SaudePage — Ninho Health Care Hub v4
+ * SaudePage — Ninho Health Care Hub v5
  *
  * Architecture: vertical expandable care modules — zero horizontal tab dependency.
+ * Growth rebuilt as a longitudinal dashboard with charts and delta tracking.
  *
  * Structure:
  *   1. Header: child context + age phase
- *   2. Health overview: 4 status stats
+ *   2. Health overview: 4 status stats (growth shows actual weight/height)
  *   3. Attention / priority layer
  *   4. Vertical expandable sections:
  *      - Vacinas (SUS + complementares + manuais)
  *      - Consultas
  *      - Sintomas
  *      - Medicamentos
- *      - Crescimento
+ *      - Crescimento (longitudinal dashboard with charts + delta)
  *      - Relatório médico
- *
- * Vaccine logic (3-layer):
- *   Layer A — SUS/PNI official schedule (age-based, NO auto-applied)
- *   Layer B — Complementary/optional (separate block, clearly labeled)
- *   Layer C — Manual/custom (caregiver-added)
- *
- * Truth rules:
- *   - No vaccine is born "applied"
- *   - Caregiver confirms with date via child_vaccines table
- *   - "applied" state reads from DB only
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronDownIcon, ChevronRightIcon, XMarkIcon,
+} from '@heroicons/react/24/outline';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Dot,
+} from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';

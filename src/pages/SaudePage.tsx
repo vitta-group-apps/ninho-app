@@ -857,7 +857,11 @@ export default function SaudePage() {
           id="report"
           emoji="📋"
           title="Relatório médico"
-          statusPill={<InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />}
+          statusPill={
+            savedNotes.length > 0
+              ? <InlineStatusPill label={`${savedNotes.length} nota${savedNotes.length > 1 ? 's' : ''}`} variant="active" color={SAGE} />
+              : <InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />
+          }
           summary="Notas e eventos para compartilhar com o pediatra"
           open={openSection === 'report'}
           onToggle={() => toggle('report')}

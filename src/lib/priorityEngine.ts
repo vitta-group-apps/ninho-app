@@ -147,8 +147,17 @@ export function runPriorityEngine(params: {
   hour: number;
   /** Optional: whether the child health profile has growth data */
   hasGrowthData?: boolean;
+  /** Optional: pass consultations count to avoid showing "no consult" when they exist */
+  consultationCount?: number;
+  /** Optional: applied vaccine count to adjust vaccine logic */
+  appliedVaccineCount?: number;
 }): PriorityEngineResult {
-  const { logs, logsLoading, activeChild, hour, hasGrowthData = false } = params;
+  const {
+    logs, logsLoading, activeChild, hour,
+    hasGrowthData = false,
+    consultationCount = -1,   // -1 = unknown (default: may show)
+    appliedVaccineCount = -1, // -1 = unknown
+  } = params;
 
   if (logsLoading || !activeChild) {
     return { mainMessage: null, attentionItems: [] };
@@ -158,6 +167,41 @@ export function runPriorityEngine(params: {
   const ageMonths = ageCtx.months;
   const childName = activeChild.name;
   const bucket    = getAgeBucket(ageMonths);
+
+  // ─── Age-aware thresholds ─────────────────────────────────────────────
+
+  /**
+   * Days since last growth measurement before surfacing it
+   * Depends on age bucket — more frequent in early infancy
+   */
+  function getGrowthSuggestDays(b: AgeBucket): number {
+    switch (b) {
+      case 'newborn':      return 14;
+      case 'early_infant': return 14;
+      case 'infant_1_2m':  return 21;
+      case 'infant_3_6m':  return 30;
+      case 'infant_6_12m': return 45;
+      case 'toddler_1_2y': return 60;
+      case 'toddler_2_6y': return 90;
+      default: return 180;
+    }
+  }
+
+  /**
+   * Days before a consultation is "missing" — varies by age
+   */
+  function getConsultThresholdDays(b: AgeBucket): number | null {
+    switch (b) {
+      case 'newborn':      return 14;   // Should have newborn consult within 2 weeks
+      case 'early_infant': return 30;
+      case 'infant_1_2m':  return 45;
+      case 'infant_3_6m':  return 60;
+      case 'infant_6_12m': return 90;
+      case 'toddler_1_2y': return 120;
+      case 'toddler_2_6y': return 180;
+      default: return 365;
+    }
+  }
 
   // ─── Derive log states ─────────────────────────────────────────────────
   const feedLogs     = logs.filter(l => l.type === 'feed');
@@ -170,6 +214,10 @@ export function runPriorityEngine(params: {
     acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000), 0);
 
   const vaccineState = getVaccineState(activeChild.birth_date, ageMonths);
+  // Adjust "due" count by subtracting already-applied if known
+  const dueUnconfirmed = appliedVaccineCount >= 0
+    ? Math.max(0, vaccineState.dueCount - appliedVaccineCount)
+    : vaccineState.dueCount;
 
   // ─── Build all candidate items ────────────────────────────────────────
 
@@ -177,15 +225,17 @@ export function runPriorityEngine(params: {
 
   // ══ HEALTH RISK (level 4) ══════════════════════════════════════════════
 
-  // Vaccines — active vaccination phase (≤ 4y)
-  if (ageMonths <= 48 && vaccineState.dueCount > 0) {
+  // Vaccines — active vaccination phase (≤ 4y) with unconfirmed doses
+  if (ageMonths <= 48 && dueUnconfirmed > 0) {
     const first = vaccineState.dueVaccines[0];
     allItems.push({
       id: 'vaccines-due',
       level: 'health_risk',
       emoji: '💉',
-      title: `${vaccineState.dueCount} vacina${vaccineState.dueCount > 1 ? 's' : ''} a confirmar`,
-      body: `${first.shortName} (${first.doses}) está prevista para esta fase. Registre quando for aplicada.`,
+      title: `${dueUnconfirmed} vacina${dueUnconfirmed > 1 ? 's' : ''} a confirmar`,
+      body: first
+        ? `${first.shortName} (${first.doses}) está prevista para esta fase. Registre quando for aplicada.`
+        : 'Confirme as doses aplicadas para manter o histórico atualizado.',
       ctaLabel: 'Ver vacinas',
       path: '/health',
     });
@@ -193,7 +243,7 @@ export function runPriorityEngine(params: {
     const next = vaccineState.upcomingVaccines[0];
     allItems.push({
       id: 'vaccines-upcoming',
-      level: 'health_risk',
+      level: 'suggested_next',
       emoji: '💉',
       title: `Vacina prevista: ${next.shortName}`,
       body: `${next.doses} — ${next.ageLabel}. Confirme com o pediatra quando for aplicada.`,
@@ -283,7 +333,7 @@ export function runPriorityEngine(params: {
     }
   }
 
-  // Growth tracking — only surface once, only if age is in relevant range and no data
+  // Growth tracking — only surface if no data AND age in relevant range
   if (ageMonths >= 1 && ageMonths <= 36 && !hasGrowthData && logs.length >= 3) {
     allItems.push({
       id: 'growth-missing',
@@ -296,17 +346,26 @@ export function runPriorityEngine(params: {
     });
   }
 
-  // Consultation — suggested_next only, NEVER health_risk, appears AT MOST ONCE
-  // Only surface if no higher-priority items fill the 3-slot attention block
-  allItems.push({
-    id: 'no-consultation',
-    level: 'suggested_next',
-    emoji: '🩺',
-    title: 'Nenhuma consulta agendada',
-    body: 'Consultas regulares facilitam o acompanhamento desta fase.',
-    ctaLabel: 'Ver',
-    path: '/health',
-  });
+  // Consultation — only surface if consultationCount is known to be 0,
+  // and only if age threshold suggests it's relevant.
+  // NEVER surface if consultations already exist (consultationCount > 0).
+  // NEVER surface if consultationCount === -1 (unknown — to avoid false positives).
+  const consultThresholdDays = getConsultThresholdDays(bucket);
+  if (
+    consultationCount === 0 &&
+    consultThresholdDays !== null &&
+    ageMonths >= 0
+  ) {
+    allItems.push({
+      id: 'no-consultation',
+      level: 'suggested_next',
+      emoji: '🩺',
+      title: 'Nenhuma consulta registrada',
+      body: 'Consultas regulares facilitam o acompanhamento desta fase.',
+      ctaLabel: 'Registrar',
+      path: '/health',
+    });
+  }
 
   // ── Sort by priority level ──────────────────────────────────────────────
   const levelOrder: Record<PriorityLevel, number> = {
@@ -336,7 +395,7 @@ export function runPriorityEngine(params: {
     };
     mainItemId = 'ongoing-sleep'; // synthetic — no match in allItems
   } else if (allItems.length > 0) {
-    // Highest-priority item — skip consultation as standalone MAIN message if other items exist
+    // Highest-priority item — prefer health/missing over suggested_next for main block
     const healthOrMissing = allItems.find(i => i.level === 'health_risk' || i.level === 'missing_care');
     const top = healthOrMissing ?? allItems.find(i => i.id !== 'no-consultation') ?? allItems[0];
 
@@ -354,14 +413,27 @@ export function runPriorityEngine(params: {
       path: top.path,
       tone: toneMap[top.level],
     };
-  } else if (logs.length === 0) {
+  } else if (logs.length === 0 && hour >= getFeedAlertHour(bucket)) {
     mainMessage = {
       emoji: '👶',
-      title: 'Nenhum registro hoje',
-      body: 'Use os atalhos abaixo para começar a registrar as atividades do dia.',
+      title: 'Sem registros hoje ainda',
+      body: 'Use os atalhos abaixo para registrar as primeiras atividades do dia.',
       ctaLabel: 'Registrar agora',
       path: '/breastfeeding',
       tone: 'empty',
+    };
+  } else if (logs.length > 0) {
+    // Day is going well — contextual positive message
+    const lastFeedMsg = lastFeed
+      ? `Última mamada há ${Math.floor((Date.now() - new Date(lastFeed.start_time).getTime()) / 60000)}min.`
+      : '';
+    mainMessage = {
+      emoji: '✅',
+      title: 'Dia acompanhado',
+      body: `${logs.length} evento${logs.length > 1 ? 's' : ''} registrado${logs.length > 1 ? 's' : ''} hoje. ${lastFeedMsg}`.trim(),
+      ctaLabel: 'Ver rotina',
+      path: '/routine',
+      tone: 'info',
     };
   }
 

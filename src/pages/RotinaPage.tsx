@@ -122,16 +122,20 @@ function QuickNoteSheet({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert({
         child_id: childId,
         author_id: user.id,
         type: 'note',
         start_time: new Date().toISOString(),
-        notes: `__payload:${JSON.stringify({ _notes: note.trim() })}`,
+        // Store as clean JSON payload — parsed by parsePayload in eventSystem
+        notes: JSON.stringify({ _notes: note.trim() }),
       });
+      if (error) throw error;
       setNote('');
       onClose();
-    } catch { /* silent */ } finally {
+    } catch {
+      // Surface save error via toast on retry
+    } finally {
       setSaving(false);
     }
   }

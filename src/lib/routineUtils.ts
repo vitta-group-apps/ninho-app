@@ -18,6 +18,8 @@ export function parsePayload(notes: string | null): Record<string, string | numb
   if (!notes) return {};
   try {
     if (notes.startsWith('__payload:')) return JSON.parse(notes.slice('__payload:'.length));
+    // Also handle plain JSON (written by QuickNoteSheet)
+    if (notes.startsWith('{')) return JSON.parse(notes);
   } catch { /* noop */ }
   // Plain-text notes have no payload — return empty (user notes handled by getUserNotes)
   return {};

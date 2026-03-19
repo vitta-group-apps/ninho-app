@@ -766,43 +766,57 @@ export default function BreastfeedingScreen() {
         {phase === 'ended' && finishedData && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-            {/* Summary card */}
+            {/* Session summary — clean, informative */}
             <div
-              className="flex items-center gap-4 p-4 rounded-2xl"
+              className="p-4 rounded-2xl"
               style={{
                 backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
                 border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
               }}
             >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
-                style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
-              >
-                🤱
-              </div>
-              <div>
-                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
-                  {finishedData.totalSec > 0 ? 'Sessão encerrada' : 'Registro manual'}
-                </p>
-                {finishedData.totalSec > 0 ? (
-                  <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
-                    {[
-                      finishedData.leftSec  > 0 ? `Esquerdo: ${fmtDurationShort(finishedData.leftSec)}`  : null,
-                      finishedData.rightSec > 0 ? `Direito: ${fmtDurationShort(finishedData.rightSec)}` : null,
-                      finishedData.switches > 0 ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
-                    ].filter(Boolean).join(' · ')}
+              <div className="flex items-center gap-3 mb-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
+                  style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
+                >
+                  🤱
+                </div>
+                <div>
+                  <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
+                    Amamentação encerrada
                   </p>
-                ) : (
-                  <p className="text-[12px] mt-0.5 font-nunito text-muted-foreground">
-                    Adicione observações se quiser
+                  <p className="text-[12px] font-nunito text-muted-foreground">
+                    Revise e salve o registro abaixo
                   </p>
-                )}
+                </div>
               </div>
+              {finishedData.totalSec > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Esquerdo', value: finishedData.leftSec > 0 ? fmtDurationShort(finishedData.leftSec) : '—' },
+                    { label: 'Direito',  value: finishedData.rightSec > 0 ? fmtDurationShort(finishedData.rightSec) : '—' },
+                    { label: 'Trocas',   value: `${finishedData.switches}` },
+                  ].map(stat => (
+                    <div
+                      key={stat.label}
+                      className="rounded-xl px-2 py-2.5 text-center"
+                      style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))` }}
+                    >
+                      <p className="text-[15px] font-bold font-quicksand" style={{ color: FEED_COLOR }}>
+                        {stat.value}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
+                        {stat.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Quick tags */}
             <div>
-              <SectionLabel>Como foi a mamada?</SectionLabel>
+              <SectionLabel>Observações rápidas</SectionLabel>
               <ChipGroup
                 options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
                 values={obsTags}
@@ -812,22 +826,20 @@ export default function BreastfeedingScreen() {
               />
             </div>
 
-            {/* Divider */}
             <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
-            {/* Observations */}
+            {/* Notes */}
             <div>
-              <SectionLabel>Observações</SectionLabel>
+              <SectionLabel>Anotações (opcional)</SectionLabel>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Como foi a mamada? Alguma observação..."
+                placeholder="Alguma observação sobre essa mamada..."
                 className="ds-textarea"
                 rows={3}
               />
             </div>
 
-            {/* Medical report */}
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
           </motion.div>

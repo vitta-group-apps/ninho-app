@@ -481,7 +481,9 @@ export default function SaudePage() {
             emoji="💉"
             title="Vacinas"
             statusPill={
-              vaccineState.upcoming.length > 0
+              vaccineState.due.length > 0
+                ? <InlineStatusPill label={`${vaccineState.due.length} a confirmar`} variant="paused" color={AMBER} />
+                : vaccineState.upcoming.length > 0
                 ? <InlineStatusPill label={`${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`} variant="paused" color={AMBER} />
                 : <InlineStatusPill label="Em dia" variant="active" color={SAGE} />
             }

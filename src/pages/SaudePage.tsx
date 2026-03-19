@@ -783,7 +783,9 @@ export default function SaudePage() {
             title="Sintomas"
             statusPill={
               loggedSymptoms.length > 0
-                ? <InlineStatusPill label={`${loggedSymptoms.length} registrado${loggedSymptoms.length > 1 ? 's' : ''}`} variant="paused" color={AMBER} />
+                ? <InlineStatusPill label={`${loggedSymptoms.length} selecionado${loggedSymptoms.length > 1 ? 's' : ''}`} variant="paused" color={AMBER} />
+                : symptomHistory.length > 0
+                ? <InlineStatusPill label={`${symptomHistory.length} no histórico`} variant="active" color={SAGE} />
                 : <InlineStatusPill label="Nenhum recente" variant="active" color={SAGE} />
             }
             summary="Registre sintomas para facilitar a consulta"
@@ -827,25 +829,50 @@ export default function SaudePage() {
                   className="w-full px-4 py-3 rounded-2xl text-[13px] font-nunito bg-muted text-foreground placeholder:text-muted-foreground resize-none outline-none border border-border focus:border-primary transition-colors"
                 />
                 <button
-                  className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
+                  onClick={saveSymptoms}
+                  disabled={symptomSaving}
+                  className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
                   style={{ backgroundColor: SAGE }}
                 >
-                  Salvar sintomas — {loggedSymptoms.join(', ')}
+                  {symptomSaving ? 'Salvando…' : `Salvar ${loggedSymptoms.length} sintoma${loggedSymptoms.length > 1 ? 's' : ''}`}
                 </button>
               </div>
             )}
 
             <div>
               <SectionLabel>Histórico</SectionLabel>
-              <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
-                <p className="text-3xl mb-2">🌡️</p>
-                <p className="text-[14px] font-bold font-quicksand text-foreground">
-                  Nenhum sintoma registrado
-                </p>
-                <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
-                  Registrar sintomas facilita a conversa com o pediatra e cria um histórico útil.
-                </p>
-              </div>
+              {symptomHistory.length === 0 ? (
+                <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
+                  <p className="text-3xl mb-2">🌡️</p>
+                  <p className="text-[14px] font-bold font-quicksand text-foreground">
+                    Nenhum sintoma registrado
+                  </p>
+                  <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
+                    Registrar sintomas facilita a conversa com o pediatra e cria um histórico útil.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {symptomHistory.slice(0, 5).map(entry => (
+                    <div key={entry.id} className="rounded-2xl px-4 py-3 bg-card border border-border">
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {entry.symptoms.map(s => (
+                          <span key={s} className="text-[11px] font-bold font-nunito px-2.5 py-1 rounded-full"
+                            style={{ backgroundColor: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                      {entry.note && (
+                        <p className="text-[12px] text-foreground font-nunito leading-snug mb-1">{entry.note}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground font-nunito">
+                        {entry.date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </ExpandableSection>
         </div>

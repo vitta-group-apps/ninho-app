@@ -1147,7 +1147,7 @@ export default function SaudePage() {
                 }
                 color={vaccineState.due.length > 0 ? AMBER : SAGE}
                 urgent={vaccineState.due.length > 0}
-                onTap={() => toggle('vaccines')}
+                onTap={() => openAndScroll('vaccines')}
               />
               <OverviewStat
                 emoji="🩺" label="Consultas"
@@ -1161,7 +1161,7 @@ export default function SaudePage() {
                 }
                 color={upcomingConsults.length > 0 ? SAGE : MAUVE}
                 urgent={false}
-                onTap={() => toggle('appointments')}
+                onTap={() => openAndScroll('appointments')}
               />
               <OverviewStat
                 emoji="🌡️" label="Sintomas"
@@ -1169,13 +1169,13 @@ export default function SaudePage() {
                 sub={symptomHistory.length > 0 ? `Último: ${symptomHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}` : 'Nenhum registrado'}
                 color={symptomHistory.length > 0 ? AMBER : SAGE}
                 urgent={false}
-                onTap={() => toggle('symptoms')}
+                onTap={() => openAndScroll('symptoms')}
               />
               <OverviewStat
                 emoji="📏" label="Crescimento"
                 value={
                   growthHistory.length > 0 && growthHistory[0].weight
-                    ? `${growthHistory[0].weight}kg`
+                    ? fmtWeight(growthHistory[0].weight)
                     : growthHistory.length > 0 && growthHistory[0].height
                     ? `${growthHistory[0].height}cm`
                     : '—'
@@ -1187,7 +1187,7 @@ export default function SaudePage() {
                 }
                 color={growthHistory.length > 0 ? SAGE : MAUVE}
                 urgent={false}
-                onTap={() => toggle('growth')}
+                onTap={() => openAndScroll('growth')}
               />
             </div>
           )}

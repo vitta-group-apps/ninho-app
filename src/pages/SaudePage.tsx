@@ -487,7 +487,7 @@ export default function SaudePage() {
             open={openSection === 'vaccines'}
             onToggle={() => toggle('vaccines')}
           >
-            {/* Stats */}
+            {/* Stats — shows due (to confirm) / upcoming / future */}
             <div
               className="flex gap-4 rounded-xl p-3"
               style={{ backgroundColor: 'hsl(var(--muted) / 0.6)' }}
@@ -503,22 +503,53 @@ export default function SaudePage() {
               <div className="w-px bg-border" />
               <div className="flex-1 text-center">
                 <p className="text-[22px] font-bold font-quicksand" style={{ color: AMBER }}>
+                  {vaccineState.due.length}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
+                  A confirmar
+                </p>
+              </div>
+              <div className="w-px bg-border" />
+              <div className="flex-1 text-center">
+                <p className="text-[22px] font-bold font-quicksand" style={{ color: AMBER }}>
                   {vaccineState.upcoming.length}
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
                   Próximas
                 </p>
               </div>
-              <div className="w-px bg-border" />
-              <div className="flex-1 text-center">
-                <p className="text-[22px] font-bold font-quicksand" style={{ color: MAUVE }}>
-                  {vaccineState.future.length}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
-                  Futuras
-                </p>
-              </div>
             </div>
+
+            {/* Info about confirmation */}
+            <div
+              className="rounded-xl px-3 py-2.5 flex items-start gap-2"
+              style={{ backgroundColor: 'hsl(var(--muted) / 0.7)' }}
+            >
+              <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
+              <p className="text-[11px] text-muted-foreground font-nunito leading-snug">
+                Vacinas são confirmadas pelo cuidador. Nenhuma dose é marcada automaticamente — você registra quando for aplicada.
+              </p>
+            </div>
+
+            {/* Due / to confirm (age-based) */}
+            {vaccineState.due.length > 0 && (
+              <div>
+                <SectionLabel>Previstas para esta fase (a confirmar)</SectionLabel>
+                <div className="space-y-2">
+                  {vaccineState.due.slice(0, showApplied ? vaccineState.due.length : 5).map(v => (
+                    <VaccineRow key={v.id} vaccine={v} state="upcoming" />
+                  ))}
+                  {!showApplied && vaccineState.due.length > 5 && (
+                    <button
+                      onClick={() => setShowApplied(true)}
+                      className="text-[12px] font-semibold text-muted-foreground font-nunito ml-1"
+                    >
+                      ▸ Ver todas ({vaccineState.due.length})
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Upcoming doses */}
             {vaccineState.upcoming.length > 0 && (
@@ -532,21 +563,16 @@ export default function SaudePage() {
               </div>
             )}
 
-            {/* Applied toggle */}
-            <button
-              onClick={() => setShowApplied(v => !v)}
-              className="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground font-nunito"
+            {/* Applied — always 0 until user confirms */}
+            <div
+              className="rounded-xl px-3 py-2.5 flex items-center gap-2"
+              style={{ backgroundColor: 'hsl(var(--muted) / 0.5)' }}
             >
-              <span>{showApplied ? '▾' : '▸'}</span>
-              Aplicadas ({vaccineState.applied.length})
-            </button>
-            {showApplied && (
-              <div className="space-y-2">
-                {vaccineState.applied.map(v => (
-                  <VaccineRow key={v.id} vaccine={v} state="applied" />
-                ))}
-              </div>
-            )}
+              <span className="text-[13px] flex-shrink-0">✓</span>
+              <p className="text-[11px] text-muted-foreground font-nunito leading-snug flex-1">
+                Nenhuma vacina confirmada ainda. Conforme forem aplicadas, você poderá registrar a data aqui.
+              </p>
+            </div>
 
             {/* Future toggle */}
             {vaccineState.future.length > 0 && (

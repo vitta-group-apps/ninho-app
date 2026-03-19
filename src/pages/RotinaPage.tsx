@@ -420,8 +420,87 @@ export default function RotinaPage() {
         <ActiveSessionBanner />
       </div>
 
-      {/* Content — daily stats above timeline, search+filter directly above the list */}
+      {/* Daily stats — above the search/filter block */}
+      {activeChild && allLogs.length > 0 && period === 'today' && !search && typeFilter === 'all' && (
+        <div className="px-4 pt-3">
+          <DailyStats logs={allLogs} />
+        </div>
+      )}
+
+      {/* Search + filter — immediately above the event list */}
+      <div className="px-4 pt-2 space-y-2">
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-card border border-border">
+          <MagnifyingGlassIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" strokeWidth={2} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar eventos..."
+            className="flex-1 text-[13px] bg-transparent text-foreground placeholder:text-muted-foreground font-nunito outline-none"
+          />
+          {search && (
+            <button onClick={() => setSearch('')}>
+              <XMarkIcon className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className="text-[11px] font-bold font-nunito px-2 py-1 rounded-xl transition-colors"
+            style={{
+              color: hasActiveFilters ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+              backgroundColor: hasActiveFilters
+                ? 'color-mix(in srgb, hsl(var(--primary)) 10%, transparent)'
+                : 'transparent',
+            }}
+          >
+            Filtros{hasActiveFilters ? ' ●' : ''}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18 }}
+              className="overflow-hidden space-y-3 pt-1 pb-1"
+            >
+              <div>
+                <SectionLabel>Período</SectionLabel>
+                <ChipGroup options={PERIOD_OPTIONS} value={period} onToggle={v => setPeriod(v)} accentColor={SLEEP_COLOR} />
+              </div>
+              <div>
+                <SectionLabel>Tipo de evento</SectionLabel>
+                <ChipGroup options={TYPE_FILTER_OPTIONS} value={typeFilter} onToggle={v => setTypeFilter(v)} accentColor={SLEEP_COLOR} />
+              </div>
+              <div>
+                <SectionLabel>Período do dia</SectionLabel>
+                <ChipGroup options={TOD_OPTIONS} value={todFilter} onToggle={v => setTodFilter(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+              </div>
+              <div className="flex items-center justify-between px-1">
+                <p className="text-[12px] font-semibold text-muted-foreground font-nunito">
+                  Agrupar por período do dia
+                </p>
+                <button
+                  onClick={() => setGroupByTod(v => !v)}
+                  className="text-[11px] font-bold font-nunito px-3 py-1.5 rounded-xl transition-all"
+                  style={{
+                    backgroundColor: groupByTod ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                    color: groupByTod ? 'white' : 'hsl(var(--muted-foreground))',
+                  }}
+                >
+                  {groupByTod ? 'Ativo' : 'Inativo'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Event list */}
       <div className="px-4 pt-3">
+        {childLoading ? (
         {childLoading ? (
           <div className="space-y-3">
             <div className="flex gap-2">{[0,1,2].map(i => <Skeleton key={i} className="flex-1 h-24 rounded-2xl" />)}</div>

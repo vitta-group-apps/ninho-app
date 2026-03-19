@@ -1141,11 +1141,17 @@ export default function SaudePage() {
               />
               <OverviewStat
                 emoji="📏" label="Crescimento"
-                value={growthHistory.length > 0 ? `${growthHistory.length}` : '—'}
+                value={
+                  growthHistory.length > 0 && growthHistory[0].weight
+                    ? `${growthHistory[0].weight}kg`
+                    : growthHistory.length > 0 && growthHistory[0].height
+                    ? `${growthHistory[0].height}cm`
+                    : '—'
+                }
                 sub={
                   growthHistory.length > 0
-                    ? `Última: ${growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
-                    : 'Sem medições'
+                    ? `${growthHistory[0].height ? `${growthHistory[0].height}cm · ` : ''}${growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+                    : 'Nenhuma medição'
                 }
                 color={growthHistory.length > 0 ? SAGE : MAUVE}
                 urgent={false}

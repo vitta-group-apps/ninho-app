@@ -1,35 +1,32 @@
 /**
- * SaudePage — Ninho Health Care Hub v4
+ * SaudePage — Ninho Health Care Hub v5
  *
  * Architecture: vertical expandable care modules — zero horizontal tab dependency.
+ * Growth rebuilt as a longitudinal dashboard with charts and delta tracking.
  *
  * Structure:
  *   1. Header: child context + age phase
- *   2. Health overview: 4 status stats
+ *   2. Health overview: 4 status stats (growth shows actual weight/height)
  *   3. Attention / priority layer
  *   4. Vertical expandable sections:
  *      - Vacinas (SUS + complementares + manuais)
  *      - Consultas
  *      - Sintomas
  *      - Medicamentos
- *      - Crescimento
+ *      - Crescimento (longitudinal dashboard with charts + delta)
  *      - Relatório médico
- *
- * Vaccine logic (3-layer):
- *   Layer A — SUS/PNI official schedule (age-based, NO auto-applied)
- *   Layer B — Complementary/optional (separate block, clearly labeled)
- *   Layer C — Manual/custom (caregiver-added)
- *
- * Truth rules:
- *   - No vaccine is born "applied"
- *   - Caregiver confirms with date via child_vaccines table
- *   - "applied" state reads from DB only
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronDownIcon, ChevronRightIcon, XMarkIcon,
+} from '@heroicons/react/24/outline';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Dot,
+} from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
@@ -1144,11 +1141,17 @@ export default function SaudePage() {
               />
               <OverviewStat
                 emoji="📏" label="Crescimento"
-                value={growthHistory.length > 0 ? `${growthHistory.length}` : '—'}
+                value={
+                  growthHistory.length > 0 && growthHistory[0].weight
+                    ? `${growthHistory[0].weight}kg`
+                    : growthHistory.length > 0 && growthHistory[0].height
+                    ? `${growthHistory[0].height}cm`
+                    : '—'
+                }
                 sub={
                   growthHistory.length > 0
-                    ? `Última: ${growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
-                    : 'Sem medições'
+                    ? `${growthHistory[0].height ? `${growthHistory[0].height}cm · ` : ''}${growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+                    : 'Nenhuma medição'
                 }
                 color={growthHistory.length > 0 ? SAGE : MAUVE}
                 urgent={false}
@@ -1677,7 +1680,7 @@ export default function SaudePage() {
           )}
         </ExpandableSection>
 
-        {/* ── 7. CRESCIMENTO ────────────────────────────────────────── */}
+        {/* ── 7. CRESCIMENTO — Longitudinal Dashboard ───────────────── */}
         <div id="section-growth">
           <ExpandableSection
             id="growth"
@@ -1685,46 +1688,186 @@ export default function SaudePage() {
             title="Crescimento"
             statusPill={
               growthHistory.length > 0
-                ? <InlineStatusPill label={`${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`} variant="active" color={SAGE} />
+                ? <InlineStatusPill
+                    label={growthHistory[0].weight ? `${growthHistory[0].weight} kg` : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`}
+                    variant="active" color={SAGE}
+                  />
                 : <InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />
             }
-            summary={`Peso e altura de ${childName}`}
+            summary={
+              growthHistory.length > 0
+                ? `Última medição em ${growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+                : `Registre peso e altura de ${childName}`
+            }
             open={openSection === 'growth'}
             onToggle={() => toggle('growth')}
           >
-            {/* Latest measurement summary if available */}
-            {growthHistory.length > 0 && (
-              <div
-                className="rounded-2xl px-4 py-3 flex items-center gap-4"
-                style={{ backgroundColor: `color-mix(in srgb, ${SAGE} 8%, hsl(var(--card)))`, border: `1px solid color-mix(in srgb, ${SAGE} 18%, transparent)` }}
-              >
-                {growthHistory[0].weight && (
-                  <div className="text-center">
-                    <p className="text-[20px] font-bold font-quicksand" style={{ color: SAGE }}>
-                      {growthHistory[0].weight}kg
-                    </p>
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground font-nunito">Peso</p>
+            {/* ── Latest measurement hero ───────────────────────────── */}
+            {growthHistory.length > 0 && (() => {
+              const latest = growthHistory[0];
+              const prev   = growthHistory[1];
+              const deltaW = latest.weight && prev?.weight
+                ? +(latest.weight - prev.weight).toFixed(2) : null;
+              const deltaH = latest.height && prev?.height
+                ? +(latest.height - prev.height).toFixed(1) : null;
+              return (
+                <div
+                  className="rounded-2xl px-4 py-4 space-y-3"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${SAGE} 8%, hsl(var(--card)))`,
+                    border: `1px solid color-mix(in srgb, ${SAGE} 22%, transparent)`,
+                  }}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
+                    Última medição · {latest.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                  </p>
+                  <div className="flex items-end gap-5 flex-wrap">
+                    {latest.weight != null && (
+                      <div>
+                        <p className="text-[28px] font-bold font-quicksand leading-none" style={{ color: SAGE }}>
+                          {latest.weight}<span className="text-[14px] font-semibold ml-0.5">kg</span>
+                        </p>
+                        {deltaW != null && (
+                          <p className="text-[11px] font-semibold font-nunito mt-1"
+                            style={{ color: deltaW >= 0 ? SAGE : AMBER }}>
+                            {deltaW >= 0 ? '▲' : '▼'} {Math.abs(deltaW)} kg vs anterior
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {latest.weight != null && latest.height != null && (
+                      <div className="w-px h-10 bg-border self-center" />
+                    )}
+                    {latest.height != null && (
+                      <div>
+                        <p className="text-[28px] font-bold font-quicksand leading-none" style={{ color: MAUVE }}>
+                          {latest.height}<span className="text-[14px] font-semibold ml-0.5">cm</span>
+                        </p>
+                        {deltaH != null && (
+                          <p className="text-[11px] font-semibold font-nunito mt-1"
+                            style={{ color: deltaH >= 0 ? SAGE : AMBER }}>
+                            {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH)} cm vs anterior
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-                {growthHistory[0].weight && growthHistory[0].height && (
-                  <div className="w-px h-8 bg-border" />
-                )}
-                {growthHistory[0].height && (
-                  <div className="text-center">
-                    <p className="text-[20px] font-bold font-quicksand" style={{ color: MAUVE }}>
-                      {growthHistory[0].height}cm
+                  {latest.note && (
+                    <p className="text-[11px] text-muted-foreground font-nunito italic leading-snug">
+                      {latest.note}
                     </p>
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground font-nunito">Altura</p>
-                  </div>
-                )}
-                <div className="flex-1" />
-                <p className="text-[10px] text-muted-foreground font-nunito">
-                  {growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                </p>
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })()}
 
-            {/* Form */}
+            {/* ── Weight chart ─────────────────────────────────────── */}
+            {growthHistory.filter(e => e.weight != null).length >= 2 && (() => {
+              const chartData = [...growthHistory]
+                .filter(e => e.weight != null)
+                .reverse()
+                .map(e => ({
+                  date: e.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                  peso: e.weight,
+                }));
+              return (
+                <div>
+                  <SectionLabel>Evolução do peso (kg)</SectionLabel>
+                  <div
+                    className="rounded-2xl pt-3 pb-2 pr-2"
+                    style={{ backgroundColor: 'hsl(var(--muted) / 0.4)', border: '1px solid hsl(var(--border))' }}
+                  >
+                    <ResponsiveContainer width="100%" height={140}>
+                      <LineChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 9, fontFamily: 'Nunito', fill: 'hsl(var(--muted-foreground))' }}
+                          axisLine={false} tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 9, fontFamily: 'Nunito', fill: 'hsl(var(--muted-foreground))' }}
+                          axisLine={false} tickLine={false}
+                          domain={['auto', 'auto']}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            fontSize: 11, fontFamily: 'Nunito',
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: 12,
+                          }}
+                          formatter={(v: number) => [`${v} kg`, 'Peso']}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="peso"
+                          stroke={SAGE}
+                          strokeWidth={2.5}
+                          dot={<Dot r={4} fill={SAGE} stroke="hsl(var(--card))" strokeWidth={2} />}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Height chart ─────────────────────────────────────── */}
+            {growthHistory.filter(e => e.height != null).length >= 2 && (() => {
+              const chartData = [...growthHistory]
+                .filter(e => e.height != null)
+                .reverse()
+                .map(e => ({
+                  date: e.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                  altura: e.height,
+                }));
+              return (
+                <div>
+                  <SectionLabel>Evolução da altura (cm)</SectionLabel>
+                  <div
+                    className="rounded-2xl pt-3 pb-2 pr-2"
+                    style={{ backgroundColor: 'hsl(var(--muted) / 0.4)', border: '1px solid hsl(var(--border))' }}
+                  >
+                    <ResponsiveContainer width="100%" height={140}>
+                      <LineChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 9, fontFamily: 'Nunito', fill: 'hsl(var(--muted-foreground))' }}
+                          axisLine={false} tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 9, fontFamily: 'Nunito', fill: 'hsl(var(--muted-foreground))' }}
+                          axisLine={false} tickLine={false}
+                          domain={['auto', 'auto']}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            fontSize: 11, fontFamily: 'Nunito',
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: 12,
+                          }}
+                          formatter={(v: number) => [`${v} cm`, 'Altura']}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="altura"
+                          stroke={MAUVE}
+                          strokeWidth={2.5}
+                          dot={<Dot r={4} fill={MAUVE} stroke="hsl(var(--card))" strokeWidth={2} />}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Add measurement form ──────────────────────────────── */}
             <div>
               <SectionLabel>Registrar medição</SectionLabel>
               <div className="grid grid-cols-2 gap-3">
@@ -1767,47 +1910,69 @@ export default function SaudePage() {
               </button>
             </div>
 
-            {/* History */}
+            {/* ── History list ─────────────────────────────────────── */}
             {growthHistory.length > 0 && (
               <div>
-                <SectionLabel>Histórico</SectionLabel>
+                <SectionLabel>Histórico completo</SectionLabel>
                 <div className="space-y-2">
-                  {growthHistory.map(entry => (
-                    <div key={entry.id} className="rounded-2xl px-4 py-3 bg-card border border-border flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          {entry.weight && (
-                            <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
-                              {entry.weight} kg
-                            </span>
-                          )}
-                          {entry.height && (
-                            <span className="text-[15px] font-bold font-quicksand" style={{ color: MAUVE }}>
-                              {entry.height} cm
-                            </span>
-                          )}
+                  {growthHistory.map((entry, idx) => {
+                    const prevEntry = growthHistory[idx + 1];
+                    const deltaW = entry.weight != null && prevEntry?.weight != null
+                      ? +(entry.weight - prevEntry.weight).toFixed(2) : null;
+                    const deltaH = entry.height != null && prevEntry?.height != null
+                      ? +(entry.height - prevEntry.height).toFixed(1) : null;
+                    return (
+                      <div key={entry.id} className="rounded-2xl px-4 py-3 bg-card border border-border">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              {entry.weight != null && (
+                                <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
+                                  {entry.weight} kg
+                                  {deltaW != null && (
+                                    <span className="text-[10px] font-semibold ml-1"
+                                      style={{ color: deltaW >= 0 ? SAGE : AMBER }}>
+                                      {deltaW >= 0 ? '▲' : '▼'}{Math.abs(deltaW)}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              {entry.height != null && (
+                                <span className="text-[15px] font-bold font-quicksand" style={{ color: MAUVE }}>
+                                  {entry.height} cm
+                                  {deltaH != null && (
+                                    <span className="text-[10px] font-semibold ml-1"
+                                      style={{ color: deltaH >= 0 ? MAUVE : AMBER }}>
+                                      {deltaH >= 0 ? '▲' : '▼'}{Math.abs(deltaH)}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                            {entry.note && (
+                              <p className="text-[11px] text-muted-foreground font-nunito mt-1 italic">{entry.note}</p>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-nunito flex-shrink-0">
+                            {entry.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                          </p>
                         </div>
-                        {entry.note && (
-                          <p className="text-[11px] text-muted-foreground font-nunito mt-1">{entry.note}</p>
-                        )}
                       </div>
-                      <p className="text-[10px] text-muted-foreground font-nunito flex-shrink-0">
-                        {entry.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
 
+            {/* ── Empty state ───────────────────────────────────────── */}
             {growthHistory.length === 0 && (
               <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
                 <p className="text-3xl mb-2">📏</p>
                 <p className="text-[14px] font-bold font-quicksand text-foreground">
                   Nenhuma medição registrada
                 </p>
-                <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
-                  Registre peso e altura para acompanhar o crescimento regularmente.
+                <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[220px] mx-auto">
+                  Registre peso e altura para iniciar o histórico de crescimento de {childName}.
                 </p>
               </div>
             )}

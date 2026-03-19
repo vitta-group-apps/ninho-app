@@ -64,36 +64,60 @@ export type Database = {
           allergies: Json | null
           avatar_url: string | null
           birth_date: string
+          birth_head_cm: number | null
+          birth_height_cm: number | null
+          birth_weight_g: number | null
           blood_type: string | null
           created_at: string
           family_id: string
+          gestational_age_w: number | null
+          health_plan: string | null
           id: string
           medications: Json | null
           name: string
+          pediatrician: string | null
+          premature: boolean | null
+          sex: string | null
           updated_at: string
         }
         Insert: {
           allergies?: Json | null
           avatar_url?: string | null
           birth_date: string
+          birth_head_cm?: number | null
+          birth_height_cm?: number | null
+          birth_weight_g?: number | null
           blood_type?: string | null
           created_at?: string
           family_id: string
+          gestational_age_w?: number | null
+          health_plan?: string | null
           id?: string
           medications?: Json | null
           name: string
+          pediatrician?: string | null
+          premature?: boolean | null
+          sex?: string | null
           updated_at?: string
         }
         Update: {
           allergies?: Json | null
           avatar_url?: string | null
           birth_date?: string
+          birth_head_cm?: number | null
+          birth_height_cm?: number | null
+          birth_weight_g?: number | null
           blood_type?: string | null
           created_at?: string
           family_id?: string
+          gestational_age_w?: number | null
+          health_plan?: string | null
           id?: string
           medications?: Json | null
           name?: string
+          pediatrician?: string | null
+          premature?: boolean | null
+          sex?: string | null
           updated_at?: string
         }
         Relationships: [

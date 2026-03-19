@@ -1,5 +1,5 @@
 /**
- * Ninho Priority Engine v2
+ * Ninho Priority Engine v3
  *
  * Rule-based engine driving ONE main assistant message + up to 3 attention items.
  *
@@ -15,7 +15,18 @@
  *   — No duplicated meaning between main block and attention list
  *   — Every item must be actionable (has a path)
  *   — Consultation alert appears AT MOST ONCE (either main OR attention, never both)
+ *   — Growth prompt only surfaces when age ≥ 1m and no growth data exists (not every session)
  *   — If nothing urgent: guide next useful action, never show dead text
+ *
+ * Age buckets drive which signals are emphasized:
+ *   newborn (0–7d)      → feeding, diapers, first consult, birth vaccines
+ *   early_infant (8–28d) → feeding rhythm, diapers, sleep, vaccine confirmation
+ *   infant_1_2m (1–2m)  → vaccines at 2m, feeding, growth baseline
+ *   infant_3_6m (3–6m)  → vaccine cadence, growth, feeding, sleep
+ *   infant_6_12m (6–12m) → vaccines, growth, consultations, symptoms
+ *   toddler_1_2y (1–2y) → vaccines, consultations, growth, medications
+ *   toddler_2_6y (2–6y) → consultations, medications, symptoms, growth
+ *   child_6plus (6y+)   → consultations, medications, vaccine schedule
  */
 
 import type { RoutineLog } from '@/lib/eventSystem';
@@ -52,50 +63,79 @@ export interface PriorityEngineResult {
   attentionItems: PriorityItem[];
 }
 
+// ─── Age bucket ────────────────────────────────────────────────────────────
+
+export type AgeBucket =
+  | 'newborn'        // 0–7 days  (<0.25m)
+  | 'early_infant'   // 8–28 days (0.25–1m)
+  | 'infant_1_2m'    // 1–2 months
+  | 'infant_3_6m'    // 3–6 months
+  | 'infant_6_12m'   // 6–12 months
+  | 'toddler_1_2y'   // 1–2 years
+  | 'toddler_2_6y'   // 2–6 years
+  | 'child_6plus';   // 6+ years
+
+export function getAgeBucket(ageMonths: number): AgeBucket {
+  const ageDays = ageMonths * 30.44;
+  if (ageDays < 8)   return 'newborn';
+  if (ageDays < 29)  return 'early_infant';
+  if (ageMonths < 3) return 'infant_1_2m';
+  if (ageMonths < 6) return 'infant_3_6m';
+  if (ageMonths < 12) return 'infant_6_12m';
+  if (ageMonths < 24) return 'toddler_1_2y';
+  if (ageMonths < 72) return 'toddler_2_6y';
+  return 'child_6plus';
+}
+
 // ─── Vaccine state helpers ─────────────────────────────────────────────────
 
 export function getVaccineState(birthDate: string, ageMonths: number) {
-  const overdueVaccines = vaccineSchedule.filter(v => {
+  // Vaccines whose scheduled age window has been reached — need confirmation
+  const dueVaccines = vaccineSchedule.filter(v => {
     const vm = v.ageMonths ?? 0;
     return vm <= ageMonths;
   });
 
+  // Vaccines coming up in the next 3 months
   const upcomingVaccines = vaccineSchedule.filter(v => {
     const vm = v.ageMonths ?? 0;
     return vm > ageMonths && vm <= ageMonths + 3;
   });
 
-  const nextVaccineMonths = vaccineSchedule
+  const nextVaccine = vaccineSchedule
     .filter(v => (v.ageMonths ?? 0) > ageMonths)
     .sort((a, b) => (a.ageMonths ?? 0) - (b.ageMonths ?? 0))[0];
 
   return {
-    overdueCount:    overdueVaccines.length,
+    dueCount:        dueVaccines.length,
     upcomingCount:   upcomingVaccines.length,
-    nextVaccine:     nextVaccineMonths,
+    nextVaccine,
     upcomingVaccines,
+    dueVaccines,
   };
 }
 
-// ─── Age bucket helper ─────────────────────────────────────────────────────
+// ─── Feed threshold by age bucket ─────────────────────────────────────────
 
-type AgeBucket =
-  | 'newborn'      // 0–7d
-  | 'early_infant' // 8d–1m
-  | 'infant_1_6'   // 1–6m
-  | 'infant_6_12'  // 6–12m
-  | 'toddler_1_2'  // 1–2y
-  | 'toddler_2_6'  // 2–6y
-  | 'child';       // 6y+
+/** How many hours with no feeds is worth surfacing (soft prompt, not alarm) */
+function getFeedThresholdHours(bucket: AgeBucket): number | null {
+  switch (bucket) {
+    case 'newborn':      return 2.5;
+    case 'early_infant': return 3;
+    case 'infant_1_2m':  return 3.5;
+    case 'infant_3_6m':  return 4;
+    case 'infant_6_12m': return 5;
+    default: return null; // > 12m: feeding interval not surfaced as alert
+  }
+}
 
-function getAgeBucket(ageMonths: number): AgeBucket {
-  if (ageMonths < 0.25)  return 'newborn';
-  if (ageMonths < 1)     return 'early_infant';
-  if (ageMonths < 6)     return 'infant_1_6';
-  if (ageMonths < 12)    return 'infant_6_12';
-  if (ageMonths < 24)    return 'toddler_1_2';
-  if (ageMonths < 72)    return 'toddler_2_6';
-  return 'child';
+/** How late in the day before surfacing "no feeds today" */
+function getFeedAlertHour(bucket: AgeBucket): number {
+  switch (bucket) {
+    case 'newborn':
+    case 'early_infant': return 6;
+    default: return 8;
+  }
 }
 
 // ─── Main Engine ──────────────────────────────────────────────────────────
@@ -105,8 +145,10 @@ export function runPriorityEngine(params: {
   logsLoading: boolean;
   activeChild: { id: string; birth_date: string; name: string } | null;
   hour: number;
+  /** Optional: whether the child health profile has growth data */
+  hasGrowthData?: boolean;
 }): PriorityEngineResult {
-  const { logs, logsLoading, activeChild, hour } = params;
+  const { logs, logsLoading, activeChild, hour, hasGrowthData = false } = params;
 
   if (logsLoading || !activeChild) {
     return { mainMessage: null, attentionItems: [] };
@@ -129,34 +171,43 @@ export function runPriorityEngine(params: {
 
   const vaccineState = getVaccineState(activeChild.birth_date, ageMonths);
 
-  // Track whether consultation alert was used as main message
-  let consultationUsedAsMain = false;
-
   // ─── Build all candidate items ────────────────────────────────────────
 
   const allItems: PriorityItem[] = [];
 
-  // ── HEALTH RISK (level 4) ──────────────────────────────────────────────
+  // ══ HEALTH RISK (level 4) ══════════════════════════════════════════════
 
-  // Vaccines upcoming (active vaccination phase ≤ 24m)
-  if (ageMonths <= 48 && vaccineState.upcomingCount > 0) {
-    const nextV = vaccineState.upcomingVaccines[0];
+  // Vaccines — active vaccination phase (≤ 4y)
+  if (ageMonths <= 48 && vaccineState.dueCount > 0) {
+    const first = vaccineState.dueVaccines[0];
+    allItems.push({
+      id: 'vaccines-due',
+      level: 'health_risk',
+      emoji: '💉',
+      title: `${vaccineState.dueCount} vacina${vaccineState.dueCount > 1 ? 's' : ''} a confirmar`,
+      body: `${first.shortName} (${first.doses}) está prevista para esta fase. Registre quando for aplicada.`,
+      ctaLabel: 'Ver vacinas',
+      path: '/health',
+    });
+  } else if (ageMonths <= 48 && vaccineState.upcomingCount > 0) {
+    const next = vaccineState.upcomingVaccines[0];
     allItems.push({
       id: 'vaccines-upcoming',
       level: 'health_risk',
       emoji: '💉',
-      title: `Vacina prevista: ${nextV.shortName}`,
-      body: `${nextV.doses} está próxima — ${nextV.ageLabel}. Confirme com o pediatra.`,
+      title: `Vacina prevista: ${next.shortName}`,
+      body: `${next.doses} — ${next.ageLabel}. Confirme com o pediatra quando for aplicada.`,
       ctaLabel: 'Ver vacinas',
       path: '/health',
     });
   }
 
-  // ── MISSING CARE (level 3) — age-gated ────────────────────────────────
+  // ══ MISSING CARE (level 3) — age-gated, soft prompts ══════════════════
 
-  // No feeds today (critical for newborns/infants < 12m)
-  const feedThresholdHour = bucket === 'newborn' || bucket === 'early_infant' ? 6 : 8;
-  if (feedLogs.length === 0 && hour >= feedThresholdHour && ageMonths < 12) {
+  const feedAlertHour = getFeedAlertHour(bucket);
+
+  // No feeds today — only surface for age < 12m after a threshold hour
+  if (feedLogs.length === 0 && hour >= feedAlertHour && ageMonths < 12) {
     allItems.push({
       id: 'no-feeds-today',
       level: 'missing_care',
@@ -168,34 +219,36 @@ export function runPriorityEngine(params: {
     });
   }
 
-  // No diapers today (concerning after midday for < 24m)
+  // No diapers today — concerning after midday for < 24m
   if (diaperLogs.length === 0 && hour >= 14 && ageMonths < 24) {
     allItems.push({
       id: 'no-diapers-today',
       level: 'missing_care',
       emoji: '🧷',
       title: 'Nenhuma fralda registrada hoje',
-      body: `Registrar trocas ajuda a monitorar a hidratação e saúde de ${childName}.`,
+      body: `Registrar trocas ajuda a monitorar hidratação e saúde de ${childName}.`,
       ctaLabel: 'Registrar',
       path: '/diaper/new',
     });
   }
 
-  // Low diaper count in the evening (newborn / early infant)
-  if (diaperLogs.length > 0 && diaperLogs.length < 4 && hour >= 18 &&
-      (bucket === 'newborn' || bucket === 'early_infant')) {
+  // Very low diaper count in the evening (newborn / early infant only)
+  if (
+    diaperLogs.length > 0 && diaperLogs.length < 4 && hour >= 18 &&
+    (bucket === 'newborn' || bucket === 'early_infant')
+  ) {
     allItems.push({
       id: 'low-diapers',
       level: 'missing_care',
       emoji: '🧷',
-      title: `Poucas trocas hoje (${diaperLogs.length})`,
-      body: `Recém-nascidos trocam em média 6–8 fraldas por dia. Verifique se está adequado.`,
+      title: `Poucas trocas registradas (${diaperLogs.length})`,
+      body: `Recém-nascidos trocam em média 6–8 fraldas por dia. Vale verificar.`,
       ctaLabel: 'Registrar',
       path: '/diaper/new',
     });
   }
 
-  // No sleep today (for < 6m, only after early afternoon)
+  // No sleep today (only for < 6m, only after early afternoon)
   if (sleepSec === 0 && !ongoingSleep && hour >= 13 && ageMonths < 6) {
     allItems.push({
       id: 'no-sleep-today',
@@ -208,18 +261,18 @@ export function runPriorityEngine(params: {
     });
   }
 
-  // ── SUGGESTED NEXT (level 2) ───────────────────────────────────────────
+  // ══ SUGGESTED NEXT (level 2) ═══════════════════════════════════════════
 
-  // Feed overdue (time-based suggestion) — only if feeds exist and age < 24m
-  if (lastFeed && ageCtx.idealFeedIntervalMin && ageMonths < 24) {
+  // Feed interval suggestion — time-based, age-gated
+  const feedThresholdH = getFeedThresholdHours(bucket);
+  if (lastFeed && feedThresholdH && ageMonths < 12 && !allItems.find(i => i.id === 'no-feeds-today')) {
     const minSince = Math.floor((Date.now() - new Date(lastFeed.start_time).getTime()) / 60000);
-    const ideal    = ageCtx.idealFeedIntervalMin;
-    if (minSince >= ideal * 0.85 && !allItems.find(i => i.id === 'no-feeds-today')) {
+    if (minSince >= feedThresholdH * 60 * 0.85) {
       const h = Math.floor(minSince / 60);
       const m = minSince % 60;
       const timeStr = h > 0 ? `${h}h${m > 0 ? ` ${m}min` : ''}` : `${m}min`;
       allItems.push({
-        id: 'feed-overdue',
+        id: 'feed-interval',
         level: 'suggested_next',
         emoji: '🤱',
         title: `Última mamada há ${timeStr}`,
@@ -230,32 +283,32 @@ export function runPriorityEngine(params: {
     }
   }
 
-  // Growth tracking missing (show only once as suggested, not always)
-  if (ageMonths >= 1 && ageMonths <= 36 && logs.length > 0) {
+  // Growth tracking — only surface once, only if age is in relevant range and no data
+  if (ageMonths >= 1 && ageMonths <= 36 && !hasGrowthData && logs.length >= 3) {
     allItems.push({
-      id: 'no-growth',
+      id: 'growth-missing',
       level: 'suggested_next',
       emoji: '📏',
       title: 'Registre peso e altura',
-      body: `Acompanhar o crescimento de ${childName} facilita o acompanhamento pediátrico.`,
+      body: `Acompanhar o crescimento de ${childName} facilita o histórico pediátrico.`,
       ctaLabel: 'Ver',
       path: '/health',
     });
   }
 
-  // Consultation — ONLY as suggested_next, NEVER as health_risk
-  // This prevents it from appearing as main message and also separately in attention
+  // Consultation — suggested_next only, NEVER health_risk, appears AT MOST ONCE
+  // Only surface if no higher-priority items fill the 3-slot attention block
   allItems.push({
     id: 'no-consultation',
     level: 'suggested_next',
     emoji: '🩺',
     title: 'Nenhuma consulta agendada',
-    body: 'Consultas regulares facilitam o acompanhamento e previnem problemas.',
+    body: 'Consultas regulares facilitam o acompanhamento desta fase.',
     ctaLabel: 'Ver',
     path: '/health',
   });
 
-  // Sort by priority level
+  // ── Sort by priority level ──────────────────────────────────────────────
   const levelOrder: Record<PriorityLevel, number> = {
     health_risk: 4, missing_care: 3, suggested_next: 2, context: 1,
   };
@@ -266,7 +319,7 @@ export function runPriorityEngine(params: {
   let mainMessage: AssistantMessage | null = null;
   let mainItemId: string | null = null;
 
-  // Active sleep session overrides everything
+  // Ongoing sleep session always wins as main message
   if (ongoingSleep) {
     const diffMs  = Date.now() - new Date(ongoingSleep.start_time).getTime();
     const diffMin = Math.floor(diffMs / 60000);
@@ -281,22 +334,18 @@ export function runPriorityEngine(params: {
       path: '/sleep',
       tone: 'info',
     };
-    mainItemId = 'ongoing-sleep'; // synthetic id — no match in allItems
+    mainItemId = 'ongoing-sleep'; // synthetic — no match in allItems
   } else if (allItems.length > 0) {
-    // Take highest-priority item — but skip consultation as MAIN message
-    // (it lives in attention only)
-    const top = allItems.find(i => i.id !== 'no-consultation') ?? allItems[0];
+    // Highest-priority item — skip consultation as standalone MAIN message if other items exist
+    const healthOrMissing = allItems.find(i => i.level === 'health_risk' || i.level === 'missing_care');
+    const top = healthOrMissing ?? allItems.find(i => i.id !== 'no-consultation') ?? allItems[0];
+
     const toneMap: Record<PriorityLevel, AssistantMessage['tone']> = {
       health_risk: 'health', missing_care: 'nudge',
       suggested_next: 'nudge', context: 'info',
     };
 
-    if (top.id === 'no-consultation') {
-      consultationUsedAsMain = false;
-    } else {
-      mainItemId = top.id;
-    }
-
+    mainItemId = top.id;
     mainMessage = {
       emoji: top.emoji,
       title: top.title,
@@ -317,9 +366,6 @@ export function runPriorityEngine(params: {
   }
 
   // ─── Attention items (exclude main item, max 3) ────────────────────────
-  // Also: if consultation was not used as main, it can appear in attention once.
-  // But it is still de-duped from whatever is already the main.
-
   const attentionItems = allItems
     .filter(item => item.id !== mainItemId)
     .slice(0, 3);

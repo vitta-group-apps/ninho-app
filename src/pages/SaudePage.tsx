@@ -59,15 +59,30 @@ const OPTIONAL_VACCINES: { name: string; description: string; ageHint: string }[
 ];
 
 // ─── Vaccine state helper (age-based, truthful) ───────────────────────────
-
+//
+// IMPORTANT: No vaccine is auto-marked as "applied".
+// Vaccines are never pre-populated as confirmed doses — that contradicts reality.
+// The caregiver must manually confirm application.
+//
+// What we CAN infer by age:
+//   - "due now or recently" (ageMonths within window): "upcoming/due"
+//   - "scheduled for later": "future"
+//   - Vaccines from past age windows appear as "due" until manually confirmed
+//
+// "applied" list is ALWAYS empty until real DB records exist.
 function computeVaccineState(ageMonths: number) {
-  const applied   = vaccineSchedule.filter(v => (v.ageMonths ?? 0) <= ageMonths);
-  const upcoming  = vaccineSchedule.filter(v => {
+  // Vaccines that are due now (scheduled age ≤ child age) — need confirmation
+  const due = vaccineSchedule.filter(v => (v.ageMonths ?? 0) <= ageMonths);
+  // Vaccines coming up in the next 3 months
+  const upcoming = vaccineSchedule.filter(v => {
     const vm = v.ageMonths ?? 0;
     return vm > ageMonths && vm <= ageMonths + 3;
   });
+  // Vaccines scheduled further ahead
   const future = vaccineSchedule.filter(v => (v.ageMonths ?? 0) > ageMonths + 3);
-  return { applied, upcoming, future };
+  // applied = empty until user marks them
+  const applied: typeof due = [];
+  return { applied, due, upcoming, future };
 }
 
 // ─── Helper: symptom quick-log ────────────────────────────────────────────

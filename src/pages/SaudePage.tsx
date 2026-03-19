@@ -356,12 +356,21 @@ export default function SaudePage() {
   // Priority items (health-specific)
   const priorityItems: { emoji: string; title: string; body: string; cta: string; sectionId: string }[] = [];
 
-  if (vaccineState.upcoming.length > 0) {
+  if (vaccineState.due.length > 0) {
+    const first = vaccineState.due[0];
+    priorityItems.push({
+      emoji: '💉',
+      title: `${vaccineState.due.length} vacina${vaccineState.due.length > 1 ? 's' : ''} a confirmar`,
+      body: `${first.shortName} (${first.doses}) está prevista para ${first.ageLabel}. Registre quando for aplicada.`,
+      cta: 'Ver',
+      sectionId: 'vaccines',
+    });
+  } else if (vaccineState.upcoming.length > 0) {
     const next = vaccineState.upcoming[0];
     priorityItems.push({
       emoji: '💉',
-      title: `${vaccineState.upcoming.length} vacina${vaccineState.upcoming.length > 1 ? 's' : ''} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`,
-      body: `${next.shortName} (${next.doses}) está prevista para ${next.ageLabel}. Confirme com o pediatra.`,
+      title: `Vacina prevista em breve`,
+      body: `${next.shortName} (${next.doses}) está próxima — ${next.ageLabel}. Confirme com o pediatra.`,
       cta: 'Ver',
       sectionId: 'vaccines',
     });

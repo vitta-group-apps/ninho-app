@@ -302,6 +302,8 @@ export default function SaudePage() {
   // Quick note / report note
   const [quickNote, setQuickNote]   = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [savedNotes, setSavedNotes] = useState<{ text: string; date: Date }[]>([]);
+  const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
 
   async function saveQuickNote() {
     if (!quickNote.trim() || !activeChild) return;
@@ -309,14 +311,19 @@ export default function SaudePage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      const now = new Date();
       await supabase.from('health_logs').insert({
         child_id: activeChild.id,
         author_id: user.id,
         type: 'note',
-        occurred_at: new Date().toISOString(),
+        occurred_at: now.toISOString(),
         details: { note: quickNote.trim(), source: 'report' },
       });
+      // Add to local list immediately for instant feedback
+      setSavedNotes(prev => [{ text: quickNote.trim(), date: now }, ...prev]);
       setQuickNote('');
+      setNoteSavedFeedback(true);
+      setTimeout(() => setNoteSavedFeedback(false), 2500);
     } catch { /* silent */ } finally {
       setSavingNote(false);
     }

@@ -277,6 +277,7 @@ interface GrowthMeasurement {
 
 export default function SaudePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { activeChild } = useActiveChild();
   const childName = activeChild?.name ?? 'seu filho';
   const ageCtx    = activeChild ? getAgeContext(activeChild.birth_date) : null;
@@ -296,66 +297,160 @@ export default function SaudePage() {
   // Growth form
   const [growthForm, setGrowthForm] = useState<GrowthMeasurement>({});
   const [growthSaving, setGrowthSaving] = useState(false);
+  const [growthHistory, setGrowthHistory] = useState<Array<{ id: string; weight?: number; height?: number; note?: string; date: Date }>>([]);
 
   // Symptom quick-log
   const [loggedSymptoms, setLoggedSymptoms] = useState<string[]>([]);
   const [symptomNote, setSymptomNote] = useState('');
+  const [symptomSaving, setSymptomSaving] = useState(false);
+  const [symptomHistory, setSymptomHistory] = useState<Array<{ id: string; symptoms: string[]; note?: string; date: Date }>>([]);
 
   // Quick note / report note
   const [quickNote, setQuickNote]   = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [savedNotes, setSavedNotes] = useState<{ text: string; date: Date }[]>([]);
+  const [savedNotes, setSavedNotes] = useState<{ id?: string; text: string; date: Date }[]>([]);
   const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
 
+  // ─── Load health_logs from DB ────────────────────────────────────────────
+  const loadHealthLogs = useCallback(async () => {
+    if (!activeChild) return;
+    const { data } = await supabase
+      .from('health_logs')
+      .select('*')
+      .eq('child_id', activeChild.id)
+      .order('occurred_at', { ascending: false })
+      .limit(50);
+
+    if (!data) return;
+
+    const notes: typeof savedNotes = [];
+    const growth: typeof growthHistory = [];
+    const symptoms: typeof symptomHistory = [];
+
+    for (const row of data) {
+      const d = (row.details ?? {}) as Record<string, unknown>;
+      if (d.source === 'report' && typeof d.note === 'string') {
+        notes.push({ id: row.id, text: d.note, date: new Date(row.occurred_at) });
+      }
+      if (d.type === 'growth') {
+        growth.push({
+          id: row.id,
+          weight: d.weight_kg as number | undefined,
+          height: d.height_cm as number | undefined,
+          note: d.note as string | undefined,
+          date: new Date(row.occurred_at),
+        });
+      }
+      if (d.type === 'symptom' && Array.isArray(d.symptoms)) {
+        symptoms.push({
+          id: row.id,
+          symptoms: d.symptoms as string[],
+          note: d.note as string | undefined,
+          date: new Date(row.occurred_at),
+        });
+      }
+    }
+
+    setSavedNotes(notes);
+    setGrowthHistory(growth);
+    setSymptomHistory(symptoms);
+  }, [activeChild]);
+
+  useEffect(() => { loadHealthLogs(); }, [loadHealthLogs]);
+
   async function saveQuickNote() {
-    if (!quickNote.trim() || !activeChild) return;
+    if (!quickNote.trim() || !activeChild || !user) return;
     setSavingNote(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const now = new Date();
-      await supabase.from('health_logs').insert({
+      const { data, error } = await supabase.from('health_logs').insert({
         child_id: activeChild.id,
         author_id: user.id,
         type: 'note',
         occurred_at: now.toISOString(),
         details: { note: quickNote.trim(), source: 'report' },
-      });
-      // Add to local list immediately for instant feedback
-      setSavedNotes(prev => [{ text: quickNote.trim(), date: now }, ...prev]);
+      }).select('id').single();
+      if (error) throw error;
+      setSavedNotes(prev => [{ id: data?.id, text: quickNote.trim(), date: now }, ...prev]);
       setQuickNote('');
       setNoteSavedFeedback(true);
       setTimeout(() => setNoteSavedFeedback(false), 2500);
-    } catch { /* silent */ } finally {
+      toast({ title: '📋 Nota salva no relatório' });
+    } catch {
+      toast({ title: 'Erro ao salvar nota', variant: 'destructive' });
+    } finally {
       setSavingNote(false);
     }
   }
 
   async function saveGrowthMeasurement() {
-    if (!activeChild || (!growthForm.weight && !growthForm.height)) return;
+    if (!activeChild || !user || (!growthForm.weight && !growthForm.height)) return;
     setGrowthSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      await supabase.from('health_logs').insert({
+      const now = new Date();
+      const { data, error } = await supabase.from('health_logs').insert({
         child_id: activeChild.id,
         author_id: user.id,
         type: 'note',
-        occurred_at: new Date().toISOString(),
+        occurred_at: now.toISOString(),
         details: {
           type: 'growth',
           weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
           height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
           note: growthForm.note ?? null,
         },
-      });
+      }).select('id').single();
+      if (error) throw error;
+      setGrowthHistory(prev => [{
+        id: data?.id ?? '',
+        weight: growthForm.weight ? parseFloat(growthForm.weight) : undefined,
+        height: growthForm.height ? parseFloat(growthForm.height) : undefined,
+        note: growthForm.note,
+        date: now,
+      }, ...prev]);
       setGrowthForm({});
-    } catch { /* silent */ } finally {
+      toast({ title: '📏 Medição salva' });
+    } catch {
+      toast({ title: 'Erro ao salvar medição', variant: 'destructive' });
+    } finally {
       setGrowthSaving(false);
     }
   }
 
-  // Priority items (health-specific)
+  async function saveSymptoms() {
+    if (!activeChild || !user || loggedSymptoms.length === 0) return;
+    setSymptomSaving(true);
+    try {
+      const now = new Date();
+      const { data, error } = await supabase.from('health_logs').insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        type: 'note',
+        occurred_at: now.toISOString(),
+        details: {
+          type: 'symptom',
+          symptoms: loggedSymptoms,
+          note: symptomNote.trim() || null,
+        },
+      }).select('id').single();
+      if (error) throw error;
+      setSymptomHistory(prev => [{
+        id: data?.id ?? '',
+        symptoms: [...loggedSymptoms],
+        note: symptomNote.trim() || undefined,
+        date: now,
+      }, ...prev]);
+      setLoggedSymptoms([]);
+      setSymptomNote('');
+      toast({ title: '🌡️ Sintomas registrados' });
+    } catch {
+      toast({ title: 'Erro ao salvar sintomas', variant: 'destructive' });
+    } finally {
+      setSymptomSaving(false);
+    }
+  }
+
+  // ─── Priority items (health-specific, no duplicate consultation) ──────────
   const priorityItems: { emoji: string; title: string; body: string; cta: string; sectionId: string }[] = [];
 
   if (vaccineState.due.length > 0) {
@@ -363,7 +458,7 @@ export default function SaudePage() {
     priorityItems.push({
       emoji: '💉',
       title: `${vaccineState.due.length} vacina${vaccineState.due.length > 1 ? 's' : ''} a confirmar`,
-      body: `${first.shortName} (${first.doses}) está prevista para ${first.ageLabel}. Registre quando for aplicada.`,
+      body: `${first.shortName} (${first.doses}) está prevista — ${first.ageLabel}. Registre quando for aplicada.`,
       cta: 'Ver',
       sectionId: 'vaccines',
     });
@@ -371,26 +466,29 @@ export default function SaudePage() {
     const next = vaccineState.upcoming[0];
     priorityItems.push({
       emoji: '💉',
-      title: `Vacina prevista em breve`,
-      body: `${next.shortName} (${next.doses}) está próxima — ${next.ageLabel}. Confirme com o pediatra.`,
+      title: 'Vacina prevista em breve',
+      body: `${next.shortName} (${next.doses}) — ${next.ageLabel}. Confirme com o pediatra.`,
       cta: 'Ver',
       sectionId: 'vaccines',
     });
   }
 
-  priorityItems.push({
-    emoji: '🩺',
-    title: 'Nenhuma consulta agendada',
-    body: 'Consultas regulares ajudam a acompanhar o desenvolvimento e prevenir problemas.',
-    cta: 'Agendar',
-    sectionId: 'appointments',
-  });
+  // Only show consultation once, and only if vaccine alert doesn't already fill the attention
+  if (priorityItems.length < 2) {
+    priorityItems.push({
+      emoji: '🩺',
+      title: 'Nenhuma consulta agendada',
+      body: 'Consultas regulares facilitam o acompanhamento e previnem problemas.',
+      cta: 'Registrar',
+      sectionId: 'appointments',
+    });
+  }
 
-  if (ageMonths >= 1) {
+  if (ageMonths >= 1 && growthHistory.length === 0 && priorityItems.length < 3) {
     priorityItems.push({
       emoji: '📏',
-      title: 'Acompanhe o crescimento',
-      body: `Registre peso e altura de ${childName} para facilitar o acompanhamento pediátrico.`,
+      title: 'Registre peso e altura',
+      body: `Acompanhar o crescimento de ${childName} facilita o acompanhamento pediátrico.`,
       cta: 'Registrar',
       sectionId: 'growth',
     });

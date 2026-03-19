@@ -1,19 +1,22 @@
 /**
- * RotinaPage — Ninho DS v2 intelligent routine timeline.
+ * RotinaPage — Ninho fast-log + trustworthy timeline.
  *
- * Intelligence v2:
- * - Search input filters events by type/notes
- * - ChipGroup filters: event type + time of day
- * - Events grouped by time of day (Manhã / Tarde / Noite / Madrugada)
- * - SectionLabel used for group headers
- * - DayInsights surfaced via SummaryMetricCard
- * - Sorting: newest first (default), toggle to chronological
+ * Goals:
+ *   - Scan today in under 3 seconds
+ *   - Log new events in 1 tap (FAB)
+ *   - Surface active sessions prominently
+ *   - Group events by time of day
+ *   - Add quick note capability
+ *
+ * Anatomy of each event card: type → main data → time → optional hint/note
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  PlusIcon, MagnifyingGlassIcon, XMarkIcon, PencilSquareIcon,
+} from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { EventCard } from '@/components/events/EventCard';
@@ -33,60 +36,65 @@ import {
 const FEED_COLOR   = 'hsl(152,15%,55%)';
 const SLEEP_COLOR  = 'hsl(270,12%,42%)';
 const DIAPER_COLOR = 'hsl(32,80%,57%)';
+const SAGE         = 'hsl(152,15%,50%)';
 
-// ─── Filter config ────────────────────────────────────────────────────────
+// ─── Filter options ───────────────────────────────────────────────────────
+
 const TYPE_FILTER_OPTIONS = [
   { value: 'all',    label: 'Todos' },
   { value: 'feed',   label: '🤱 Alimentação' },
   { value: 'sleep',  label: '😴 Sono' },
   { value: 'diaper', label: '🧷 Fralda' },
+  { value: 'note',   label: '📝 Notas' },
 ];
 
 const PERIOD_OPTIONS = [
-  { value: 'today',  label: 'Hoje' },
-  { value: 'week',   label: '7 dias' },
-  { value: 'month',  label: '30 dias' },
+  { value: 'today', label: 'Hoje' },
+  { value: 'week',  label: '7 dias' },
+  { value: 'month', label: '30 dias' },
 ];
 
-const TOD_OPTIONS: { value: string; label: string }[] = [
+const TOD_OPTIONS = [
   { value: 'Manhã',     label: '🌅 Manhã' },
   { value: 'Tarde',     label: '☀️ Tarde' },
   { value: 'Noite',     label: '🌙 Noite' },
   { value: 'Madrugada', label: '🌃 Madrugada' },
 ];
 
-// ─── Daily Stats row ───────────────────────────────────────────────────────
+// ─── Daily stats row ──────────────────────────────────────────────────────
+
 function DailyStats({ logs }: { logs: RoutineLog[] }) {
   const feeds   = logs.filter(l => l.type === 'feed').length;
   const diapers = logs.filter(l => l.type === 'diaper').length;
   const sleepSec = logs.filter(l => l.type === 'sleep' && l.end_time).reduce((acc, l) => {
-    return acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000);
+    return acc + Math.floor(
+      (new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000
+    );
   }, 0);
   const h = Math.floor(sleepSec / 3600);
   const m = Math.floor((sleepSec % 3600) / 60);
   const sleepLabel = sleepSec > 0 ? (h > 0 ? `${h}h ${m}m` : `${m}m`) : '—';
-
   const insights = analyzeDayPatterns(logs);
 
   return (
     <div className="flex gap-2.5 mb-4">
       <SummaryMetricCard
         emoji="🤱" label="Mamadas"
-        value={feeds > 0 ? `${feeds}×` : '—'}
+        value={feeds > 0 ? `${feeds}` : '—'}
         sub={insights.avgFeedIntervalMin ? `~${insights.avgFeedIntervalMin}min entre mamadas` : undefined}
         accentColor={FEED_COLOR}
         empty={feeds === 0}
       />
       <SummaryMetricCard
         emoji="🧷" label="Fraldas"
-        value={diapers > 0 ? `${diapers}×` : '—'}
+        value={diapers > 0 ? `${diapers}` : '—'}
         accentColor={DIAPER_COLOR}
         empty={diapers === 0}
       />
       <SummaryMetricCard
         emoji="😴" label="Sono"
         value={sleepLabel}
-        sub={insights.hasLongSleep ? 'Sono longo detectado' : undefined}
+        sub={insights.hasLongSleep ? 'Inclui sono longo' : undefined}
         accentColor={SLEEP_COLOR}
         empty={sleepSec === 0}
       />
@@ -94,29 +102,129 @@ function DailyStats({ logs }: { logs: RoutineLog[] }) {
   );
 }
 
-// ─── FAB ──────────────────────────────────────────────────────────────────
-function FAB({ onBreastfeed, onBottle, onSleep, onDiaper }: {
-  onBreastfeed: () => void; onBottle: () => void; onSleep: () => void; onDiaper: () => void;
+// ─── Quick Note Sheet ────────────────────────────────────────────────────
+
+function QuickNoteSheet({
+  open,
+  onClose,
+  childId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  childId: string;
+}) {
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!note.trim()) return;
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('routine_logs').insert({
+        child_id: childId,
+        author_id: user.id,
+        type: 'note',
+        start_time: new Date().toISOString(),
+        notes: `__payload:${JSON.stringify({ _notes: note.trim() })}`,
+      });
+      setNote('');
+      onClose();
+    } catch { /* silent */ } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: 'hsl(var(--card))' }}
+      >
+        <div className="w-10 h-1 rounded-full bg-border mx-auto mt-3 mb-4" />
+        <div className="px-5 pb-8 space-y-4">
+          <div className="flex items-center gap-2">
+            <PencilSquareIcon className="w-5 h-5 text-muted-foreground" />
+            <p className="text-[16px] font-bold font-quicksand text-foreground">Nota rápida</p>
+          </div>
+          <textarea
+            autoFocus
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Ex: mamou menos hoje, irritado, assadura, pediatra pediu observar febre..."
+            rows={4}
+            className="w-full px-4 py-3 rounded-2xl text-[13px] font-nunito bg-muted text-foreground placeholder:text-muted-foreground resize-none outline-none border border-border focus:border-primary transition-colors"
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: 'hsl(var(--muted))',
+                color: 'hsl(var(--muted-foreground))',
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={save}
+              disabled={saving || !note.trim()}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{ backgroundColor: SAGE }}
+            >
+              {saving ? 'Salvando…' : 'Salvar nota'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+// ─── FAB with quick note ─────────────────────────────────────────────────
+
+function FAB({
+  onBreastfeed, onBottle, onSleep, onDiaper, onNote,
+}: {
+  onBreastfeed: () => void; onBottle: () => void;
+  onSleep: () => void; onDiaper: () => void;
+  onNote: () => void;
 }) {
   const [open, setOpen] = useState(false);
+
   const actions = [
-    { emoji: '🤱', label: 'Amamentar', onClick: onBreastfeed, color: FEED_COLOR },
-    { emoji: '🍼', label: 'Mamadeira',  onClick: onBottle,     color: 'hsl(200,40%,50%)' },
-    { emoji: '😴', label: 'Sono',       onClick: onSleep,      color: SLEEP_COLOR },
-    { emoji: '🧷', label: 'Fralda',     onClick: onDiaper,     color: DIAPER_COLOR },
+    { emoji: '🤱', label: 'Amamentar',  onClick: onBreastfeed, color: FEED_COLOR },
+    { emoji: '🍼', label: 'Mamadeira',   onClick: onBottle,     color: 'hsl(200,40%,50%)' },
+    { emoji: '😴', label: 'Sono',        onClick: onSleep,      color: SLEEP_COLOR },
+    { emoji: '🧷', label: 'Fralda',      onClick: onDiaper,     color: DIAPER_COLOR },
+    { emoji: '📝', label: 'Nota',        onClick: onNote,       color: 'hsl(var(--ninho-brown))' },
   ];
 
   return (
     <>
-      {open && <div className="fixed inset-0 z-40 bg-black/10" onClick={() => setOpen(false)} />}
+      {open && (
+        <div className="fixed inset-0 z-40 bg-black/10" onClick={() => setOpen(false)} />
+      )}
       <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2.5">
         <AnimatePresence>
           {open && actions.map((a, i) => (
-            <motion.div key={a.label}
+            <motion.div
+              key={a.label}
               initial={{ opacity: 0, x: 12, scale: 0.88 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 8, scale: 0.9 }}
-              transition={{ duration: 0.15, delay: i * 0.04 }}
+              transition={{ duration: 0.14, delay: i * 0.04 }}
               className="flex items-center gap-2.5"
             >
               <span
@@ -143,6 +251,7 @@ function FAB({ onBreastfeed, onBottle, onSleep, onDiaper }: {
             </motion.div>
           ))}
         </AnimatePresence>
+
         <button
           onClick={() => setOpen(v => !v)}
           className="w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-90 text-white"
@@ -160,22 +269,67 @@ function FAB({ onBreastfeed, onBottle, onSleep, onDiaper }: {
   );
 }
 
-// ─── Main RotinaPage ───────────────────────────────────────────────────────
+// ─── Grouped section ──────────────────────────────────────────────────────
+
+function GroupedSection({
+  group, logs, onTap,
+}: {
+  group: TimeOfDay; logs: RoutineLog[]; onTap: (log: RoutineLog) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="mb-4">
+      <button
+        onClick={() => setCollapsed(v => !v)}
+        className="flex items-center gap-2 mb-2.5 w-full text-left py-0.5"
+      >
+        <span className="text-[13px]">{TIME_OF_DAY_EMOJI[group]}</span>
+        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito flex-1">
+          {group} · {logs.length} evento{logs.length !== 1 ? 's' : ''}
+        </p>
+        <span className="text-[10px] text-muted-foreground font-nunito opacity-60">
+          {collapsed ? '▲ expandir' : '▼ recolher'}
+        </span>
+      </button>
+      <AnimatePresence>
+        {!collapsed && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            {logs.map((log, idx) => (
+              <EventCard
+                key={log.id}
+                log={log}
+                isLast={idx === logs.length - 1}
+                onTap={onTap}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────
+
 export default function RotinaPage() {
   const navigate = useNavigate();
   const { activeChild, loading: childLoading } = useActiveChild();
   const [allLogs, setAllLogs] = useState<RoutineLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [noteSheetOpen, setNoteSheetOpen] = useState(false);
 
-  // EventCards navigate directly — no modal state needed
-
-  // ─ Filters ────────────────────────────────────────────────────────────
-  const [search, setSearch] = useState('');
+  const [search, setSearch]         = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [todFilter, setTodFilter] = useState('');
-  const [period, setPeriod] = useState('today');
+  const [todFilter, setTodFilter]   = useState('');
+  const [period, setPeriod]         = useState('today');
   const [showFilters, setShowFilters] = useState(false);
-  const [groupByTod, setGroupByTod] = useState(true);
+  const [groupByTod, setGroupByTod]   = useState(true);
 
   const lastFeed = allLogs.find(l => l.type === 'feed');
 
@@ -184,27 +338,33 @@ export default function RotinaPage() {
     setLogsLoading(true);
     try {
       const now = new Date();
-      let from = new Date(now);
+      const from = new Date(now);
       if (period === 'today') { from.setHours(0, 0, 0, 0); }
       else if (period === 'week') { from.setDate(now.getDate() - 7); }
       else { from.setDate(now.getDate() - 30); }
 
-      const { data, error } = await supabase.from('routine_logs').select('*')
+      const { data, error } = await supabase
+        .from('routine_logs')
+        .select('*')
         .eq('child_id', activeChild.id)
         .gte('start_time', from.toISOString())
         .order('start_time', { ascending: false });
       if (error) throw error;
       setAllLogs(data ?? []);
-    } catch { /* silent */ } finally { setLogsLoading(false); }
+    } catch { /* silent */ } finally {
+      setLogsLoading(false); }
   }, [activeChild, period]);
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
-  // ─ Filter + search logic ──────────────────────────────────────────────
+  // Re-fetch after note is saved
+  function handleNoteClose() {
+    setNoteSheetOpen(false);
+    loadLogs();
+  }
+
   const filteredLogs = allLogs.filter(log => {
-    // Type filter
     if (typeFilter !== 'all' && log.type !== typeFilter) return false;
-    // Time of day filter
     if (todFilter) {
       const h = new Date(log.start_time).getHours();
       const tod: Record<string, [number, number]> = {
@@ -214,29 +374,31 @@ export default function RotinaPage() {
       const hh = h < 5 ? h + 24 : h;
       if (hh < lo || hh >= hi) return false;
     }
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       const notesStr = String(log.notes ?? '').toLowerCase();
-      const typeMatch = log.type.includes(q);
-      const notesMatch = notesStr.includes(q);
-      if (!typeMatch && !notesMatch) return false;
+      if (!log.type.includes(q) && !notesStr.includes(q)) return false;
     }
     return true;
   });
 
-  // EventCard navigation is handled by EventCard itself via eventSystem editPath.
-  // handleTap is kept as legacy prop signature for GroupedSection but does nothing.
-  function handleTap(_log: RoutineLog) { /* navigation handled by EventCard */ }
+  function handleTap(_log: RoutineLog) { /* EventCard handles navigation directly */ }
 
   const hasActiveFilters = typeFilter !== 'all' || !!todFilter || !!search || period !== 'today';
 
   return (
     <div className="min-h-screen pb-28 bg-background">
-      {/* Header band — solid sage */}
-      <div className="px-5 pt-14 pb-5" style={{ backgroundColor: 'hsl(152,15%,45%)' }}>
+
+      {/* Header */}
+      <div
+        className="px-5 pb-5"
+        style={{
+          paddingTop: 'max(56px, env(safe-area-inset-top))',
+          backgroundColor: 'hsl(152,15%,45%)',
+        }}
+      >
         <h1 className="text-[22px] font-bold text-white font-quicksand leading-tight">Rotina</h1>
-        <p className="text-[13px] text-white/70 mt-0.5 font-nunito">
+        <p className="text-[13px] text-white/65 mt-0.5 font-nunito">
           {activeChild ? activeChild.name : 'Hoje'}
         </p>
         {lastFeed && (
@@ -249,17 +411,14 @@ export default function RotinaPage() {
         )}
       </div>
 
-      {/* Active session surface */}
+      {/* Active session */}
       <div className="pt-3">
         <ActiveSessionBanner />
       </div>
 
-      {/* Search + filter bar */}
+      {/* Search + filter */}
       <div className="px-4 pt-3 space-y-2">
-        {/* Search input */}
-        <div
-          className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-card border border-border"
-        >
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-card border border-border">
           <MagnifyingGlassIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" strokeWidth={2} />
           <input
             type="text"
@@ -278,14 +437,15 @@ export default function RotinaPage() {
             className="text-[11px] font-bold font-nunito px-2 py-1 rounded-xl transition-colors"
             style={{
               color: hasActiveFilters ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
-              backgroundColor: hasActiveFilters ? 'color-mix(in srgb, hsl(var(--primary)) 10%, transparent)' : 'transparent',
+              backgroundColor: hasActiveFilters
+                ? 'color-mix(in srgb, hsl(var(--primary)) 10%, transparent)'
+                : 'transparent',
             }}
           >
             Filtros{hasActiveFilters ? ' ●' : ''}
           </button>
         </div>
 
-        {/* Expandable filter area */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -295,37 +455,18 @@ export default function RotinaPage() {
               transition={{ duration: 0.18 }}
               className="overflow-hidden space-y-3 pt-1 pb-1"
             >
-              {/* Period */}
               <div>
                 <SectionLabel>Período</SectionLabel>
-                <ChipGroup
-                  options={PERIOD_OPTIONS}
-                  value={period}
-                  onToggle={v => setPeriod(v)}
-                  accentColor={SLEEP_COLOR}
-                />
+                <ChipGroup options={PERIOD_OPTIONS} value={period} onToggle={v => setPeriod(v)} accentColor={SLEEP_COLOR} />
               </div>
-              {/* Type */}
               <div>
                 <SectionLabel>Tipo de evento</SectionLabel>
-                <ChipGroup
-                  options={TYPE_FILTER_OPTIONS}
-                  value={typeFilter}
-                  onToggle={v => setTypeFilter(v)}
-                  accentColor={SLEEP_COLOR}
-                />
+                <ChipGroup options={TYPE_FILTER_OPTIONS} value={typeFilter} onToggle={v => setTypeFilter(v)} accentColor={SLEEP_COLOR} />
               </div>
-              {/* Time of day */}
               <div>
                 <SectionLabel>Período do dia</SectionLabel>
-                <ChipGroup
-                  options={TOD_OPTIONS}
-                  value={todFilter}
-                  onToggle={v => setTodFilter(p => p === v ? '' : v)}
-                  accentColor={SLEEP_COLOR}
-                />
+                <ChipGroup options={TOD_OPTIONS} value={todFilter} onToggle={v => setTodFilter(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
               </div>
-              {/* Grouping toggle */}
               <div className="flex items-center justify-between px-1">
                 <p className="text-[12px] font-semibold text-muted-foreground font-nunito">
                   Agrupar por período do dia
@@ -346,6 +487,7 @@ export default function RotinaPage() {
         </AnimatePresence>
       </div>
 
+      {/* Content */}
       <div className="px-4 pt-3">
         {childLoading ? (
           <div className="space-y-3">
@@ -358,13 +500,17 @@ export default function RotinaPage() {
             <p className="text-[16px] font-bold font-quicksand text-foreground">Nenhuma criança ativa</p>
           </div>
         ) : (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-            {/* Daily stats — only show for today */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {/* Daily stats */}
             {allLogs.length > 0 && period === 'today' && !search && typeFilter === 'all' && (
               <DailyStats logs={allLogs} />
             )}
 
-            {/* Results count when filtering */}
+            {/* Results count / filter label */}
             {hasActiveFilters && (
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
@@ -381,7 +527,11 @@ export default function RotinaPage() {
 
             {!hasActiveFilters && (
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
-                Eventos {period === 'today' ? 'de hoje' : period === 'week' ? 'dos últimos 7 dias' : 'dos últimos 30 dias'}
+                Eventos {
+                  period === 'today' ? 'de hoje'
+                  : period === 'week' ? 'dos últimos 7 dias'
+                  : 'dos últimos 30 dias'
+                }
               </p>
             )}
 
@@ -391,7 +541,9 @@ export default function RotinaPage() {
               </div>
             ) : filteredLogs.length === 0 ? (
               <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
-                <p className="text-4xl mb-3">{search || hasActiveFilters ? '🔍' : '🌤️'}</p>
+                <p className="text-4xl mb-3">
+                  {search || hasActiveFilters ? '🔍' : '🌤️'}
+                </p>
                 <p className="text-[15px] font-bold font-quicksand text-foreground">
                   {search
                     ? 'Nenhum resultado encontrado'
@@ -399,11 +551,11 @@ export default function RotinaPage() {
                     ? 'Nenhum evento com esses filtros'
                     : 'Nenhum evento registrado'}
                 </p>
-                <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
+                <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug max-w-[240px] mx-auto">
                   {search
                     ? `Sem resultados para "${search}". Tente outra busca.`
                     : hasActiveFilters
-                    ? 'Tente ajustar os filtros para ver mais eventos.'
+                    ? 'Ajuste os filtros para ver mais eventos.'
                     : 'Toque no + para registrar o primeiro evento do dia.'}
                 </p>
                 {hasActiveFilters && (
@@ -417,22 +569,20 @@ export default function RotinaPage() {
                 )}
               </div>
             ) : groupByTod && !search ? (
-              // Grouped view
               <div>
                 {groupLogsByTimeOfDay(filteredLogs).map(({ group, logs: groupLogs }) => (
-                  <GroupedSection
-                    key={group}
-                    group={group}
-                    logs={groupLogs}
-                    onTap={handleTap}
-                  />
+                  <GroupedSection key={group} group={group} logs={groupLogs} onTap={handleTap} />
                 ))}
               </div>
             ) : (
-              // Flat list
               <div>
                 {filteredLogs.map((log, idx) => (
-                  <EventCard key={log.id} log={log} isLast={idx === filteredLogs.length - 1} onTap={handleTap} />
+                  <EventCard
+                    key={log.id}
+                    log={log}
+                    isLast={idx === filteredLogs.length - 1}
+                    onTap={handleTap}
+                  />
                 ))}
               </div>
             )}
@@ -440,57 +590,25 @@ export default function RotinaPage() {
         )}
       </div>
 
+      {/* FAB */}
       {activeChild && (
         <FAB
           onBreastfeed={() => navigate('/breastfeeding')}
           onBottle={() => navigate('/bottle')}
           onSleep={() => navigate('/sleep')}
           onDiaper={() => navigate('/diaper/new')}
+          onNote={() => setNoteSheetOpen(true)}
         />
       )}
 
-      {/* All event navigation is handled by EventCard → detail screens. No modal needed. */}
-    </div>
-  );
-}
-
-// ─── Grouped section ──────────────────────────────────────────────────────
-function GroupedSection({
-  group, logs, onTap,
-}: {
-  group: TimeOfDay;
-  logs: RoutineLog[];
-  onTap: (log: RoutineLog) => void;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  return (
-    <div className="mb-4">
-      {/* Group header — uses SectionLabel anatomy + collapse toggle */}
-      <button
-        onClick={() => setCollapsed(v => !v)}
-        className="flex items-center gap-2 mb-2 w-full text-left py-0.5"
-      >
-        <span className="text-[14px]">{TIME_OF_DAY_EMOJI[group]}</span>
-        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito flex-1">
-          {group} · {logs.length} evento{logs.length !== 1 ? 's' : ''}
-        </p>
-        <span className="text-[10px] text-muted-foreground font-nunito">
-          {collapsed ? '▼' : '▲'}
-        </span>
-      </button>
+      {/* Quick note sheet */}
       <AnimatePresence>
-        {!collapsed && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            {logs.map((log, idx) => (
-              <EventCard key={log.id} log={log} isLast={idx === logs.length - 1} onTap={onTap} />
-            ))}
-          </motion.div>
+        {noteSheetOpen && activeChild && (
+          <QuickNoteSheet
+            open={noteSheetOpen}
+            onClose={handleNoteClose}
+            childId={activeChild.id}
+          />
         )}
       </AnimatePresence>
     </div>

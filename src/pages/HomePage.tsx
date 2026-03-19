@@ -219,14 +219,28 @@ export default function HomePage() {
   const hour     = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
-  // Load consultation count for priority engine (avoid false "no consultation" alerts)
+  // Load consultation + vaccine data for priority engine and summary card
   useEffect(() => {
     if (!activeChild) return;
+    // Count notes (used for consultation count — consultations are stored as health_logs type=note with details.type='consultation')
     supabase.from('health_logs')
-      .select('id', { count: 'exact', head: true })
+      .select('id,details', { count: 'exact' })
       .eq('child_id', activeChild.id)
       .eq('type', 'note')
-      .then(({ count }) => setConsultationCount(count ?? 0));
+      .then(({ data, count }) => {
+        setConsultationCount(count ?? 0);
+        // Parse consultation entries to find the next upcoming date
+        const today = new Date().toISOString().split('T')[0];
+        const consultDates = (data ?? [])
+          .map(r => {
+            const d = (r.details ?? {}) as Record<string, unknown>;
+            return d.type === 'consultation' && typeof d.date === 'string' ? d.date : null;
+          })
+          .filter((d): d is string => d !== null);
+        const upcoming = consultDates.filter(d => d >= today).sort()[0] ?? null;
+        setNextConsultDate(upcoming);
+        setHasConsultHistory(consultDates.length > 0);
+      });
     supabase.from('health_logs')
       .select('id', { count: 'exact', head: true })
       .eq('child_id', activeChild.id)

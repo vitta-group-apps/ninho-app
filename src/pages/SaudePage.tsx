@@ -921,18 +921,19 @@ export default function SaudePage() {
       setConsultations(consults);
       setMedications(meds);
 
-      // Load child_vaccines (applied doses)
-      const { data: cvData } = await supabase
-        .from('child_vaccines')
-        .select('*')
-        .eq('child_id', activeChild.id)
-        .eq('status', 'applied');
-
+      // Load confirmed vaccines from health_logs (type = 'vaccine', details.type = 'vaccine_confirmation')
+      // We no longer use child_vaccines table directly to avoid UUID FK constraint issues.
+      const vaccineEntries = (healthData ?? []).filter(
+        r => r.type === 'vaccine' && (r.details as Record<string, unknown>)?.type === 'vaccine_confirmation'
+      );
       const appliedIds = new Set<string>();
       const appliedDates: Record<string, string> = {};
-      for (const cv of (cvData ?? [])) {
-        appliedIds.add(cv.vaccine_id);
-        if (cv.applied_on) appliedDates[cv.vaccine_id] = cv.applied_on;
+      for (const entry of vaccineEntries) {
+        const d = (entry.details ?? {}) as Record<string, unknown>;
+        if (typeof d.vaccine_id === 'string') {
+          appliedIds.add(d.vaccine_id);
+          if (typeof d.applied_on === 'string') appliedDates[d.vaccine_id] = d.applied_on;
+        }
       }
       setAppliedVaccineIds(appliedIds);
       setAppliedVaccineDates(appliedDates);

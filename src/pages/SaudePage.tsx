@@ -821,6 +821,23 @@ export default function SaudePage() {
   function toggle(id: string) {
     setOpenSection(prev => prev === id ? null : id);
   }
+  function openAndScroll(id: string) {
+    setOpenSection(id);
+    setTimeout(() => {
+      document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
+
+  // Weight formatter: stored as kg (e.g. 3.5) or accidentally as grams (e.g. 3500)
+  // If value >= 1000, treat as grams and convert to kg with 1 decimal
+  function fmtWeight(w: number): string {
+    if (w >= 1000) return `${(w / 1000).toFixed(2)} kg`;
+    return `${w} kg`;
+  }
+  function fmtWeightDelta(d: number, asG: boolean): string {
+    if (asG) return `${Math.abs(d / 1000).toFixed(2)} kg`;
+    return `${Math.abs(d)} kg`;
+  }
 
   const [showAllDue, setShowAllDue]     = useState(false);
   const [showFuture, setShowFuture]     = useState(false);
@@ -1130,7 +1147,7 @@ export default function SaudePage() {
                 }
                 color={vaccineState.due.length > 0 ? AMBER : SAGE}
                 urgent={vaccineState.due.length > 0}
-                onTap={() => toggle('vaccines')}
+                onTap={() => openAndScroll('vaccines')}
               />
               <OverviewStat
                 emoji="🩺" label="Consultas"
@@ -1144,7 +1161,7 @@ export default function SaudePage() {
                 }
                 color={upcomingConsults.length > 0 ? SAGE : MAUVE}
                 urgent={false}
-                onTap={() => toggle('appointments')}
+                onTap={() => openAndScroll('appointments')}
               />
               <OverviewStat
                 emoji="🌡️" label="Sintomas"
@@ -1152,13 +1169,13 @@ export default function SaudePage() {
                 sub={symptomHistory.length > 0 ? `Último: ${symptomHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}` : 'Nenhum registrado'}
                 color={symptomHistory.length > 0 ? AMBER : SAGE}
                 urgent={false}
-                onTap={() => toggle('symptoms')}
+                onTap={() => openAndScroll('symptoms')}
               />
               <OverviewStat
                 emoji="📏" label="Crescimento"
                 value={
                   growthHistory.length > 0 && growthHistory[0].weight
-                    ? `${growthHistory[0].weight}kg`
+                    ? fmtWeight(growthHistory[0].weight)
                     : growthHistory.length > 0 && growthHistory[0].height
                     ? `${growthHistory[0].height}cm`
                     : '—'
@@ -1170,7 +1187,7 @@ export default function SaudePage() {
                 }
                 color={growthHistory.length > 0 ? SAGE : MAUVE}
                 urgent={false}
-                onTap={() => toggle('growth')}
+                onTap={() => openAndScroll('growth')}
               />
             </div>
           )}
@@ -1704,7 +1721,7 @@ export default function SaudePage() {
             statusPill={
               growthHistory.length > 0
                 ? <InlineStatusPill
-                    label={growthHistory[0].weight ? `${growthHistory[0].weight} kg` : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`}
+                    label={growthHistory[0].weight ? fmtWeight(growthHistory[0].weight) : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`}
                     variant="active" color={SAGE}
                   />
                 : <InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />
@@ -1740,12 +1757,12 @@ export default function SaudePage() {
                     {latest.weight != null && (
                       <div>
                         <p className="text-[28px] font-bold font-quicksand leading-none" style={{ color: SAGE }}>
-                          {latest.weight}<span className="text-[14px] font-semibold ml-0.5">kg</span>
+                          {fmtWeight(latest.weight)}
                         </p>
                         {deltaW != null && (
                           <p className="text-[11px] font-semibold font-nunito mt-1"
                             style={{ color: deltaW >= 0 ? SAGE : AMBER }}>
-                            {deltaW >= 0 ? '▲' : '▼'} {Math.abs(deltaW)} kg vs anterior
+                            {deltaW >= 0 ? '▲' : '▼'} {fmtWeightDelta(deltaW, latest.weight >= 1000)} vs anterior
                           </p>
                         )}
                       </div>
@@ -1943,11 +1960,11 @@ export default function SaudePage() {
                             <div className="flex items-center gap-3 flex-wrap">
                               {entry.weight != null && (
                                 <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
-                                  {entry.weight} kg
+                                  {fmtWeight(entry.weight)}
                                   {deltaW != null && (
                                     <span className="text-[10px] font-semibold ml-1"
                                       style={{ color: deltaW >= 0 ? SAGE : AMBER }}>
-                                      {deltaW >= 0 ? '▲' : '▼'}{Math.abs(deltaW)}
+                                      {deltaW >= 0 ? '▲' : '▼'}{fmtWeightDelta(deltaW, entry.weight >= 1000)}
                                     </span>
                                   )}
                                 </span>

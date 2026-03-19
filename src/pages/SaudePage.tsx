@@ -821,6 +821,23 @@ export default function SaudePage() {
   function toggle(id: string) {
     setOpenSection(prev => prev === id ? null : id);
   }
+  function openAndScroll(id: string) {
+    setOpenSection(id);
+    setTimeout(() => {
+      document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
+
+  // Weight formatter: stored as kg (e.g. 3.5) or accidentally as grams (e.g. 3500)
+  // If value >= 1000, treat as grams and convert to kg with 1 decimal
+  function fmtWeight(w: number): string {
+    if (w >= 1000) return `${(w / 1000).toFixed(2)} kg`;
+    return `${w} kg`;
+  }
+  function fmtWeightDelta(d: number, asG: boolean): string {
+    if (asG) return `${Math.abs(d / 1000).toFixed(2)} kg`;
+    return `${Math.abs(d)} kg`;
+  }
 
   const [showAllDue, setShowAllDue]     = useState(false);
   const [showFuture, setShowFuture]     = useState(false);

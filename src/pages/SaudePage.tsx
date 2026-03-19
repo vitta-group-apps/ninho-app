@@ -18,13 +18,15 @@
  * Tone: calm, supportive, practical. Never alarmist.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { InlineStatusPill, SectionLabel } from '@/components/ds';
+import { toast } from '@/hooks/use-toast';
 import { getAgeContext } from '@/lib/eventSystem';
 import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -275,6 +277,7 @@ interface GrowthMeasurement {
 
 export default function SaudePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { activeChild } = useActiveChild();
   const childName = activeChild?.name ?? 'seu filho';
   const ageCtx    = activeChild ? getAgeContext(activeChild.birth_date) : null;
@@ -294,66 +297,160 @@ export default function SaudePage() {
   // Growth form
   const [growthForm, setGrowthForm] = useState<GrowthMeasurement>({});
   const [growthSaving, setGrowthSaving] = useState(false);
+  const [growthHistory, setGrowthHistory] = useState<Array<{ id: string; weight?: number; height?: number; note?: string; date: Date }>>([]);
 
   // Symptom quick-log
   const [loggedSymptoms, setLoggedSymptoms] = useState<string[]>([]);
   const [symptomNote, setSymptomNote] = useState('');
+  const [symptomSaving, setSymptomSaving] = useState(false);
+  const [symptomHistory, setSymptomHistory] = useState<Array<{ id: string; symptoms: string[]; note?: string; date: Date }>>([]);
 
   // Quick note / report note
   const [quickNote, setQuickNote]   = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [savedNotes, setSavedNotes] = useState<{ text: string; date: Date }[]>([]);
+  const [savedNotes, setSavedNotes] = useState<{ id?: string; text: string; date: Date }[]>([]);
   const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
 
+  // ─── Load health_logs from DB ────────────────────────────────────────────
+  const loadHealthLogs = useCallback(async () => {
+    if (!activeChild) return;
+    const { data } = await supabase
+      .from('health_logs')
+      .select('*')
+      .eq('child_id', activeChild.id)
+      .order('occurred_at', { ascending: false })
+      .limit(50);
+
+    if (!data) return;
+
+    const notes: typeof savedNotes = [];
+    const growth: typeof growthHistory = [];
+    const symptoms: typeof symptomHistory = [];
+
+    for (const row of data) {
+      const d = (row.details ?? {}) as Record<string, unknown>;
+      if (d.source === 'report' && typeof d.note === 'string') {
+        notes.push({ id: row.id, text: d.note, date: new Date(row.occurred_at) });
+      }
+      if (d.type === 'growth') {
+        growth.push({
+          id: row.id,
+          weight: d.weight_kg as number | undefined,
+          height: d.height_cm as number | undefined,
+          note: d.note as string | undefined,
+          date: new Date(row.occurred_at),
+        });
+      }
+      if (d.type === 'symptom' && Array.isArray(d.symptoms)) {
+        symptoms.push({
+          id: row.id,
+          symptoms: d.symptoms as string[],
+          note: d.note as string | undefined,
+          date: new Date(row.occurred_at),
+        });
+      }
+    }
+
+    setSavedNotes(notes);
+    setGrowthHistory(growth);
+    setSymptomHistory(symptoms);
+  }, [activeChild]);
+
+  useEffect(() => { loadHealthLogs(); }, [loadHealthLogs]);
+
   async function saveQuickNote() {
-    if (!quickNote.trim() || !activeChild) return;
+    if (!quickNote.trim() || !activeChild || !user) return;
     setSavingNote(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const now = new Date();
-      await supabase.from('health_logs').insert({
+      const { data, error } = await supabase.from('health_logs').insert({
         child_id: activeChild.id,
         author_id: user.id,
         type: 'note',
         occurred_at: now.toISOString(),
         details: { note: quickNote.trim(), source: 'report' },
-      });
-      // Add to local list immediately for instant feedback
-      setSavedNotes(prev => [{ text: quickNote.trim(), date: now }, ...prev]);
+      }).select('id').single();
+      if (error) throw error;
+      setSavedNotes(prev => [{ id: data?.id, text: quickNote.trim(), date: now }, ...prev]);
       setQuickNote('');
       setNoteSavedFeedback(true);
       setTimeout(() => setNoteSavedFeedback(false), 2500);
-    } catch { /* silent */ } finally {
+      toast({ title: '📋 Nota salva no relatório' });
+    } catch {
+      toast({ title: 'Erro ao salvar nota', variant: 'destructive' });
+    } finally {
       setSavingNote(false);
     }
   }
 
   async function saveGrowthMeasurement() {
-    if (!activeChild || (!growthForm.weight && !growthForm.height)) return;
+    if (!activeChild || !user || (!growthForm.weight && !growthForm.height)) return;
     setGrowthSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      await supabase.from('health_logs').insert({
+      const now = new Date();
+      const { data, error } = await supabase.from('health_logs').insert({
         child_id: activeChild.id,
         author_id: user.id,
         type: 'note',
-        occurred_at: new Date().toISOString(),
+        occurred_at: now.toISOString(),
         details: {
           type: 'growth',
           weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
           height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
           note: growthForm.note ?? null,
         },
-      });
+      }).select('id').single();
+      if (error) throw error;
+      setGrowthHistory(prev => [{
+        id: data?.id ?? '',
+        weight: growthForm.weight ? parseFloat(growthForm.weight) : undefined,
+        height: growthForm.height ? parseFloat(growthForm.height) : undefined,
+        note: growthForm.note,
+        date: now,
+      }, ...prev]);
       setGrowthForm({});
-    } catch { /* silent */ } finally {
+      toast({ title: '📏 Medição salva' });
+    } catch {
+      toast({ title: 'Erro ao salvar medição', variant: 'destructive' });
+    } finally {
       setGrowthSaving(false);
     }
   }
 
-  // Priority items (health-specific)
+  async function saveSymptoms() {
+    if (!activeChild || !user || loggedSymptoms.length === 0) return;
+    setSymptomSaving(true);
+    try {
+      const now = new Date();
+      const { data, error } = await supabase.from('health_logs').insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        type: 'note',
+        occurred_at: now.toISOString(),
+        details: {
+          type: 'symptom',
+          symptoms: loggedSymptoms,
+          note: symptomNote.trim() || null,
+        },
+      }).select('id').single();
+      if (error) throw error;
+      setSymptomHistory(prev => [{
+        id: data?.id ?? '',
+        symptoms: [...loggedSymptoms],
+        note: symptomNote.trim() || undefined,
+        date: now,
+      }, ...prev]);
+      setLoggedSymptoms([]);
+      setSymptomNote('');
+      toast({ title: '🌡️ Sintomas registrados' });
+    } catch {
+      toast({ title: 'Erro ao salvar sintomas', variant: 'destructive' });
+    } finally {
+      setSymptomSaving(false);
+    }
+  }
+
+  // ─── Priority items (health-specific, no duplicate consultation) ──────────
   const priorityItems: { emoji: string; title: string; body: string; cta: string; sectionId: string }[] = [];
 
   if (vaccineState.due.length > 0) {
@@ -361,7 +458,7 @@ export default function SaudePage() {
     priorityItems.push({
       emoji: '💉',
       title: `${vaccineState.due.length} vacina${vaccineState.due.length > 1 ? 's' : ''} a confirmar`,
-      body: `${first.shortName} (${first.doses}) está prevista para ${first.ageLabel}. Registre quando for aplicada.`,
+      body: `${first.shortName} (${first.doses}) está prevista — ${first.ageLabel}. Registre quando for aplicada.`,
       cta: 'Ver',
       sectionId: 'vaccines',
     });
@@ -369,26 +466,29 @@ export default function SaudePage() {
     const next = vaccineState.upcoming[0];
     priorityItems.push({
       emoji: '💉',
-      title: `Vacina prevista em breve`,
-      body: `${next.shortName} (${next.doses}) está próxima — ${next.ageLabel}. Confirme com o pediatra.`,
+      title: 'Vacina prevista em breve',
+      body: `${next.shortName} (${next.doses}) — ${next.ageLabel}. Confirme com o pediatra.`,
       cta: 'Ver',
       sectionId: 'vaccines',
     });
   }
 
-  priorityItems.push({
-    emoji: '🩺',
-    title: 'Nenhuma consulta agendada',
-    body: 'Consultas regulares ajudam a acompanhar o desenvolvimento e prevenir problemas.',
-    cta: 'Agendar',
-    sectionId: 'appointments',
-  });
+  // Only show consultation once, and only if vaccine alert doesn't already fill the attention
+  if (priorityItems.length < 2) {
+    priorityItems.push({
+      emoji: '🩺',
+      title: 'Nenhuma consulta agendada',
+      body: 'Consultas regulares facilitam o acompanhamento e previnem problemas.',
+      cta: 'Registrar',
+      sectionId: 'appointments',
+    });
+  }
 
-  if (ageMonths >= 1) {
+  if (ageMonths >= 1 && growthHistory.length === 0 && priorityItems.length < 3) {
     priorityItems.push({
       emoji: '📏',
-      title: 'Acompanhe o crescimento',
-      body: `Registre peso e altura de ${childName} para facilitar o acompanhamento pediátrico.`,
+      title: 'Registre peso e altura',
+      body: `Acompanhar o crescimento de ${childName} facilita o acompanhamento pediátrico.`,
       cta: 'Registrar',
       sectionId: 'growth',
     });
@@ -420,7 +520,7 @@ export default function SaudePage() {
             Visão geral
           </p>
           <div className="grid grid-cols-2 gap-3">
-        <OverviewStat
+            <OverviewStat
               emoji="💉" label="Vacinas"
               value={vaccineState.due.length > 0 ? `${vaccineState.due.length}` : '—'}
               sub={vaccineState.due.length > 0
@@ -434,24 +534,28 @@ export default function SaudePage() {
             />
             <OverviewStat
               emoji="🩺" label="Consultas"
-              value="0"
+              value="—"
               sub="Nenhuma agendada"
               color={MAUVE}
-              urgent
+              urgent={false}
               onTap={() => toggle('appointments')}
             />
             <OverviewStat
               emoji="🌡️" label="Sintomas"
-              value={loggedSymptoms.length > 0 ? `${loggedSymptoms.length}` : '—'}
-              sub={loggedSymptoms.length > 0 ? 'Registrados' : 'Nenhum recente'}
-              color={SAGE}
+              value={symptomHistory.length > 0 ? `${symptomHistory.length}` : '—'}
+              sub={symptomHistory.length > 0 ? `${symptomHistory.length} no histórico` : 'Nenhum recente'}
+              color={symptomHistory.length > 0 ? AMBER : SAGE}
+              urgent={false}
               onTap={() => toggle('symptoms')}
             />
             <OverviewStat
               emoji="📏" label="Crescimento"
-              value="—"
-              sub="Sem medições"
-              color={MAUVE}
+              value={growthHistory.length > 0 ? `${growthHistory.length}` : '—'}
+              sub={growthHistory.length > 0
+                ? `Última: ${growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+                : 'Sem medições'}
+              color={growthHistory.length > 0 ? SAGE : MAUVE}
+              urgent={false}
               onTap={() => toggle('growth')}
             />
           </div>
@@ -683,7 +787,9 @@ export default function SaudePage() {
             title="Sintomas"
             statusPill={
               loggedSymptoms.length > 0
-                ? <InlineStatusPill label={`${loggedSymptoms.length} registrado${loggedSymptoms.length > 1 ? 's' : ''}`} variant="paused" color={AMBER} />
+                ? <InlineStatusPill label={`${loggedSymptoms.length} selecionado${loggedSymptoms.length > 1 ? 's' : ''}`} variant="paused" color={AMBER} />
+                : symptomHistory.length > 0
+                ? <InlineStatusPill label={`${symptomHistory.length} no histórico`} variant="active" color={SAGE} />
                 : <InlineStatusPill label="Nenhum recente" variant="active" color={SAGE} />
             }
             summary="Registre sintomas para facilitar a consulta"
@@ -727,25 +833,50 @@ export default function SaudePage() {
                   className="w-full px-4 py-3 rounded-2xl text-[13px] font-nunito bg-muted text-foreground placeholder:text-muted-foreground resize-none outline-none border border-border focus:border-primary transition-colors"
                 />
                 <button
-                  className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
+                  onClick={saveSymptoms}
+                  disabled={symptomSaving}
+                  className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
                   style={{ backgroundColor: SAGE }}
                 >
-                  Salvar sintomas — {loggedSymptoms.join(', ')}
+                  {symptomSaving ? 'Salvando…' : `Salvar ${loggedSymptoms.length} sintoma${loggedSymptoms.length > 1 ? 's' : ''}`}
                 </button>
               </div>
             )}
 
             <div>
               <SectionLabel>Histórico</SectionLabel>
-              <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
-                <p className="text-3xl mb-2">🌡️</p>
-                <p className="text-[14px] font-bold font-quicksand text-foreground">
-                  Nenhum sintoma registrado
-                </p>
-                <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
-                  Registrar sintomas facilita a conversa com o pediatra e cria um histórico útil.
-                </p>
-              </div>
+              {symptomHistory.length === 0 ? (
+                <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
+                  <p className="text-3xl mb-2">🌡️</p>
+                  <p className="text-[14px] font-bold font-quicksand text-foreground">
+                    Nenhum sintoma registrado
+                  </p>
+                  <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
+                    Registrar sintomas facilita a conversa com o pediatra e cria um histórico útil.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {symptomHistory.slice(0, 5).map(entry => (
+                    <div key={entry.id} className="rounded-2xl px-4 py-3 bg-card border border-border">
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {entry.symptoms.map(s => (
+                          <span key={s} className="text-[11px] font-bold font-nunito px-2.5 py-1 rounded-full"
+                            style={{ backgroundColor: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                      {entry.note && (
+                        <p className="text-[12px] text-foreground font-nunito leading-snug mb-1">{entry.note}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground font-nunito">
+                        {entry.date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </ExpandableSection>
         </div>
@@ -783,7 +914,11 @@ export default function SaudePage() {
             id="growth"
             emoji="📏"
             title="Crescimento"
-            statusPill={<InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />}
+            statusPill={
+              growthHistory.length > 0
+                ? <InlineStatusPill label={`${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`} variant="active" color={SAGE} />
+                : <InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />
+            }
             summary={`Peso e altura de ${childName}`}
             open={openSection === 'growth'}
             onToggle={() => toggle('growth')}
@@ -839,15 +974,44 @@ export default function SaudePage() {
             {/* History */}
             <div>
               <SectionLabel>Histórico</SectionLabel>
-              <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
-                <p className="text-3xl mb-2">📏</p>
-                <p className="text-[14px] font-bold font-quicksand text-foreground">
-                  Nenhuma medição registrada
-                </p>
-                <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
-                  Acompanhe o crescimento registrando peso e altura regularmente.
-                </p>
-              </div>
+              {growthHistory.length === 0 ? (
+                <div className="rounded-2xl px-5 py-8 text-center bg-card border border-border">
+                  <p className="text-3xl mb-2">📏</p>
+                  <p className="text-[14px] font-bold font-quicksand text-foreground">
+                    Nenhuma medição registrada
+                  </p>
+                  <p className="text-[12px] mt-1 text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
+                    Acompanhe o crescimento registrando peso e altura regularmente.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {growthHistory.map(entry => (
+                    <div key={entry.id} className="rounded-2xl px-4 py-3 bg-card border border-border flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {entry.weight && (
+                            <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
+                              {entry.weight} kg
+                            </span>
+                          )}
+                          {entry.height && (
+                            <span className="text-[15px] font-bold font-quicksand" style={{ color: MAUVE }}>
+                              {entry.height} cm
+                            </span>
+                          )}
+                        </div>
+                        {entry.note && (
+                          <p className="text-[11px] text-muted-foreground font-nunito mt-1">{entry.note}</p>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-nunito flex-shrink-0">
+                        {entry.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </ExpandableSection>
         </div>

@@ -498,19 +498,21 @@ export default function BreastfeedingScreen() {
           >
             {/* Hero icon */}
             <div
-              className="w-32 h-32 rounded-full flex items-center justify-center"
+              className="w-28 h-28 rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
                 border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
               }}
             >
-              <span className="text-[52px]">🤱</span>
+              <span className="text-[48px]">🤱</span>
             </div>
 
             <div className="text-center space-y-1.5">
-              <p className="text-[18px] font-bold font-quicksand text-foreground">Pronta para mamar?</p>
-              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[200px] mx-auto">
-                Escolha o lado e inicie o cronômetro
+              <p className="text-[18px] font-bold font-quicksand text-foreground">
+                {activeChild ? activeChild.name : 'Amamentação'}
+              </p>
+              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[220px] mx-auto">
+                Escolha o lado e inicie o cronômetro, ou use outro modo abaixo.
               </p>
             </div>
 

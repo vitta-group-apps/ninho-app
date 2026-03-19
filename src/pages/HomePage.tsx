@@ -1,12 +1,12 @@
 /**
- * HomePage — Ninho assistant home screen.
+ * HomePage — Ninho daily assistant home screen.
  *
- * Responsibility: context-first, summary-first, action-first, lightweight.
- * - Summary cards show dominant value + contextual line
- * - Assistant strip shows genuinely useful guidance — never contradictory
- * - Empty states are distinct and helpful, not passive
- * - "Hoje" is a concise preview only (max 5 events)
- * - Quick actions are data-driven via config/quickActions.ts (locked at 4)
+ * Product role: answer "What matters now?" — not just summarize data.
+ * - Single strong assistant message at the top
+ * - Summary cards with contextual intelligence
+ * - Consultation card: contextual empty state with real CTA
+ * - Quick actions remain data-driven (locked at 4)
+ * - Recent activity capped and useful
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -16,7 +16,7 @@ import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { ChildSwitcher } from '@/components/home/ChildSwitcher';
-import { fmtRangeDuration } from '@/lib/routineUtils';
+import { fmtRangeDuration, fmtTimeSince } from '@/lib/routineUtils';
 import { EventCard } from '@/components/events/EventCard';
 import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,11 @@ import { SummaryMetricCard, QuickActionTile } from '@/components/ds';
 import type { RoutineLog } from '@/lib/eventSystem';
 import { analyzeDayPatterns, getAgeContext } from '@/lib/eventSystem';
 import { getOrderedQuickActions } from '@/config/quickActions';
+
+const SAGE        = 'hsl(152,15%,55%)';
+const FEED_COLOR  = 'hsl(152,15%,55%)';
+const SLEEP_COLOR = 'hsl(270,12%,42%)';
+const DIAPER_COLOR= 'hsl(32,80%,57%)';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -33,7 +38,7 @@ export default function HomePage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
 
-  // ─── Load logs ─────────────────────────────────────────────────────────────
+  // ─── Load today's logs ────────────────────────────────────────────────────
   const loadLogs = useCallback(async () => {
     if (!activeChild) return;
     setLogsLoading(true);
@@ -58,23 +63,23 @@ export default function HomePage() {
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
-  // ─── Daily stats ───────────────────────────────────────────────────────────
-  const feedLogs = logs.filter(l => l.type === 'feed');
-  const feedCount = feedLogs.length;
+  // ─── Derived stats ────────────────────────────────────────────────────────
+  const feedLogs    = logs.filter(l => l.type === 'feed');
+  const feedCount   = feedLogs.length;
   const diaperCount = logs.filter(l => l.type === 'diaper').length;
-  const sleepLogs = logs.filter(l => l.type === 'sleep' && l.end_time);
-  const sleepSec = sleepLogs.reduce((acc, l) => {
+  const sleepLogs   = logs.filter(l => l.type === 'sleep' && l.end_time);
+  const sleepSec    = sleepLogs.reduce((acc, l) => {
     return acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000);
   }, 0);
-  const sleepH = Math.floor(sleepSec / 3600);
-  const sleepM = Math.floor((sleepSec % 3600) / 60);
+  const sleepH     = Math.floor(sleepSec / 3600);
+  const sleepM     = Math.floor((sleepSec % 3600) / 60);
   const sleepLabel = sleepSec > 0 ? (sleepH > 0 ? `${sleepH}h ${sleepM}m` : `${sleepM}m`) : null;
   const ongoingSleep = logs.find(l => l.type === 'sleep' && !l.end_time);
-  const lastSleep = [...logs].reverse().find(l => l.type === 'sleep');
-  const lastFeed = feedLogs[0]; // newest first
+  const lastSleep    = [...logs].reverse().find(l => l.type === 'sleep');
+  const lastFeed     = feedLogs[0]; // newest first
 
-  // ─── Age context + intelligence ────────────────────────────────────────────
-  const ageCtx = activeChild ? getAgeContext(activeChild.birth_date) : null;
+  // ─── Age context ──────────────────────────────────────────────────────────
+  const ageCtx  = activeChild ? getAgeContext(activeChild.birth_date) : null;
   const insights = analyzeDayPatterns(logs);
   const ageMonths = ageCtx?.months ?? 99;
   const isNewborn = ageMonths < 3;
@@ -85,142 +90,164 @@ export default function HomePage() {
     weekday: 'long', day: 'numeric', month: 'long',
   });
 
-  // ─── Assistant guidance strip ───────────────────────────────────────────────
-  // Shows ONE clear next-step message. Never shown when it would contradict visible data.
+  // ─── Assistant message — single, high-signal, never generic ──────────────
+  // Priority: active session > overdue feed > no sleep logged > empty day
   const assistantMessage = (() => {
     if (logsLoading || !activeChild) return null;
 
-    // Active session takes priority
     if (ongoingSleep) {
-      return { emoji: '😴', text: 'Sono em andamento', path: '/sleep', cta: 'Ver sono' };
+      return {
+        emoji: '😴',
+        text: 'Sono em andamento',
+        path: '/sleep',
+        cta: 'Ver sono',
+        tone: 'info' as const,
+      };
     }
 
-    // Time since last feed — only surface if meaningfully overdue
     if (lastFeed && ageCtx?.idealFeedIntervalMin) {
-      const minSinceLastFeed = Math.floor(
+      const minSince = Math.floor(
         (Date.now() - new Date(lastFeed.start_time).getTime()) / 60000
       );
       const ideal = ageCtx.idealFeedIntervalMin;
-      if (minSinceLastFeed >= ideal * 0.85) {
-        const h = Math.floor(minSinceLastFeed / 60);
-        const m = minSinceLastFeed % 60;
+      if (minSince >= ideal * 0.9) {
+        const h = Math.floor(minSince / 60);
+        const m = minSince % 60;
         const timeStr = h > 0 ? `${h}h${m > 0 ? `${m}m` : ''}` : `${m}min`;
         return {
           emoji: '🤱',
           text: `Última mamada há ${timeStr}`,
           path: '/breastfeeding',
           cta: 'Registrar',
+          tone: 'nudge' as const,
         };
       }
     }
 
-    // No logs at all today
+    // No sleep at all today after noon
+    if (logs.length > 0 && sleepSec === 0 && !ongoingSleep && new Date().getHours() >= 12) {
+      return {
+        emoji: '😴',
+        text: 'Nenhum sono registrado hoje',
+        path: '/sleep',
+        cta: 'Registrar',
+        tone: 'nudge' as const,
+      };
+    }
+
+    // Truly empty day
     if (logs.length === 0) {
       return {
         emoji: '👶',
-        text: 'Seu dia ainda não começou — registre a primeira atividade',
+        text: 'Registre a primeira atividade do dia',
         path: '/breastfeeding',
-        cta: 'Registrar',
+        cta: 'Começar',
+        tone: 'empty' as const,
       };
     }
 
     return null;
   })();
 
-  // ─── Metric cards ──────────────────────────────────────────────────────────
-  const FEED_COLOR   = 'hsl(152,15%,55%)';
-  const SLEEP_COLOR  = 'hsl(270,12%,42%)';
-  const DIAPER_COLOR = 'hsl(32,80%,57%)';
-
-  // Build contextual supporting lines
+  // ─── Supporting lines for each metric card ────────────────────────────────
   const feedSub = (() => {
-    if (feedCount === 0) return 'Nenhuma mamada registrada hoje';
+    if (feedCount === 0) {
+      if (lastFeed) return `Última mamada há ${fmtTimeSince(lastFeed.start_time)}`;
+      return 'Nenhuma mamada registrada hoje';
+    }
     if (insights.avgFeedIntervalMin) return `~${insights.avgFeedIntervalMin}min entre mamadas`;
+    if (lastFeed) return `Última há ${fmtTimeSince(lastFeed.start_time)}`;
     return feedCount === 1 ? '1 mamada hoje' : `${feedCount} mamadas hoje`;
   })();
 
   const sleepSub = (() => {
     if (ongoingSleep) return 'Em andamento agora';
-    if (sleepSec === 0) return 'Nenhum sono registrado hoje';
+    if (sleepSec === 0) {
+      if (new Date().getHours() >= 12) return 'Nenhum sono registrado hoje';
+      return 'Ainda cedo para registrar sono';
+    }
     if (insights.hasLongSleep) return 'Sono longo — ótimo!';
-    if (lastSleep?.end_time) return `Duração: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`;
+    if (lastSleep?.end_time) return `Último: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`;
     return 'Sono registrado hoje';
   })();
 
   const diaperSub = (() => {
-    if (diaperCount === 0) return 'Nenhuma fralda registrada hoje';
-    if (diaperCount === 1) return '1 fralda trocada hoje';
-    return `${diaperCount} fraldas trocadas hoje`;
+    if (diaperCount === 0) return 'Nenhuma troca registrada hoje';
+    if (diaperCount === 1) return '1 troca hoje';
+    return `${diaperCount} trocas hoje`;
   })();
 
+  // ─── Metric cards ─────────────────────────────────────────────────────────
   const metricsNewborn = [
     {
       emoji: '🤱', label: 'Mamadas',
-      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}` : '0',
+      value: logsLoading ? '…' : `${feedCount}`,
       sub: logsLoading ? '' : feedSub,
       empty: !logsLoading && feedCount === 0,
       color: FEED_COLOR,
     },
     {
       emoji: '🧷', label: 'Fraldas',
-      value: logsLoading ? '...' : `${diaperCount}`,
+      value: logsLoading ? '…' : `${diaperCount}`,
       sub: logsLoading ? '' : diaperSub,
       empty: !logsLoading && diaperCount === 0,
       color: DIAPER_COLOR,
     },
     {
       emoji: '😴', label: 'Sono',
-      value: logsLoading ? '...' : (sleepLabel ?? (ongoingSleep ? '...' : '0')),
+      value: logsLoading ? '…' : (sleepLabel ?? (ongoingSleep ? '…' : '0')),
       sub: logsLoading ? '' : sleepSub,
       empty: !logsLoading && !sleepLabel && !ongoingSleep,
       color: SLEEP_COLOR,
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: 'Nenhuma',
-      sub: 'Agende a próxima consulta',
+      value: '—',
+      sub: 'Sem consulta agendada',
       empty: true,
       color: 'hsl(var(--primary))',
+      action: { label: 'Agendar', path: '/health' },
     },
   ];
 
   const metricsOlder = [
     {
       emoji: '😴', label: 'Sono',
-      value: logsLoading ? '...' : (sleepLabel ?? (ongoingSleep ? '...' : '0')),
+      value: logsLoading ? '…' : (sleepLabel ?? (ongoingSleep ? '…' : '0')),
       sub: logsLoading ? '' : sleepSub,
       empty: !logsLoading && !sleepLabel && !ongoingSleep,
       color: SLEEP_COLOR,
     },
     {
       emoji: '🤱', label: 'Mamadas',
-      value: logsLoading ? '...' : feedCount > 0 ? `${feedCount}` : '0',
+      value: logsLoading ? '…' : `${feedCount}`,
       sub: logsLoading ? '' : feedSub,
       empty: !logsLoading && feedCount === 0,
       color: FEED_COLOR,
     },
     {
       emoji: '🧷', label: 'Fraldas',
-      value: logsLoading ? '...' : `${diaperCount}`,
+      value: logsLoading ? '…' : `${diaperCount}`,
       sub: logsLoading ? '' : diaperSub,
       empty: !logsLoading && diaperCount === 0,
       color: DIAPER_COLOR,
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: 'Nenhuma',
-      sub: 'Agende a próxima consulta',
+      value: '—',
+      sub: 'Sem consulta agendada',
       empty: true,
       color: 'hsl(var(--primary))',
+      action: { label: 'Agendar', path: '/health' },
     },
   ];
 
   const metrics = isNewborn ? metricsNewborn : metricsOlder;
 
-  // ─── Data-driven quick actions (locked at 4) ───────────────────────────────
+  // ─── Quick actions ────────────────────────────────────────────────────────
   const quickActions = getOrderedQuickActions(ageMonths);
 
-  // Home preview: show first 5 events only
+  // Home preview: latest 5 events only
   const previewLogs = logs.slice(0, 5);
 
   return (
@@ -280,27 +307,40 @@ export default function HomePage() {
 
           <div className="px-4 mt-4 space-y-6">
 
-            {/* ── Resumo do dia — 2×2 grid ───────────────────────────────── */}
+            {/* ── Resumo do dia — 2×2 grid ─────────────────────────── */}
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
                 Resumo do dia
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {metrics.map(m => (
-                  <SummaryMetricCard
-                    key={m.label}
-                    emoji={m.emoji}
-                    label={m.label}
-                    value={m.value}
-                    sub={m.sub}
-                    empty={m.empty}
-                    accentColor={m.color}
-                  />
+                  <div key={m.label} className="flex flex-col">
+                    <SummaryMetricCard
+                      emoji={m.emoji}
+                      label={m.label}
+                      value={m.value}
+                      sub={m.sub}
+                      empty={m.empty}
+                      accentColor={m.color}
+                    />
+                    {'action' in m && m.action && m.empty && (
+                      <button
+                        onClick={() => navigate(m.action!.path)}
+                        className="mt-1.5 w-full py-2 rounded-xl text-[11px] font-bold font-nunito text-center transition-all active:scale-95"
+                        style={{
+                          backgroundColor: 'hsl(var(--muted))',
+                          color: 'hsl(var(--muted-foreground))',
+                        }}
+                      >
+                        {m.action!.label}
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
 
-            {/* ── Assistant guidance — only shown when genuinely useful ───── */}
+            {/* ── Assistant guidance — single high-signal message ───── */}
             {assistantMessage && !logsLoading && (
               <div
                 className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
@@ -317,7 +357,7 @@ export default function HomePage() {
                   <button
                     onClick={() => navigate(assistantMessage.path!)}
                     className="text-[12px] font-bold font-nunito px-3 py-1.5 rounded-xl text-white transition-all active:scale-95 flex-shrink-0"
-                    style={{ backgroundColor: 'hsl(152,15%,55%)' }}
+                    style={{ backgroundColor: SAGE }}
                   >
                     {assistantMessage.cta}
                   </button>
@@ -325,7 +365,7 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* ── Registrar agora — locked 4-tile grid ───────────────────── */}
+            {/* ── Registrar agora — locked 4-tile grid ──────────────── */}
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
                 Registrar agora
@@ -343,7 +383,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* ── Hoje — lightweight preview ─────────────────────────────── */}
+            {/* ── Hoje — lightweight preview ────────────────────────── */}
             <div>
               <div className="flex items-baseline justify-between mb-3">
                 <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
@@ -375,10 +415,10 @@ export default function HomePage() {
                 <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
                   <p className="text-4xl mb-3">🌤️</p>
                   <p className="text-[15px] font-bold font-quicksand text-foreground">
-                    Seu dia ainda não começou
+                    O dia ainda está em branco
                   </p>
                   <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
-                    Toque em um dos atalhos acima para registrar a primeira atividade.
+                    Use os atalhos acima para registrar a primeira atividade.
                   </p>
                 </div>
               ) : (

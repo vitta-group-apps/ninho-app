@@ -268,10 +268,10 @@ export default function SaudePage() {
               ctaLabel="Agendar"
               onCta={() => toggle('appointments')}
             />
-            <PriorityItem
+          <PriorityItem
               emoji="📏"
               title="Crescimento sem medições"
-              body="Registre o peso e a altura para acompanhar a evolução de {name}.".replace('{name}', childName)
+              body={`Registre o peso e a altura para acompanhar a evolução de ${childName}.`}
               ctaLabel="Registrar"
               onCta={() => toggle('growth')}
             />

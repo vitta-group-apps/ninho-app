@@ -483,7 +483,7 @@ export default function SaudePage() {
                 ? <InlineStatusPill label={`${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`} variant="paused" color={AMBER} />
                 : <InlineStatusPill label="Em dia" variant="active" color={SAGE} />
             }
-            summary={`Calendário SUS · ${vaccineState.applied.length} aplicadas`}
+            summary={`Calendário SUS · ${vaccineState.due.length > 0 ? `${vaccineState.due.length} a confirmar` : 'acompanhando'}`}
             open={openSection === 'vaccines'}
             onToggle={() => toggle('vaccines')}
           >

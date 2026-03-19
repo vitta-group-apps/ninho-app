@@ -520,7 +520,7 @@ export default function SaudePage() {
             Visão geral
           </p>
           <div className="grid grid-cols-2 gap-3">
-        <OverviewStat
+            <OverviewStat
               emoji="💉" label="Vacinas"
               value={vaccineState.due.length > 0 ? `${vaccineState.due.length}` : '—'}
               sub={vaccineState.due.length > 0
@@ -534,24 +534,28 @@ export default function SaudePage() {
             />
             <OverviewStat
               emoji="🩺" label="Consultas"
-              value="0"
+              value="—"
               sub="Nenhuma agendada"
               color={MAUVE}
-              urgent
+              urgent={false}
               onTap={() => toggle('appointments')}
             />
             <OverviewStat
               emoji="🌡️" label="Sintomas"
-              value={loggedSymptoms.length > 0 ? `${loggedSymptoms.length}` : '—'}
-              sub={loggedSymptoms.length > 0 ? 'Registrados' : 'Nenhum recente'}
-              color={SAGE}
+              value={symptomHistory.length > 0 ? `${symptomHistory.length}` : '—'}
+              sub={symptomHistory.length > 0 ? `${symptomHistory.length} no histórico` : 'Nenhum recente'}
+              color={symptomHistory.length > 0 ? AMBER : SAGE}
+              urgent={false}
               onTap={() => toggle('symptoms')}
             />
             <OverviewStat
               emoji="📏" label="Crescimento"
-              value="—"
-              sub="Sem medições"
-              color={MAUVE}
+              value={growthHistory.length > 0 ? `${growthHistory.length}` : '—'}
+              sub={growthHistory.length > 0
+                ? `Última: ${growthHistory[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+                : 'Sem medições'}
+              color={growthHistory.length > 0 ? SAGE : MAUVE}
+              urgent={false}
               onTap={() => toggle('growth')}
             />
           </div>

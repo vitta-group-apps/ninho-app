@@ -867,7 +867,41 @@ export default function SaudePage() {
             >
               {savingNote ? 'Salvando…' : 'Salvar nota'}
             </button>
+            {noteSavedFeedback && (
+              <div
+                className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl"
+                style={{ backgroundColor: `color-mix(in srgb, ${SAGE} 12%, transparent)` }}
+              >
+                <span className="text-[13px]">✓</span>
+                <p className="text-[12px] font-semibold font-nunito" style={{ color: SAGE }}>
+                  Nota salva no relatório
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Saved notes list */}
+          {savedNotes.length > 0 && (
+            <div>
+              <SectionLabel>Notas salvas</SectionLabel>
+              <div className="space-y-2">
+                {savedNotes.map((n, i) => (
+                  <div
+                    key={i}
+                    className="rounded-2xl px-4 py-3 bg-card border border-border"
+                  >
+                    <p className="text-[12px] text-foreground font-nunito leading-snug">{n.text}</p>
+                    <p className="text-[10px] text-muted-foreground font-nunito mt-1.5">
+                      {n.date.toLocaleString('pt-BR', {
+                        day: '2-digit', month: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* How-to guidance */}
           <div

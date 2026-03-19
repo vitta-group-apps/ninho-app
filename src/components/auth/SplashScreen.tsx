@@ -106,7 +106,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 1.0 }}>
         
-        Organize saúde, rotina e desenvolvimento da criança.
+        Organize a saúde, a rotina e o desenvolvimento em um só lugar.
 
       </motion.p>
     </motion.div>);

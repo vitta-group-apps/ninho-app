@@ -494,31 +494,11 @@ export default function BreastfeedingScreen() {
         {phase === 'suggest' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-7 pt-6"
+            className="flex flex-col gap-6 pt-4"
           >
-            {/* Hero icon */}
-            <div
-              className="w-28 h-28 rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
-                border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
-              }}
-            >
-              <span className="text-[48px]">🤱</span>
-            </div>
-
-            <div className="text-center space-y-1.5">
-              <p className="text-[18px] font-bold font-quicksand text-foreground">
-                {activeChild ? activeChild.name : 'Amamentação'}
-              </p>
-              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[220px] mx-auto">
-                Escolha o lado e inicie o cronômetro, ou use outro modo abaixo.
-              </p>
-            </div>
-
-            {/* Side selector */}
-            <div className="w-full">
-              <SectionLabel>Por qual lado começar?</SectionLabel>
+            {/* Side selector — primary action, no theatrical intro */}
+            <div>
+              <SectionLabel>Escolha o lado para iniciar</SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (
                   <SideCard key={s} side={s} active={selectedSide === s}
@@ -527,17 +507,19 @@ export default function BreastfeedingScreen() {
               </div>
             </div>
 
-          {/* Secondary actions */}
-            <div className="w-full flex flex-col gap-2 pt-2 border-t border-border">
+            {/* Secondary actions — visually separated */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-border">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito mb-1">
+                Outras opções
+              </p>
               <button
                 onClick={() => navigate('/bottle')}
                 className="w-full py-3 rounded-2xl text-[13px] font-semibold font-nunito text-center transition-all active:scale-95 bg-muted text-foreground"
               >
-                🍼 Mamadeira / Fórmula
+                🍼 Mamadeira ou fórmula
               </button>
               <button
                 onClick={() => {
-                  // Reset manual fields to current time
                   const now = new Date();
                   setManualStartTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
                   setManualDurationMin('');

@@ -95,7 +95,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.75 }}>
         
-        ninho
+        Ninho
       </motion.h1>
 
       {/* Tagline */}

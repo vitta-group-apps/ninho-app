@@ -206,13 +206,14 @@ export async function track(
 
     // Store in health_events as append-only behavioral log
     const childId = overrides?.child_id ?? _childId ?? uid;
-    await supabase.from('health_events').insert({
+    const insertPayload = {
       child_id:   childId,
       author_id:  uid,
       event_type: event_name,
       severity:   'low',
-      payload:    payload as unknown as Record<string, unknown>,
-    });
+      payload:    payload as unknown as import('@/integrations/supabase/types').Json,
+    };
+    await supabase.from('health_events').insert(insertPayload);
   } catch {
     // Never throw — analytics must never break the product
   }

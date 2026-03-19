@@ -1721,7 +1721,7 @@ export default function SaudePage() {
             statusPill={
               growthHistory.length > 0
                 ? <InlineStatusPill
-                    label={growthHistory[0].weight ? `${growthHistory[0].weight} kg` : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`}
+                    label={growthHistory[0].weight ? fmtWeight(growthHistory[0].weight) : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`}
                     variant="active" color={SAGE}
                   />
                 : <InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />

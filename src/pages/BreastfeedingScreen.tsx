@@ -494,31 +494,11 @@ export default function BreastfeedingScreen() {
         {phase === 'suggest' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-7 pt-6"
+            className="flex flex-col gap-6 pt-4"
           >
-            {/* Hero icon */}
-            <div
-              className="w-28 h-28 rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
-                border: `2px dashed color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
-              }}
-            >
-              <span className="text-[48px]">🤱</span>
-            </div>
-
-            <div className="text-center space-y-1.5">
-              <p className="text-[18px] font-bold font-quicksand text-foreground">
-                {activeChild ? activeChild.name : 'Amamentação'}
-              </p>
-              <p className="text-[13px] text-muted-foreground font-nunito leading-snug max-w-[220px] mx-auto">
-                Escolha o lado e inicie o cronômetro, ou use outro modo abaixo.
-              </p>
-            </div>
-
-            {/* Side selector */}
-            <div className="w-full">
-              <SectionLabel>Por qual lado começar?</SectionLabel>
+            {/* Side selector — primary action, no theatrical intro */}
+            <div>
+              <SectionLabel>Escolha o lado para iniciar</SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (
                   <SideCard key={s} side={s} active={selectedSide === s}
@@ -527,17 +507,19 @@ export default function BreastfeedingScreen() {
               </div>
             </div>
 
-          {/* Secondary actions */}
-            <div className="w-full flex flex-col gap-2 pt-2 border-t border-border">
+            {/* Secondary actions — visually separated */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-border">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito mb-1">
+                Outras opções
+              </p>
               <button
                 onClick={() => navigate('/bottle')}
                 className="w-full py-3 rounded-2xl text-[13px] font-semibold font-nunito text-center transition-all active:scale-95 bg-muted text-foreground"
               >
-                🍼 Mamadeira / Fórmula
+                🍼 Mamadeira ou fórmula
               </button>
               <button
                 onClick={() => {
-                  // Reset manual fields to current time
                   const now = new Date();
                   setManualStartTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
                   setManualDurationMin('');
@@ -590,7 +572,7 @@ export default function BreastfeedingScreen() {
             {/* Side cards */}
             <div>
               <SectionLabel>
-                {sessionStatus === 'ACTIVE' ? 'Toque no lado para alternar' : 'Sessão pausada'}
+                {sessionStatus === 'ACTIVE' ? 'Toque no lado para alternar' : 'Sessão pausada — retome para continuar'}
               </SectionLabel>
               <div className="flex gap-3">
                 {(['L', 'R'] as Side[]).map(s => (
@@ -784,43 +766,57 @@ export default function BreastfeedingScreen() {
         {phase === 'ended' && finishedData && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
-            {/* Summary card */}
+            {/* Session summary — clean, informative */}
             <div
-              className="flex items-center gap-4 p-4 rounded-2xl"
+              className="p-4 rounded-2xl"
               style={{
                 backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
                 border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
               }}
             >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
-                style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
-              >
-                🤱
-              </div>
-              <div>
-                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
-                  {finishedData.totalSec > 0 ? 'Sessão encerrada' : 'Registro manual'}
-                </p>
-                {finishedData.totalSec > 0 ? (
-                  <p className="text-[13px] font-semibold mt-0.5 font-nunito" style={{ color: FEED_COLOR }}>
-                    {[
-                      finishedData.leftSec  > 0 ? `Esquerdo: ${fmtDurationShort(finishedData.leftSec)}`  : null,
-                      finishedData.rightSec > 0 ? `Direito: ${fmtDurationShort(finishedData.rightSec)}` : null,
-                      finishedData.switches > 0 ? `${finishedData.switches} troca${finishedData.switches > 1 ? 's' : ''}` : null,
-                    ].filter(Boolean).join(' · ')}
+              <div className="flex items-center gap-3 mb-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
+                  style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
+                >
+                  🤱
+                </div>
+                <div>
+                  <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
+                    Amamentação encerrada
                   </p>
-                ) : (
-                  <p className="text-[12px] mt-0.5 font-nunito text-muted-foreground">
-                    Adicione observações se quiser
+                  <p className="text-[12px] font-nunito text-muted-foreground">
+                    Revise e salve o registro abaixo
                   </p>
-                )}
+                </div>
               </div>
+              {finishedData.totalSec > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Esquerdo', value: finishedData.leftSec > 0 ? fmtDurationShort(finishedData.leftSec) : '—' },
+                    { label: 'Direito',  value: finishedData.rightSec > 0 ? fmtDurationShort(finishedData.rightSec) : '—' },
+                    { label: 'Trocas',   value: `${finishedData.switches}` },
+                  ].map(stat => (
+                    <div
+                      key={stat.label}
+                      className="rounded-xl px-2 py-2.5 text-center"
+                      style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))` }}
+                    >
+                      <p className="text-[15px] font-bold font-quicksand" style={{ color: FEED_COLOR }}>
+                        {stat.value}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
+                        {stat.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Quick tags */}
             <div>
-              <SectionLabel>Como foi a mamada?</SectionLabel>
+              <SectionLabel>Observações rápidas</SectionLabel>
               <ChipGroup
                 options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
                 values={obsTags}
@@ -830,22 +826,20 @@ export default function BreastfeedingScreen() {
               />
             </div>
 
-            {/* Divider */}
             <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
 
-            {/* Observations */}
+            {/* Notes */}
             <div>
-              <SectionLabel>Observações</SectionLabel>
+              <SectionLabel>Anotações (opcional)</SectionLabel>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Como foi a mamada? Alguma observação..."
+                placeholder="Alguma observação sobre essa mamada..."
                 className="ds-textarea"
                 rows={3}
               />
             </div>
 
-            {/* Medical report */}
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
 
           </motion.div>

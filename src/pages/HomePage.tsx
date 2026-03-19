@@ -1,12 +1,13 @@
 /**
  * HomePage — Ninho daily assistant home screen.
  *
- * Product role: answer "What matters now?" — not just summarize data.
- * - Single strong assistant message at the top
- * - Summary cards with contextual intelligence
- * - Consultation card: contextual empty state with real CTA
- * - Quick actions remain data-driven (locked at 4)
- * - Recent activity capped and useful
+ * Product role: answer "What matters now?" — not summarize data.
+ *  1. Header: greeting + child + age context
+ *  2. Main assistant block: ONE message, ONE action — always contextual
+ *  3. Daily summary: 4 metric cards — strong number, useful subtext
+ *  4. Priorities: what needs attention (clickable items)
+ *  5. Quick actions: 4 locked shortcuts
+ *  6. Recent activity: last 5 events, only if useful
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -25,10 +26,54 @@ import type { RoutineLog } from '@/lib/eventSystem';
 import { analyzeDayPatterns, getAgeContext } from '@/lib/eventSystem';
 import { getOrderedQuickActions } from '@/config/quickActions';
 
-const SAGE        = 'hsl(152,15%,55%)';
-const FEED_COLOR  = 'hsl(152,15%,55%)';
-const SLEEP_COLOR = 'hsl(270,12%,42%)';
-const DIAPER_COLOR= 'hsl(32,80%,57%)';
+const SAGE         = 'hsl(152,15%,55%)';
+const FEED_COLOR   = 'hsl(152,15%,55%)';
+const SLEEP_COLOR  = 'hsl(270,12%,42%)';
+const DIAPER_COLOR = 'hsl(32,80%,57%)';
+const AMBER        = 'hsl(37,90%,55%)';
+
+// ─── Priority item ─────────────────────────────────────────────────────────
+
+function PriorityItem({
+  emoji,
+  title,
+  body,
+  ctaLabel,
+  onCta,
+}: {
+  emoji: string;
+  title: string;
+  body: string;
+  ctaLabel?: string;
+  onCta?: () => void;
+}) {
+  return (
+    <button
+      onClick={onCta}
+      className="w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[0.99]"
+      style={{
+        backgroundColor: `color-mix(in srgb, ${AMBER} 7%, hsl(var(--card)))`,
+        border: `1px solid color-mix(in srgb, ${AMBER} 18%, transparent)`,
+      }}
+    >
+      <span className="text-[18px] mt-0.5 flex-shrink-0">{emoji}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-bold font-quicksand text-foreground">{title}</p>
+        <p className="text-[12px] text-muted-foreground font-nunito mt-0.5 leading-snug">{body}</p>
+      </div>
+      {ctaLabel && (
+        <span
+          className="text-[11px] font-bold font-nunito px-2.5 py-1.5 rounded-xl text-white flex-shrink-0"
+          style={{ backgroundColor: AMBER }}
+        >
+          {ctaLabel}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -38,7 +83,7 @@ export default function HomePage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
 
-  // ─── Load today's logs ────────────────────────────────────────────────────
+  // ─── Load today's logs ──────────────────────────────────────────────────
   const loadLogs = useCallback(async () => {
     if (!activeChild) return;
     setLogsLoading(true);
@@ -63,7 +108,7 @@ export default function HomePage() {
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
-  // ─── Derived stats ────────────────────────────────────────────────────────
+  // ─── Derived stats ──────────────────────────────────────────────────────
   const feedLogs    = logs.filter(l => l.type === 'feed');
   const feedCount   = feedLogs.length;
   const diaperCount = logs.filter(l => l.type === 'diaper').length;
@@ -78,45 +123,45 @@ export default function HomePage() {
   const lastSleep    = [...logs].reverse().find(l => l.type === 'sleep');
   const lastFeed     = feedLogs[0]; // newest first
 
-  // ─── Age context ──────────────────────────────────────────────────────────
-  const ageCtx  = activeChild ? getAgeContext(activeChild.birth_date) : null;
-  const insights = analyzeDayPatterns(logs);
+  // ─── Age context ────────────────────────────────────────────────────────
+  const ageCtx    = activeChild ? getAgeContext(activeChild.birth_date) : null;
+  const insights  = analyzeDayPatterns(logs);
   const ageMonths = ageCtx?.months ?? 99;
   const isNewborn = ageMonths < 3;
 
-  const hour = new Date().getHours();
+  const hour     = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-  const todayLabel = new Date().toLocaleDateString('pt-BR', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  });
 
-  // ─── Assistant message — single, high-signal, never generic ──────────────
-  // Priority: active session > overdue feed > no sleep logged > empty day
+  // ─── Main assistant message — ONE message, always contextual ────────────
+  // Priority: active session → overdue feed → no sleep today → empty day
   const assistantMessage = (() => {
     if (logsLoading || !activeChild) return null;
 
+    // 1. Active sleep session
     if (ongoingSleep) {
+      const sinceStr = fmtTimeSince(ongoingSleep.start_time);
       return {
         emoji: '😴',
-        text: 'Sono em andamento',
+        title: 'Sono em andamento',
+        body: `Iniciado há ${sinceStr}. Toque para encerrar quando acordar.`,
         path: '/sleep',
         cta: 'Ver sono',
         tone: 'info' as const,
       };
     }
 
+    // 2. Feed overdue
     if (lastFeed && ageCtx?.idealFeedIntervalMin) {
-      const minSince = Math.floor(
-        (Date.now() - new Date(lastFeed.start_time).getTime()) / 60000
-      );
-      const ideal = ageCtx.idealFeedIntervalMin;
+      const minSince = Math.floor((Date.now() - new Date(lastFeed.start_time).getTime()) / 60000);
+      const ideal    = ageCtx.idealFeedIntervalMin;
       if (minSince >= ideal * 0.9) {
         const h = Math.floor(minSince / 60);
         const m = minSince % 60;
-        const timeStr = h > 0 ? `${h}h${m > 0 ? `${m}m` : ''}` : `${m}min`;
+        const timeStr = h > 0 ? `${h}h${m > 0 ? ` ${m}min` : ''}` : `${m}min`;
         return {
           emoji: '🤱',
-          text: `Última mamada há ${timeStr}`,
+          title: `Última mamada há ${timeStr}`,
+          body: 'Pode ser hora de alimentar novamente.',
           path: '/breastfeeding',
           cta: 'Registrar',
           tone: 'nudge' as const,
@@ -124,24 +169,26 @@ export default function HomePage() {
       }
     }
 
-    // No sleep at all today after noon
-    if (logs.length > 0 && sleepSec === 0 && !ongoingSleep && new Date().getHours() >= 12) {
+    // 3. No sleep logged today after noon
+    if (logs.length > 0 && sleepSec === 0 && !ongoingSleep && hour >= 12) {
       return {
         emoji: '😴',
-        text: 'Nenhum sono registrado hoje',
+        title: 'Nenhum sono registrado hoje',
+        body: 'Registre os períodos de sono para acompanhar o descanso.',
         path: '/sleep',
         cta: 'Registrar',
         tone: 'nudge' as const,
       };
     }
 
-    // Truly empty day
+    // 4. Truly empty day
     if (logs.length === 0) {
       return {
         emoji: '👶',
-        text: 'Registre a primeira atividade do dia',
+        title: 'Ainda não há registros hoje',
+        body: 'Comece registrando a primeira atividade do dia.',
         path: '/breastfeeding',
-        cta: 'Começar',
+        cta: 'Registrar agora',
         tone: 'empty' as const,
       };
     }
@@ -149,35 +196,67 @@ export default function HomePage() {
     return null;
   })();
 
-  // ─── Supporting lines for each metric card ────────────────────────────────
-  const feedSub = (() => {
-    if (feedCount === 0) {
-      if (lastFeed) return `Última mamada há ${fmtTimeSince(lastFeed.start_time)}`;
-      return 'Nenhuma mamada registrada hoje';
+  // ─── Priority items (what needs attention) ──────────────────────────────
+  const priorities: { emoji: string; title: string; body: string; cta: string; path: string }[] = [];
+
+  if (!logsLoading && activeChild) {
+    // No consultation scheduled
+    priorities.push({
+      emoji: '📅',
+      title: 'Nenhuma consulta agendada',
+      body: 'Manter o calendário de consultas em dia ajuda no acompanhamento do desenvolvimento.',
+      cta: 'Agendar',
+      path: '/saude',
+    });
+
+    // Upcoming vaccine hint (age-based, simple rule)
+    if (ageMonths <= 24) {
+      priorities.push({
+        emoji: '💉',
+        title: 'Verifique o calendário de vacinas',
+        body: `Vacinas são importantes nessa fase de crescimento. Confira o que está pendente.`,
+        cta: 'Ver vacinas',
+        path: '/saude',
+      });
     }
-    if (insights.avgFeedIntervalMin) return `~${insights.avgFeedIntervalMin}min entre mamadas`;
+
+    // Low diaper count after evening
+    if (diaperCount < 4 && hour >= 18) {
+      priorities.push({
+        emoji: '🧷',
+        title: 'Poucas trocas de fralda hoje',
+        body: `Foram ${diaperCount} troca${diaperCount === 1 ? '' : 's'} registradas. Verifique se está adequado para a idade.`,
+        cta: 'Registrar',
+        path: '/diaper',
+      });
+    }
+  }
+
+  // ─── Supporting sublines for metric cards ───────────────────────────────
+  const feedSub = (() => {
+    if (feedCount === 0) return 'Nenhum registro hoje';
+    if (insights.avgFeedIntervalMin) return `Intervalo médio: ${insights.avgFeedIntervalMin}min`;
     if (lastFeed) return `Última há ${fmtTimeSince(lastFeed.start_time)}`;
-    return feedCount === 1 ? '1 mamada hoje' : `${feedCount} mamadas hoje`;
+    return feedCount === 1 ? '1 registro hoje' : `${feedCount} registros hoje`;
   })();
 
   const sleepSub = (() => {
     if (ongoingSleep) return 'Em andamento agora';
     if (sleepSec === 0) {
-      if (new Date().getHours() >= 12) return 'Nenhum sono registrado hoje';
-      return 'Ainda cedo para registrar sono';
+      if (hour >= 12) return 'Nenhum sono registrado hoje';
+      return 'Ainda cedo no dia';
     }
-    if (insights.hasLongSleep) return 'Sono longo — ótimo!';
+    if (insights.hasLongSleep) return 'Incluindo sono longo';
     if (lastSleep?.end_time) return `Último: ${fmtRangeDuration(lastSleep.start_time, lastSleep.end_time)}`;
-    return 'Sono registrado hoje';
+    return 'Sono registrado';
   })();
 
   const diaperSub = (() => {
-    if (diaperCount === 0) return 'Nenhuma troca registrada hoje';
-    if (diaperCount === 1) return '1 troca hoje';
-    return `${diaperCount} trocas hoje`;
+    if (diaperCount === 0) return 'Nenhum registro hoje';
+    return diaperCount === 1 ? '1 troca hoje' : `${diaperCount} trocas hoje`;
   })();
 
-  // ─── Metric cards ─────────────────────────────────────────────────────────
+  // ─── Metric cards ────────────────────────────────────────────────────────
   const metricsNewborn = [
     {
       emoji: '🤱', label: 'Mamadas',
@@ -202,11 +281,11 @@ export default function HomePage() {
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: '—',
-      sub: 'Sem consulta agendada',
+      value: 'Nenhuma',
+      sub: 'Nenhuma consulta agendada',
       empty: true,
       color: 'hsl(var(--primary))',
-      action: { label: 'Agendar', path: '/health' },
+      action: { label: 'Agendar', path: '/saude' },
     },
   ];
 
@@ -234,21 +313,17 @@ export default function HomePage() {
     },
     {
       emoji: '📅', label: 'Consulta',
-      value: '—',
-      sub: 'Sem consulta agendada',
+      value: 'Nenhuma',
+      sub: 'Nenhuma consulta agendada',
       empty: true,
       color: 'hsl(var(--primary))',
-      action: { label: 'Agendar', path: '/health' },
+      action: { label: 'Agendar', path: '/saude' },
     },
   ];
 
   const metrics = isNewborn ? metricsNewborn : metricsOlder;
-
-  // ─── Quick actions ────────────────────────────────────────────────────────
   const quickActions = getOrderedQuickActions(ageMonths);
-
-  // Home preview: latest 5 events only
-  const previewLogs = logs.slice(0, 5);
+  const previewLogs  = logs.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-background">
@@ -278,6 +353,7 @@ export default function HomePage() {
 
       {childLoading ? (
         <div className="px-4 pt-5 space-y-4">
+          <Skeleton className="h-28 rounded-2xl" />
           <div className="grid grid-cols-2 gap-3">
             {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}
           </div>
@@ -307,7 +383,41 @@ export default function HomePage() {
 
           <div className="px-4 mt-4 space-y-6">
 
-            {/* ── Resumo do dia — 2×2 grid ─────────────────────────── */}
+            {/* ── 1. MAIN ASSISTANT BLOCK ────────────────────────────── */}
+            {!logsLoading && assistantMessage && (
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{ border: '1.5px solid hsl(var(--border))' }}
+              >
+                <div
+                  className="px-4 py-4"
+                  style={{ backgroundColor: 'hsl(var(--card))' }}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-[22px] flex-shrink-0 mt-0.5">{assistantMessage.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
+                        {assistantMessage.title}
+                      </p>
+                      <p className="text-[12px] text-muted-foreground font-nunito mt-1 leading-snug">
+                        {assistantMessage.body}
+                      </p>
+                    </div>
+                  </div>
+                  {assistantMessage.path && assistantMessage.cta && (
+                    <button
+                      onClick={() => navigate(assistantMessage.path!)}
+                      className="mt-3 w-full py-2.5 rounded-xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
+                      style={{ backgroundColor: SAGE }}
+                    >
+                      {assistantMessage.cta}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── 2. DAILY SUMMARY ──────────────────────────────────── */}
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
                 Resumo do dia
@@ -340,32 +450,28 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* ── Assistant guidance — single high-signal message ───── */}
-            {assistantMessage && !logsLoading && (
-              <div
-                className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
-                style={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1.5px solid hsl(var(--border))',
-                }}
-              >
-                <span className="text-[20px] flex-shrink-0">{assistantMessage.emoji}</span>
-                <p className="flex-1 text-[13px] font-semibold font-nunito text-foreground leading-snug">
-                  {assistantMessage.text}
+            {/* ── 3. PRIORITIES — what needs attention ──────────────── */}
+            {!logsLoading && priorities.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
+                  Atenção
                 </p>
-                {assistantMessage.path && assistantMessage.cta && (
-                  <button
-                    onClick={() => navigate(assistantMessage.path!)}
-                    className="text-[12px] font-bold font-nunito px-3 py-1.5 rounded-xl text-white transition-all active:scale-95 flex-shrink-0"
-                    style={{ backgroundColor: SAGE }}
-                  >
-                    {assistantMessage.cta}
-                  </button>
-                )}
+                <div className="space-y-2">
+                  {priorities.map((p, i) => (
+                    <PriorityItem
+                      key={i}
+                      emoji={p.emoji}
+                      title={p.title}
+                      body={p.body}
+                      ctaLabel={p.cta}
+                      onCta={() => navigate(p.path)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* ── Registrar agora — locked 4-tile grid ──────────────── */}
+            {/* ── 4. QUICK ACTIONS ──────────────────────────────────── */}
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 text-muted-foreground font-nunito">
                 Registrar agora
@@ -383,14 +489,14 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* ── Hoje — lightweight preview ────────────────────────── */}
+            {/* ── 5. RECENT ACTIVITY ────────────────────────────────── */}
             <div>
               <div className="flex items-baseline justify-between mb-3">
                 <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito">
-                  Hoje
+                  Atividade recente
                 </p>
                 <p className="text-[11px] text-muted-foreground font-nunito capitalize">
-                  {todayLabel}
+                  {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
               </div>
 
@@ -415,7 +521,7 @@ export default function HomePage() {
                 <div className="rounded-2xl px-5 py-10 text-center bg-card border border-border">
                   <p className="text-4xl mb-3">🌤️</p>
                   <p className="text-[15px] font-bold font-quicksand text-foreground">
-                    O dia ainda está em branco
+                    O dia ainda não começou
                   </p>
                   <p className="text-[13px] mt-1.5 text-muted-foreground font-nunito leading-snug">
                     Use os atalhos acima para registrar a primeira atividade.
@@ -432,7 +538,7 @@ export default function HomePage() {
                   ))}
                   {logs.length > 5 && (
                     <button
-                      onClick={() => navigate('/routine')}
+                      onClick={() => navigate('/rotina')}
                       className="w-full py-3 text-[12px] font-semibold font-nunito text-center rounded-2xl mt-1 transition-colors"
                       style={{
                         color: 'hsl(var(--muted-foreground))',
@@ -445,6 +551,7 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+
           </div>
         </motion.div>
       )}

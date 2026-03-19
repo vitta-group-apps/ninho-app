@@ -414,11 +414,13 @@ export default function SaudePage() {
         <OverviewStat
               emoji="💉" label="Vacinas"
               value={vaccineState.due.length > 0 ? `${vaccineState.due.length}` : '—'}
-              sub={vaccineState.upcoming.length > 0
+              sub={vaccineState.due.length > 0
+                ? `${vaccineState.due.length} a confirmar`
+                : vaccineState.upcoming.length > 0
                 ? `${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`
                 : 'Calendário em dia'}
-              color={vaccineState.upcoming.length > 0 ? AMBER : SAGE}
-              urgent={vaccineState.upcoming.length > 0}
+              color={vaccineState.due.length > 0 ? AMBER : SAGE}
+              urgent={vaccineState.due.length > 0}
               onTap={() => toggle('vaccines')}
             />
             <OverviewStat

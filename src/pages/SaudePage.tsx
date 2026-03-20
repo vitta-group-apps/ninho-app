@@ -1579,13 +1579,21 @@ export default function SaudePage() {
                   rows={2}
                   className="w-full px-4 py-3 rounded-2xl text-[13px] font-nunito bg-muted text-foreground placeholder:text-muted-foreground resize-none outline-none border border-border focus:border-primary transition-colors"
                 />
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                  {loggedSymptoms.map(s => (
+                    <span key={s} className="text-[11px] font-bold font-nunito px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: `color-mix(in srgb, ${AMBER} 14%, transparent)`, color: AMBER }}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
                 <button
                   onClick={saveSymptoms}
                   disabled={symptomSaving}
                   className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
                   style={{ backgroundColor: SAGE }}
                 >
-                  {symptomSaving ? 'Salvando…' : `Salvar ${loggedSymptoms.length} sintoma${loggedSymptoms.length > 1 ? 's' : ''}`}
+                  {symptomSaving ? 'Salvando…' : 'Salvar sintomas'}
                 </button>
               </div>
             )}

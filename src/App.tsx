@@ -31,6 +31,7 @@ import NotFound from '@/pages/NotFound';
 // Pages — onboarding
 import WelcomePage from '@/pages/onboarding/WelcomePage';
 import AuthPage from '@/pages/onboarding/AuthPage';
+import NomePage from '@/pages/onboarding/NomePage';
 import FamilyPage from '@/pages/onboarding/FamilyPage';
 import ChildPage from '@/pages/onboarding/ChildPage';
 import CompletePage from '@/pages/onboarding/CompletePage';
@@ -60,7 +61,6 @@ function AuthedRoutes() {
             <Routes>
               <Route path="/"            element={<Navigate to="/home" replace />} />
               <Route path="/home"        element={<HomePage />} />
-              {/* /routine is canonical; /rotina is kept as alias to prevent 404s */}
               <Route path="/routine"     element={<RotinaPage />} />
               <Route path="/rotina"      element={<Navigate to="/routine" replace />} />
               <Route path="/health"      element={<SaudePage />} />
@@ -79,29 +79,30 @@ function AuthedRoutes() {
 }
 
 /**
- * Guard: routes within /onboarding/*.
+ * Guard: routes within /onboarding/*
+ * Uses isFirstTime / isLoggedIn from useAuth for redirect decisions.
  */
 function OnboardingGuard() {
-  const { user } = useAuth();
-  const { loading, hasFamily, hasChild, familyId } = useOnboardingStatus(user?.id ?? null);
+  const { user, isLoggedIn, loading } = useAuth();
+  const { loading: statusLoading, hasFamily, hasChild, familyId } = useOnboardingStatus(user?.id ?? null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (loading || !user) return;
-    if (hasFamily && hasChild) {
+    if (loading || statusLoading) return;
+    // Fully onboarded — go home
+    if (isLoggedIn && hasFamily && hasChild) {
       navigate('/home', { replace: true });
-    } else if (hasFamily && !hasChild) {
+    } else if (isLoggedIn && hasFamily && !hasChild) {
       if (familyId) sessionStorage.setItem('onboarding_family_id', familyId);
       navigate('/onboarding/child', { replace: true });
     }
-  }, [loading, user, hasFamily, hasChild, familyId, navigate]);
+  }, [loading, statusLoading, isLoggedIn, hasFamily, hasChild, familyId, navigate]);
 
-  if (loading && user) {
+  if ((loading || statusLoading) && user) {
     return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#806e84' }}>
         <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: 'hsl(var(--ninho-sage))' }} />
+          style={{ borderColor: 'rgba(255,255,255,0.6)' }} />
       </div>
     );
   }
@@ -110,6 +111,7 @@ function OnboardingGuard() {
     <Routes>
       <Route index element={<WelcomePage />} />
       <Route path="auth" element={<AuthPage />} />
+      <Route path="nome" element={user ? <NomePage /> : <Navigate to="/onboarding/auth" replace />} />
       <Route path="family" element={user ? <FamilyPage /> : <Navigate to="/onboarding/auth" replace />} />
       <Route path="child"  element={user ? <ChildPage />  : <Navigate to="/onboarding/auth" replace />} />
       <Route path="complete" element={user ? <CompletePage /> : <Navigate to="/onboarding/auth" replace />} />
@@ -118,14 +120,13 @@ function OnboardingGuard() {
 }
 
 function AppRouter() {
-  const { user, loading } = useAuth();
+  const { user, isLoggedIn, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#806e84' }}>
         <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: 'hsl(var(--ninho-sage))' }} />
+          style={{ borderColor: 'rgba(255,255,255,0.6)' }} />
       </div>
     );
   }
@@ -134,22 +135,28 @@ function AppRouter() {
     <Routes>
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/onboarding/*" element={<OnboardingGuard />} />
-      <Route path="/" element={user ? <Navigate to="/home" replace /> : <Navigate to="/onboarding" replace />} />
-      <Route path="/*" element={user ? <AuthedRoutes /> : <Navigate to="/onboarding" replace />} />
+      <Route path="/" element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/onboarding" replace />} />
+      <Route path="/*" element={isLoggedIn ? <AuthedRoutes /> : <Navigate to="/onboarding" replace />} />
     </Routes>
   );
 }
 
 function NinhoApp() {
+  const { session, loading } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashFinish = useCallback(() => setSplashDone(true), []);
+
+  // 1s for returning users, 2.4s for new/unknown
+  const splashDuration = !loading && session ? 1000 : 2400;
 
   return (
     <>
       <AnimatePresence>
-        {!splashDone && <SplashScreen key="splash" onFinish={handleSplashFinish} />}
+        {!splashDone && (
+          <SplashScreen key="splash" onFinish={handleSplashFinish} duration={splashDuration} />
+        )}
       </AnimatePresence>
-      <AppRouter />
+      {splashDone && <AppRouter />}
     </>
   );
 }

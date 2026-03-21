@@ -22,10 +22,7 @@ export default function FamilyPage() {
   const isValid = familyName.trim().length >= 2;
 
   async function handleSubmit() {
-    if (!user) {
-      navigate('/onboarding/auth');
-      return;
-    }
+    if (!user) { navigate('/onboarding/auth'); return; }
     if (!isValid) return;
     setError('');
     setLoading(true);
@@ -54,57 +51,60 @@ export default function FamilyPage() {
   if (authLoading) return null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#806e84' }}>
-      {/* Header */}
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F8F5F0' }}>
+
+      {/* Header roxo */}
       <div
-        className="px-5 pt-12 pb-7"
-        style={{ borderRadius: '0 0 28px 28px', backgroundColor: '#806e84' }}
+        className="relative overflow-hidden flex-shrink-0 px-5 pb-7"
+        style={{
+          backgroundColor: '#806e84',
+          borderRadius: '0 0 28px 28px',
+          paddingTop: 'calc(env(safe-area-inset-top) + 20px)',
+        }}
       >
-        <div className="flex items-center gap-2 mb-6">
-          <img src={simboloNinho} alt="Ninho" style={{ width: 18, height: 18, opacity: 0.6 }} />
-          <span
-            className="text-[13px] font-semibold"
-            style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Nunito, sans-serif' }}
-          >
+        {/* Grain */}
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
+        }} />
+
+        {/* Step */}
+        <div className="relative z-10 flex items-center gap-2 mb-4">
+          <img src={simboloNinho} alt="Ninho"
+            style={{ width: 16, height: 16, opacity: 0.6, filter: 'brightness(0) invert(1)' }} />
+          <span className="text-[12px] font-semibold"
+            style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Nunito, sans-serif' }}>
             Passo 2 de 3
           </span>
         </div>
 
         {/* Progress */}
-        <div className="flex gap-1.5 mb-6">
+        <div className="relative z-10 flex gap-1.5 mb-5">
           {[1, 2, 3].map(s => (
-            <div
-              key={s}
-              className="h-1 rounded-full flex-1"
-              style={{ backgroundColor: s <= 2 ? 'white' : 'rgba(255,255,255,0.25)' }}
-            />
+            <div key={s} className="h-1 rounded-full flex-1"
+              style={{ backgroundColor: s <= 2 ? 'white' : 'rgba(255,255,255,0.25)' }} />
           ))}
         </div>
 
-        <h1
-          className="text-2xl font-bold"
-          style={{ color: 'white', fontFamily: 'Quicksand, sans-serif' }}
-        >
+        <h1 className="relative z-10 text-[22px] font-bold"
+          style={{ color: 'white', fontFamily: 'Quicksand, sans-serif' }}>
           Crie o espaço da sua família 🏡
         </h1>
-        <p
-          className="text-sm mt-1"
-          style={{ color: 'rgba(255,255,255,0.65)', fontFamily: 'Nunito, sans-serif' }}
-        >
+        <p className="relative z-10 text-[13px] mt-1"
+          style={{ color: 'rgba(255,255,255,0.55)', fontFamily: 'Nunito, sans-serif', lineHeight: 1.5 }}>
           Dê um nome ao grupo — pode ser o sobrenome ou algo que faça sentido pra vocês.
         </p>
       </div>
 
-      {/* Body */}
-      <div
-        className="flex-1 flex flex-col px-5 pt-8"
-        style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}
-      >
-        <div className="space-y-1.5 mb-6">
-          <label
-            className="text-xs font-semibold"
-            style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-          >
+      {/* Corpo claro */}
+      <div className="flex-1 flex flex-col px-5 pt-7 pb-8">
+
+        {/* Input família */}
+        <div className="mb-6">
+          <label className="block mb-[5px]"
+            style={{
+              fontFamily: 'Nunito, sans-serif', fontSize: 10, fontWeight: 700,
+              color: '#7A7A7A', textTransform: 'uppercase', letterSpacing: '0.5px'
+            }}>
             Nome da família
           </label>
           <input
@@ -112,69 +112,65 @@ export default function FamilyPage() {
             value={familyName}
             onChange={e => setFamilyName(e.target.value)}
             placeholder="Ex: Família Silva, Casa Salmon…"
-            className="w-full h-12 rounded-2xl px-4 text-sm outline-none border transition-all"
+            className="w-full px-4 py-3 text-sm outline-none transition-all"
             style={{
               fontFamily: 'Nunito, sans-serif',
-              backgroundColor: 'hsl(var(--muted))',
-              borderColor: isValid ? '#806e84' : 'transparent',
-              color: 'hsl(var(--ninho-brown))',
+              backgroundColor: '#E8E8E2',
+              border: `1.5px solid ${isValid ? '#806e84' : 'transparent'}`,
+              borderRadius: 12,
+              color: '#2C2C2C',
+              fontSize: 16,
             }}
+            onFocus={e => { if (!isValid) e.target.style.borderColor = '#C7B3C5'; }}
+            onBlur={e => { if (!isValid) e.target.style.borderColor = 'transparent'; }}
           />
         </div>
 
-        {/* Who cares chips */}
+        {/* Quem cuida chips */}
         <div className="mb-6">
-          <p
-            className="text-xs font-semibold mb-3"
-            style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-          >
+          <p className="text-[10px] font-bold uppercase tracking-[0.5px] mb-3"
+            style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif' }}>
             Quem cuida?
           </p>
           <div className="flex flex-wrap gap-2">
             {WHO_OPTIONS.map(opt => (
               <button
                 key={opt}
-                onClick={() => setWho(w => (w === opt ? '' : opt))}
-                className="px-4 py-2 rounded-full text-sm font-medium transition-all"
+                onClick={() => setWho(w => w === opt ? '' : opt)}
+                className="px-4 py-2 rounded-full text-sm font-semibold transition-all"
                 style={{
                   fontFamily: 'Nunito, sans-serif',
-                  backgroundColor: who === opt ? '#806e84' : 'hsl(var(--muted))',
-                  color: who === opt ? 'white' : 'hsl(var(--muted-foreground))',
-                  border: who === opt ? 'none' : '1px solid hsl(var(--border))',
+                  backgroundColor: who === opt ? '#806e84' : '#fff',
+                  color: who === opt ? 'white' : '#4b4b47',
+                  border: who === opt ? 'none' : '1.5px solid #E5E0D8',
+                  cursor: 'pointer',
                 }}
               >
                 {opt}
               </button>
             ))}
           </div>
-          <p
-            className="text-[11px] mt-2"
-            style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
-          >
+          <p className="text-[11px] mt-2"
+            style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif' }}>
             Não é obrigatório — apenas contexto
           </p>
         </div>
 
         {/* Info box */}
-        <div
-          className="flex items-start gap-2 px-3 py-3 rounded-xl mb-6"
-          style={{ backgroundColor: 'hsl(var(--ninho-mauve) / 0.08)' }}
-        >
+        <div className="flex items-start gap-2 px-3 py-3 rounded-xl mb-6"
+          style={{ backgroundColor: '#f4f0f3', border: '1px solid #e3d9e2' }}>
           <span className="text-sm">👤</span>
-          <p
-            className="text-xs leading-relaxed"
-            style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
-          >
-            Você é o <strong>Administrador</strong> — pode convidar outros cuidadores depois, a qualquer momento.
+          <p className="text-xs leading-relaxed"
+            style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif' }}>
+            Você é o <strong style={{ color: '#806e84' }}>Administrador</strong> — pode convidar outros cuidadores depois, a qualquer momento.
           </p>
         </div>
 
         {error && (
-          <div
-            className="px-3 py-2.5 rounded-xl mb-4"
-            style={{ backgroundColor: 'hsl(var(--destructive) / 0.08)', border: '1px solid hsl(var(--destructive) / 0.2)' }}
-          >
-            <p className="text-xs text-destructive font-medium" style={{ fontFamily: 'Nunito, sans-serif' }}>
+          <div className="px-3 py-2.5 rounded-xl mb-4"
+            style={{ backgroundColor: '#FCEAEA', border: '1px solid #f5caca' }}>
+            <p className="text-xs font-medium"
+              style={{ color: '#C04A4A', fontFamily: 'Nunito, sans-serif' }}>
               {error}
             </p>
           </div>
@@ -185,12 +181,14 @@ export default function FamilyPage() {
         <button
           onClick={handleSubmit}
           disabled={!isValid || loading}
-          className="w-full rounded-2xl font-bold text-[15px] mb-3 transition-all"
+          className="w-full rounded-2xl font-bold text-[15px] text-white mb-3 transition-all"
           style={{
             height: 52,
-            backgroundColor: isValid ? '#806e84' : 'hsl(var(--muted))',
-            color: isValid ? 'white' : 'hsl(var(--muted-foreground))',
+            backgroundColor: '#806e84',
             fontFamily: 'Nunito, sans-serif',
+            opacity: !isValid || loading ? 0.45 : 1,
+            border: 'none',
+            cursor: isValid ? 'pointer' : 'default',
           }}
         >
           {loading ? 'Criando...' : 'Continuar →'}
@@ -198,8 +196,8 @@ export default function FamilyPage() {
 
         <button
           onClick={() => navigate('/onboarding/child')}
-          className="w-full text-center text-sm font-medium mb-6"
-          style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
+          className="w-full text-center text-[13px] font-medium mb-2"
+          style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif', background: 'none', border: 'none', cursor: 'pointer' }}
         >
           Pular por agora
         </button>

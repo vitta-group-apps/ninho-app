@@ -11,12 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import simboloNinho from '@/assets/simbolo-ninho.png';
 
 function getInitials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase() ?? '')
-    .join('');
+  return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('');
 }
 
 export default function NomePage() {
@@ -48,53 +43,52 @@ export default function NomePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#806e84' }}>
-      {/* Header with rounded bottom */}
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F8F5F0' }}>
+
+      {/* Header roxo */}
       <div
-        className="px-5 pt-12 pb-7"
-        style={{ borderRadius: '0 0 28px 28px', backgroundColor: '#806e84' }}
+        className="relative overflow-hidden flex-shrink-0 px-5 pb-7"
+        style={{
+          backgroundColor: '#806e84',
+          borderRadius: '0 0 28px 28px',
+          paddingTop: 'calc(env(safe-area-inset-top) + 20px)',
+        }}
       >
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-6">
-          <img src={simboloNinho} alt="Ninho" style={{ width: 18, height: 18, opacity: 0.6 }} />
-          <span
-            className="text-[13px] font-semibold"
-            style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Nunito, sans-serif' }}
-          >
+        {/* Grain */}
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
+        }} />
+
+        {/* Step + progress */}
+        <div className="relative z-10 flex items-center gap-2 mb-4">
+          <img src={simboloNinho} alt="Ninho"
+            style={{ width: 16, height: 16, opacity: 0.6, filter: 'brightness(0) invert(1)' }} />
+          <span className="text-[12px] font-semibold"
+            style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Nunito, sans-serif' }}>
             Passo 1 de 3
           </span>
         </div>
 
-        {/* Progress bar */}
-        <div className="flex gap-1.5 mb-6">
+        <div className="relative z-10 flex gap-1.5 mb-5">
           {[1, 2, 3].map(s => (
-            <div
-              key={s}
-              className="h-1 rounded-full flex-1"
-              style={{ backgroundColor: s === 1 ? 'white' : 'rgba(255,255,255,0.25)' }}
-            />
+            <div key={s} className="h-1 rounded-full flex-1"
+              style={{ backgroundColor: s === 1 ? 'white' : 'rgba(255,255,255,0.25)' }} />
           ))}
         </div>
 
-        <h1
-          className="text-2xl font-bold"
-          style={{ color: 'white', fontFamily: 'Quicksand, sans-serif' }}
-        >
+        <h1 className="relative z-10 text-[22px] font-bold"
+          style={{ color: 'white', fontFamily: 'Quicksand, sans-serif' }}>
           Como você se chama? 👋
         </h1>
-        <p
-          className="text-sm mt-1"
-          style={{ color: 'rgba(255,255,255,0.65)', fontFamily: 'Nunito, sans-serif' }}
-        >
+        <p className="relative z-10 text-[13px] mt-1"
+          style={{ color: 'rgba(255,255,255,0.55)', fontFamily: 'Nunito, sans-serif', lineHeight: 1.5 }}>
           Pode ser seu nome ou apelido — é assim que vamos te chamar por aqui.
         </p>
       </div>
 
-      {/* Body */}
-      <div
-        className="flex-1 flex flex-col px-5 pt-8"
-        style={{ backgroundColor: 'hsl(var(--ninho-sand))' }}
-      >
+      {/* Corpo claro */}
+      <div className="flex-1 flex flex-col px-5 pt-8 pb-8">
+
         {/* Avatar preview */}
         <motion.div
           className="flex justify-center mb-8"
@@ -104,8 +98,7 @@ export default function NomePage() {
           <div
             className="flex items-center justify-center rounded-full font-bold text-2xl"
             style={{
-              width: 80,
-              height: 80,
+              width: 80, height: 80,
               backgroundColor: '#806e84',
               color: 'white',
               fontFamily: 'Quicksand, sans-serif',
@@ -116,11 +109,13 @@ export default function NomePage() {
           </div>
         </motion.div>
 
-        <div className="space-y-1.5 mb-3">
-          <label
-            className="text-xs font-semibold"
-            style={{ color: 'hsl(var(--ninho-brown))', fontFamily: 'Nunito, sans-serif' }}
-          >
+        {/* Input */}
+        <div className="mb-3">
+          <label className="block mb-[5px]"
+            style={{
+              fontFamily: 'Nunito, sans-serif', fontSize: 10, fontWeight: 700,
+              color: '#7A7A7A', textTransform: 'uppercase', letterSpacing: '0.5px'
+            }}>
             Seu nome ou apelido
           </label>
           <input
@@ -129,38 +124,36 @@ export default function NomePage() {
             onChange={e => setName(e.target.value)}
             placeholder="Ex: Larissa, Lari, Mãe da Bê…"
             autoFocus
-            className="w-full h-12 rounded-2xl px-4 text-sm outline-none border transition-all"
+            className="w-full px-4 py-3 text-sm outline-none transition-all"
             style={{
               fontFamily: 'Nunito, sans-serif',
-              backgroundColor: 'hsl(var(--muted))',
-              borderColor: isValid ? '#806e84' : 'transparent',
-              color: 'hsl(var(--ninho-brown))',
+              backgroundColor: '#E8E8E2',
+              border: `1.5px solid ${isValid ? '#806e84' : 'transparent'}`,
+              borderRadius: 12,
+              color: '#2C2C2C',
+              fontSize: 16,
             }}
+            onFocus={e => { if (!isValid) e.target.style.borderColor = '#C7B3C5'; }}
+            onBlur={e => { if (!isValid) e.target.style.borderColor = 'transparent'; }}
             onKeyDown={e => { if (e.key === 'Enter') handleContinue(); }}
           />
         </div>
 
         {/* Info tip */}
-        <div
-          className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-6"
-          style={{ backgroundColor: 'hsl(var(--ninho-mauve) / 0.08)' }}
-        >
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-6"
+          style={{ backgroundColor: '#f4f0f3', border: '1px solid #e3d9e2' }}>
           <span className="text-sm">💡</span>
-          <p
-            className="text-xs leading-relaxed"
-            style={{ color: 'hsl(var(--muted-foreground))', fontFamily: 'Nunito, sans-serif' }}
-          >
+          <p className="text-xs leading-relaxed"
+            style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif' }}>
             Aparece nos registros compartilhados com outros cuidadores.
           </p>
         </div>
 
         {error && (
-          <p
-            className="text-xs text-destructive font-medium mb-4"
-            style={{ fontFamily: 'Nunito, sans-serif' }}
-          >
+          <div className="mb-4 px-3 py-2.5 rounded-xl text-xs"
+            style={{ backgroundColor: '#FCEAEA', border: '1px solid #f5caca', color: '#C04A4A', fontFamily: 'Nunito, sans-serif' }}>
             {error}
-          </p>
+          </div>
         )}
 
         <div className="flex-1" />
@@ -168,12 +161,14 @@ export default function NomePage() {
         <button
           onClick={handleContinue}
           disabled={!isValid || loading}
-          className="w-full rounded-2xl font-bold text-[15px] mb-6 transition-all"
+          className="w-full rounded-2xl font-bold text-[15px] text-white transition-all"
           style={{
             height: 52,
-            backgroundColor: isValid ? '#806e84' : 'hsl(var(--muted))',
-            color: isValid ? 'white' : 'hsl(var(--muted-foreground))',
+            backgroundColor: '#806e84',
             fontFamily: 'Nunito, sans-serif',
+            opacity: !isValid || loading ? 0.45 : 1,
+            border: 'none',
+            cursor: isValid ? 'pointer' : 'default',
           }}
         >
           {loading ? 'Salvando...' : 'Continuar →'}

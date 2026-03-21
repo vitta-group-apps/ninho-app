@@ -4,97 +4,114 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
- * NINHO Design System v2
- * Todas as cores em HSL. Não usar hex ou cores diretas nos componentes.
- * Tokens de ação, texto e superfície definidos aqui.
- */
-
 @layer base {
   :root {
-    /* ── Ninho Brand Colors ── */
-    --ninho-sand:    37 30% 96%;       /* #F7F5F2 — fundo principal */
-    --ninho-brown:   16 14% 30%;       /* #5A4A42 — textos e elementos */
-    --ninho-sage:    152 15% 55%;      /* #7A9A8B — CTAs e destaques */
-    --ninho-mauve:   270 12% 52%;      /* #8A7A92 — splash, headers, primary */
+    /* ── Ninho Brand Colors — valores exatos do design system ── */
+    --ninho-bg:       34 29% 96%;       /* #F8F5F0 — fundo principal */
+    --ninho-card:     0 0% 100%;        /* #ffffff — cards */
+    --ninho-sand:     34 29% 96%;       /* #F8F5F0 — alias */
 
-    /* ── Ninho Action Colors (semantic) ── */
-    --color-sleep:   270 12% 52%;      /* mesmo que mauve */
-    --color-feed:    152 15% 55%;      /* mesmo que sage  */
-    --color-diaper:  32  80% 57%;      /* âmbar/laranja */
-    --color-bottle:  200 40% 50%;      /* azul/teal */
+    --ninho-mauve-7:  291 9% 47%;       /* #806e84 — primary, headers, CTAs */
+    --ninho-mauve-6:  291 8% 56%;       /* #9a849d */
+    --ninho-mauve-5:  291 18% 74%;      /* #C7B3C5 */
+    --ninho-mauve-3:  291 18% 87%;      /* #e3d9e2 */
+    --ninho-mauve-1:  291 18% 95%;      /* #f4f0f3 */
 
-    /* ── shadcn semantic tokens ── */
-    --background:    37 30% 96%;
-    --foreground:    16 14% 30%;
+    --ninho-sage-7:   152 12% 49%;      /* #789687 — action, positivo */
+    --ninho-sage-5:   152 15% 65%;      /* #99b4a7 */
+    --ninho-sage-3:   152 15% 82%;      /* #ccd9d3 */
+    --ninho-sage-1:   152 15% 93%;      /* #ebf0ed */
 
-    --card:          0 0% 100%;
-    --card-foreground: 16 14% 30%;
+    --ninho-earth-7:  21 36% 36%;       /* #7e553d */
+    --ninho-earth-5:  21 22% 45%;       /* #906d57 */
+    --ninho-earth-3:  21 36% 73%;       /* #cfb5a7 */
+    --ninho-earth-1:  34 25% 81%;       /* #d3cab8 */
 
-    --popover:       0 0% 100%;
-    --popover-foreground: 16 14% 30%;
+    --ninho-stone-1:  60 7% 91%;        /* #E8E8E2 — input bg */
+    --ninho-stone-3:  60 5% 82%;        /* #d1d1c5 */
+    --ninho-stone-5:  60 4% 69%;        /* #b2b2a7 */
 
-    /* Primary = Mauve (brand action color) */
-    --primary:       270 12% 42%;
+    --ninho-amber:    30 55% 54%;       /* #C8894A */
+    --ninho-amber-bg: 36 100% 97%;      /* #FDF3E9 */
+
+    --ninho-danger:   0 56% 52%;        /* #C04A4A */
+    --ninho-danger-bg: 0 78% 96%;       /* #FCEAEA */
+
+    --ninho-txt:      0 0% 17%;         /* #2C2C2C */
+    --ninho-txt-2:    60 2% 29%;        /* #4b4b47 */
+    --ninho-txt-3:    0 0% 48%;         /* #7A7A7A */
+    --ninho-txt-muted: 60 2% 56%;       /* #898986 */
+
+    /* ── shadcn semantic tokens — mapeados para Ninho ── */
+    --background:     34 29% 96%;       /* #F8F5F0 */
+    --foreground:     0 0% 17%;         /* #2C2C2C */
+
+    --card:           0 0% 100%;
+    --card-foreground: 0 0% 17%;
+
+    --popover:        0 0% 100%;
+    --popover-foreground: 0 0% 17%;
+
+    --primary:        291 9% 47%;       /* #806e84 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary:     37 30% 92%;
-    --secondary-foreground: 16 14% 30%;
+    --secondary:      291 18% 95%;      /* #f4f0f3 */
+    --secondary-foreground: 0 0% 17%;
 
-    --muted:         37 20% 92%;
-    --muted-foreground: 16 10% 52%;
+    --muted:          34 20% 92%;
+    --muted-foreground: 0 0% 48%;       /* #7A7A7A */
 
-    --accent:        152 15% 90%;
-    --accent-foreground: 16 14% 30%;
+    --accent:         152 15% 93%;      /* sage-1 */
+    --accent-foreground: 0 0% 17%;
 
-    --destructive:   0 72% 51%;
+    --destructive:    0 56% 52%;        /* #C04A4A */
     --destructive-foreground: 0 0% 100%;
 
-    --border:        37 20% 88%;
-    --input:         37 20% 85%;
-    --ring:          270 12% 42%;
+    --border:         34 20% 88%;       /* #E5E0D8 */
+    --input:          60 7% 91%;        /* #E8E8E2 */
+    --ring:           291 9% 47%;       /* #806e84 */
 
-    --radius:        0.75rem;
+    --radius:         0.75rem;
 
-    /* sidebar (exigido pelo shadcn) */
-    --sidebar-background: 37 30% 96%;
-    --sidebar-foreground: 16 14% 30%;
-    --sidebar-primary: 270 12% 42%;
+    /* sidebar */
+    --sidebar-background: 34 29% 96%;
+    --sidebar-foreground: 0 0% 17%;
+    --sidebar-primary: 291 9% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 37 30% 92%;
-    --sidebar-accent-foreground: 16 14% 30%;
-    --sidebar-border: 37 20% 88%;
-    --sidebar-ring: 270 12% 42%;
+    --sidebar-accent: 291 18% 95%;
+    --sidebar-accent-foreground: 0 0% 17%;
+    --sidebar-border: 34 20% 88%;
+    --sidebar-ring: 291 9% 47%;
   }
 
   .dark {
-    --background:    16 14% 10%;
-    --foreground:    37 30% 92%;
-    --card:          16 14% 14%;
-    --card-foreground: 37 30% 92%;
-    --popover:       16 14% 14%;
-    --popover-foreground: 37 30% 92%;
-    --primary:       270 12% 62%;
+    --background:    0 0% 10%;
+    --foreground:    34 29% 92%;
+    --card:          0 0% 14%;
+    --card-foreground: 34 29% 92%;
+    --popover:       0 0% 14%;
+    --popover-foreground: 34 29% 92%;
+    --primary:       291 9% 62%;
     --primary-foreground: 0 0% 100%;
-    --secondary:     16 14% 20%;
-    --secondary-foreground: 37 30% 92%;
-    --muted:         16 14% 20%;
-    --muted-foreground: 16 10% 65%;
-    --accent:        16 14% 22%;
-    --accent-foreground: 37 30% 92%;
-    --destructive:   0 62.8% 30.6%;
+    --secondary:     0 0% 20%;
+    --secondary-foreground: 34 29% 92%;
+    --muted:         0 0% 20%;
+    --muted-foreground: 0 0% 60%;
+    --accent:        0 0% 22%;
+    --accent-foreground: 34 29% 92%;
+    --destructive:   0 56% 35%;
     --destructive-foreground: 0 0% 100%;
-    --border:        16 14% 22%;
-    --input:         16 14% 22%;
-    --ring:          270 12% 62%;
-    --sidebar-background: 16 14% 10%;
-    --sidebar-foreground: 37 30% 92%;
-    --sidebar-primary: 270 12% 62%;
+    --border:        0 0% 22%;
+    --input:         0 0% 22%;
+    --ring:          291 9% 62%;
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 34 29% 92%;
+    --sidebar-primary: 291 9% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 16 14% 20%;
-    --sidebar-accent-foreground: 37 30% 92%;
-    --sidebar-border: 16 14% 22%;
-    --sidebar-ring: 270 12% 62%;
+    --sidebar-accent: 0 0% 20%;
+    --sidebar-accent-foreground: 34 29% 92%;
+    --sidebar-border: 0 0% 22%;
+    --sidebar-ring: 291 9% 62%;
   }
 
   * {
@@ -116,26 +133,21 @@
     font-family: 'Quicksand', system-ui, sans-serif;
   }
 
-  /* iOS safe area support */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
-/* ── DS v2 utility classes ── */
 @layer utilities {
   .font-quicksand { font-family: 'Quicksand', system-ui, sans-serif; }
   .font-nunito    { font-family: 'Nunito', system-ui, sans-serif; }
 
-  /* Textarea: prevent clipping on focus */
   .ds-textarea {
     @apply w-full rounded-2xl border border-input bg-card px-4 py-3 text-sm text-foreground
            resize-none font-nunito min-h-[88px] transition-all
            focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring;
   }
 
-  /* Scrollable form body — always safe-bottom padded.
-     120px accounts for sticky footer with optional tertiary action row. */
   .ds-form-body {
     flex: 1;
     overflow-y: auto;
@@ -143,7 +155,5 @@
     padding-bottom: max(120px, calc(env(safe-area-inset-bottom) + 120px));
   }
 
-  /* Form section spacer */
   .ds-section { @apply space-y-5; }
 }
-

@@ -3,8 +3,11 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
+  id: string;
+  user_id: string;
   full_name: string | null;
   onboarding_complete: boolean | null;
+  avatar_url: string | null;
 }
 
 interface AuthState {
@@ -12,8 +15,8 @@ interface AuthState {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  isFirstTime: boolean;  // logged in but no name yet (or onboarding incomplete)
-  isLoggedIn: boolean;   // fully onboarded
+  isFirstTime: boolean;
+  isLoggedIn: boolean;
 }
 
 export function useAuth(): AuthState {
@@ -27,14 +30,32 @@ export function useAuth(): AuthState {
   });
 
   useEffect(() => {
-    async function fetchProfile(userId: string) {
+    // profiles.user_id = auth.users.id — NÃO usar profiles.id aqui
+    async function fetchProfile(userId: string): Promise<Profile | null> {
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, onboarding_complete')
-        .eq('user_id', userId)
+        .select('id, user_id, full_name, onboarding_complete, avatar_url')
+        .eq('user_id', userId)  // ← correto: user_id referencia auth.users.id
         .maybeSingle();
+      return data as Profile | null;
+    }
 
-      return (data as unknown) as Profile | null;
+    function buildState(
+      session: Session | null,
+      profile: Profile | null
+    ): AuthState {
+      const isFirstTime =
+        !!session && (!profile?.full_name || !profile?.onboarding_complete);
+      const isLoggedIn =
+        !!session && !!profile?.full_name && !!profile?.onboarding_complete;
+      return {
+        user: session?.user ?? null,
+        session,
+        profile,
+        loading: false,
+        isFirstTime,
+        isLoggedIn,
+      };
     }
 
     async function init() {
@@ -43,16 +64,7 @@ export function useAuth(): AuthState {
       if (session?.user) {
         profile = await fetchProfile(session.user.id);
       }
-      const isFirstTime = !!session && (!profile?.full_name || !profile?.onboarding_complete);
-      const isLoggedIn = !!session && !!profile?.full_name && !!profile?.onboarding_complete;
-      setState({
-        user: session?.user ?? null,
-        session,
-        profile,
-        loading: false,
-        isFirstTime,
-        isLoggedIn,
-      });
+      setState(buildState(session, profile));
     }
 
     init();
@@ -63,16 +75,7 @@ export function useAuth(): AuthState {
         if (session?.user) {
           profile = await fetchProfile(session.user.id);
         }
-        const isFirstTime = !!session && (!profile?.full_name || !profile?.onboarding_complete);
-        const isLoggedIn = !!session && !!profile?.full_name && !!profile?.onboarding_complete;
-        setState({
-          user: session?.user ?? null,
-          session,
-          profile,
-          loading: false,
-          isFirstTime,
-          isLoggedIn,
-        });
+        setState(buildState(session, profile));
       }
     );
 
@@ -84,4 +87,5 @@ export function useAuth(): AuthState {
 
 export async function signOut() {
   await supabase.auth.signOut();
+}
 }

@@ -15,8 +15,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -57,20 +55,19 @@ function PasswordRule({ ok, label }: { ok: boolean; label: string }) {
       {ok ? (
         <CheckCircleSolidIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#789687' }} />
       ) : (
-        <CheckCircleIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#aaa' }} />
+        <CheckCircleIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#CBCBC8' }} />
       )}
-      <span
-        className="text-[11px]"
-        style={{ fontFamily: 'Nunito, sans-serif', color: ok ? '#789687' : '#aaa' }}
-      >
+      <span className="text-[11px]" style={{
+        fontFamily: 'Nunito, sans-serif',
+        color: ok ? '#789687' : '#CBCBC8'
+      }}>
         {label}
       </span>
     </div>
   );
 }
 
-// ─── OTP Screen ─────────────────────────────────────────────────────────────
-
+// ─── OTP Screen ──────────────────────────────────────────────────────────────
 function OTPScreen({ email, onBack }: { email: string; onBack: () => void }) {
   const navigate = useNavigate();
   const [digits, setDigits] = useState(['', '', '', '', '']);
@@ -108,16 +105,14 @@ function OTPScreen({ email, onBack }: { email: string; onBack: () => void }) {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
+        email, token, type: 'email',
       });
       if (error) throw error;
-      if (data.session) {
-        navigate('/onboarding/nome');
-      }
+      if (data.session) navigate('/onboarding/nome');
     } catch {
       setError('Código inválido. Verifique e tente novamente.');
+      setDigits(['', '', '', '', '']);
+      document.getElementById('otp-0')?.focus();
     } finally {
       setLoading(false);
     }
@@ -129,124 +124,106 @@ function OTPScreen({ email, onBack }: { email: string; onBack: () => void }) {
     await supabase.auth.resend({ type: 'signup', email });
   }
 
-  const code = digits.join('');
-
   return (
-    <motion.div
-      key="otp"
-      initial={{ opacity: 0, x: 40 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -40 }}
-      transition={{ duration: 0.3 }}
-      className="flex flex-col flex-1 px-5 pt-6"
-    >
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 mb-8 text-sm font-medium self-start"
-        style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Nunito, sans-serif' }}
-      >
-        ← Voltar e corrigir e-mail
-      </button>
-
-      <div
-        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
-        style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}
-      >
-        <span className="text-2xl">📬</span>
-      </div>
-
-      <h2
-        className="text-2xl font-bold mb-2"
-        style={{ color: 'white', fontFamily: 'Quicksand, sans-serif' }}
-      >
-        Confirme seu e-mail
-      </h2>
-      <p
-        className="text-sm mb-1"
-        style={{ color: 'rgba(255,255,255,0.65)', fontFamily: 'Nunito, sans-serif' }}
-      >
-        Enviamos um código de 5 dígitos para
-      </p>
-      <p
-        className="text-sm font-semibold mb-8"
-        style={{ color: 'white', fontFamily: 'Nunito, sans-serif' }}
-      >
-        {email}
-      </p>
-
-      {/* 5 OTP inputs */}
-      <div className="flex gap-3 mb-6 justify-center">
-        {digits.map((d, i) => (
-          <input
-            key={i}
-            id={`otp-${i}`}
-            type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={d}
-            onChange={e => handleDigit(i, e.target.value)}
-            onKeyDown={e => handleKeyDown(i, e)}
-            className="rounded-xl text-center font-bold text-xl focus:outline-none transition-all"
-            style={{
-              width: 48,
-              height: 56,
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              border: d ? '2px solid rgba(255,255,255,0.7)' : '2px solid rgba(255,255,255,0.2)',
-              color: 'white',
-              fontFamily: 'Quicksand, sans-serif',
-            }}
-          />
-        ))}
-      </div>
-
-      {error && (
-        <p
-          className="text-xs text-center mb-4 font-medium"
-          style={{ color: '#f87171', fontFamily: 'Nunito, sans-serif' }}
-        >
-          {error}
+    // OTP mantém fundo roxo — é tela de transição, faz sentido visualmente
+    <div className="flex flex-col flex-1" style={{ backgroundColor: '#806e84', minHeight: '100vh' }}>
+      {/* Header roxo com grain */}
+      <div className="relative overflow-hidden px-6 pt-12 pb-8"
+        style={{ backgroundColor: '#806e84', borderRadius: '0 0 28px 28px' }}>
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
+        }} />
+        <button onClick={onBack} className="relative z-10 flex items-center gap-1.5 mb-6 text-sm font-semibold"
+          style={{ color: 'rgba(255,255,255,0.65)', fontFamily: 'Nunito, sans-serif', background: 'none', border: 'none', cursor: 'pointer' }}>
+          ← Voltar e corrigir e-mail
+        </button>
+        <div className="relative z-10 text-4xl mb-4">📬</div>
+        <h2 className="relative z-10 text-[22px] font-bold text-white mb-1.5"
+          style={{ fontFamily: 'Quicksand, sans-serif' }}>
+          Confirme seu e-mail
+        </h2>
+        <p className="relative z-10 text-[13px]"
+          style={{ color: 'rgba(255,255,255,0.55)', fontFamily: 'Nunito, sans-serif', lineHeight: 1.5 }}>
+          Enviamos um código de 5 dígitos para{' '}
+          <strong style={{ color: 'white' }}>{email}</strong>
         </p>
-      )}
-
-      <button
-        onClick={verify}
-        disabled={loading || code.length < 5}
-        className="w-full rounded-2xl font-bold text-[15px] mb-4 transition-opacity"
-        style={{
-          height: 52,
-          backgroundColor: code.length === 5 ? 'white' : 'rgba(255,255,255,0.2)',
-          color: code.length === 5 ? '#806e84' : 'rgba(255,255,255,0.5)',
-          fontFamily: 'Nunito, sans-serif',
-          opacity: loading ? 0.7 : 1,
-        }}
-      >
-        {loading ? 'Verificando...' : 'Verificar →'}
-      </button>
-
-      <div className="text-center">
-        {canResend ? (
-          <button
-            onClick={resend}
-            className="text-sm font-semibold"
-            style={{ color: 'white', fontFamily: 'Nunito, sans-serif' }}
-          >
-            Reenviar código
-          </button>
-        ) : (
-          <p
-            className="text-sm"
-            style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Nunito, sans-serif' }}
-          >
-            Reenviar em 0:{String(timer).padStart(2, '0')}
-          </p>
-        )}
       </div>
-    </motion.div>
+
+      {/* Corpo claro */}
+      <div className="flex-1 px-6 pt-6 pb-10" style={{ backgroundColor: '#F8F5F0' }}>
+        {/* 5 inputs OTP */}
+        <div className="flex gap-2.5 justify-center mb-6">
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              id={`otp-${i}`}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={d}
+              onChange={e => handleDigit(i, e.target.value)}
+              onKeyDown={e => handleKeyDown(i, e)}
+              autoFocus={i === 0}
+              className="text-center font-bold text-2xl outline-none transition-all"
+              style={{
+                width: 52, height: 60,
+                borderRadius: 12,
+                backgroundColor: '#E8E8E2',
+                border: d ? '2px solid #806e84' : '2px solid transparent',
+                color: '#2C2C2C',
+                fontFamily: 'Quicksand, sans-serif',
+              }}
+            />
+          ))}
+        </div>
+
+        {error && (
+          <div className="mb-4 px-3 py-2.5 rounded-xl text-xs font-medium text-center"
+            style={{ backgroundColor: '#FCEAEA', border: '1px solid #f5caca', color: '#C04A4A', fontFamily: 'Nunito, sans-serif' }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={verify}
+          disabled={loading || digits.join('').length < 5}
+          className="w-full rounded-2xl font-bold text-[15px] mb-4 transition-opacity disabled:opacity-40"
+          style={{
+            height: 52,
+            backgroundColor: '#806e84',
+            color: 'white',
+            fontFamily: 'Nunito, sans-serif',
+            border: 'none',
+            cursor: 'pointer',
+          }}>
+          {loading ? 'Verificando...' : 'Verificar →'}
+        </button>
+
+        <div className="text-center">
+          {canResend ? (
+            <button onClick={resend} className="text-sm font-bold"
+              style={{ color: '#806e84', fontFamily: 'Nunito, sans-serif', background: 'none', border: 'none', cursor: 'pointer' }}>
+              Reenviar código
+            </button>
+          ) : (
+            <p className="text-sm" style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif' }}>
+              Reenviar em <strong>0:{String(timer).padStart(2, '0')}</strong>
+            </p>
+          )}
+        </div>
+
+        <div className="text-center mt-3">
+          <button onClick={onBack} className="text-xs"
+            style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif', background: 'none', border: 'none', cursor: 'pointer' }}>
+            ← Voltar e corrigir e-mail
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 // ─── Main AuthPage ────────────────────────────────────────────────────────────
-
 export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -258,7 +235,6 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showOTP, setShowOTP] = useState(false);
 
@@ -284,7 +260,6 @@ export default function AuthPage() {
     setTouched({ email: true, password: true });
     if (!isFormValid) return;
     setError('');
-    setSuccess('');
     setLoading(true);
     try {
       if (tab === 'signup') {
@@ -301,27 +276,26 @@ export default function AuthPage() {
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
+          email: email.trim(), password,
         });
         if (error) throw error;
         if (!data.session) throw new Error('Sessão não encontrada.');
+        // Roteamento correto: App.tsx + OnboardingGuard decidem para onde ir
         navigate('/onboarding');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('Invalid login credentials')) {
+      if (msg.includes('Invalid login credentials'))
         setError('E-mail ou senha incorretos. Verifique e tente novamente.');
-      } else if (msg.includes('Email not confirmed')) {
-        setError('Confirme seu e-mail antes de entrar. Reenviamos o código.');
+      else if (msg.includes('Email not confirmed')) {
+        setError('Confirme seu e-mail antes de entrar.');
         setShowOTP(true);
-      } else if (msg.includes('User already registered')) {
+      } else if (msg.includes('User already registered'))
         setError('Esse e-mail já está cadastrado. Tente entrar ou recuperar a senha.');
-      } else if (msg.includes('Password should be at least')) {
+      else if (msg.includes('Password should be at least'))
         setError('A senha precisa ter pelo menos 6 caracteres.');
-      } else {
+      else
         setError('Algo deu errado. Tente novamente.');
-      }
     } finally {
       setLoading(false);
     }
@@ -343,198 +317,214 @@ export default function AuthPage() {
 
   if (showOTP) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#806e84' }}>
-        <AnimatePresence mode="wait">
-          <OTPScreen email={email} onBack={() => setShowOTP(false)} />
-        </AnimatePresence>
-      </div>
+      <AnimatePresence mode="wait">
+        <OTPScreen email={email} onBack={() => setShowOTP(false)} />
+      </AnimatePresence>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#806e84' }}>
-      {/* Header */}
-      <div
-        className="px-5 pt-12 pb-7"
-        style={{ borderRadius: '0 0 28px 28px', backgroundColor: '#806e84' }}
-      >
-        <button
-          onClick={() => navigate('/onboarding')}
-          className="flex items-center gap-1.5 mb-6 text-sm font-medium"
-          style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'Nunito, sans-serif' }}
-        >
+    // ← MUDANÇA PRINCIPAL: flex-col, sem min-h-screen roxo global
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: '#F8F5F0' }}>
+
+      {/* ── Header roxo ── */}
+      <div className="relative overflow-hidden flex-shrink-0 px-6 pt-12 pb-8 text-center"
+        style={{ backgroundColor: '#806e84', borderRadius: '0 0 28px 28px' }}>
+        {/* Grain */}
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
+        }} />
+        {/* Voltar */}
+        <button onClick={() => navigate('/onboarding')}
+          className="absolute left-5 top-12 flex items-center gap-1 text-sm font-semibold z-10"
+          style={{ color: 'rgba(255,255,255,0.65)', fontFamily: 'Nunito, sans-serif', background: 'none', border: 'none', cursor: 'pointer' }}>
           ← Voltar
         </button>
-
-        <div className="flex items-center gap-3 mb-6">
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              border: '1.5px solid rgba(255,255,255,0.22)',
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <img src={simboloNinho} alt="Ninho" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+        {/* Logo */}
+        <div className="relative z-10 flex flex-col items-center">
+          <div style={{
+            width: 40, height: 40, borderRadius: '50%',
+            backgroundColor: 'rgba(255,255,255,0.12)',
+            border: '1.5px solid rgba(255,255,255,0.18)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 10,
+          }}>
+            <img src={simboloNinho} alt="Ninho"
+              style={{ width: 22, height: 22, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
           </div>
-          <span
-            style={{ color: 'white', fontFamily: 'Quicksand, sans-serif', fontWeight: 700, fontSize: 20 }}
-          >
-            ninho
-          </span>
+          <h1 className="text-white text-[22px] font-bold"
+            style={{ fontFamily: 'Quicksand, sans-serif' }}>
+            {tab === 'signup' ? 'Crie sua conta' : 'Bem-vindo de volta'}
+          </h1>
+          <p className="mt-1 text-[13px]"
+            style={{ color: 'rgba(255,255,255,0.55)', fontFamily: 'Nunito, sans-serif', lineHeight: 1.5, maxWidth: 260 }}>
+            {tab === 'signup'
+              ? 'Comece a organizar o cuidado da sua criança em poucos minutos.'
+              : 'Que bom te ver de novo.'}
+          </p>
         </div>
+      </div>
 
-        {/* Tab toggle */}
-        <div
-          className="flex rounded-2xl p-1"
-          style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}
-        >
+      {/* ── Corpo claro ── */}
+      <div className="flex-1 overflow-y-auto px-6 pt-5 pb-10">
+
+        {/* Tabs */}
+        <div className="flex p-[3px] mb-5"
+          style={{ backgroundColor: '#e3d9e2', borderRadius: 12 }}>
           {(['signup', 'login'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setError(''); setSuccess(''); setTouched({}); }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+            <button key={t}
+              onClick={() => { setTab(t); setError(''); setTouched({}); }}
+              className="flex-1 py-[10px] text-sm font-bold transition-all"
               style={{
                 fontFamily: 'Nunito, sans-serif',
-                backgroundColor: tab === t ? 'white' : 'transparent',
-                color: tab === t ? '#806e84' : 'rgba(255,255,255,0.65)',
-              }}
-            >
+                borderRadius: 10,
+                backgroundColor: tab === t ? '#fff' : 'transparent',
+                color: tab === t ? '#806e84' : '#7A7A7A',
+                boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                border: 'none', cursor: 'pointer',
+              }}>
               {t === 'signup' ? 'Criar conta' : 'Entrar'}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Body */}
-      <div className="flex-1 flex flex-col px-5 py-6">
-        {/* Social buttons */}
-        <div className="space-y-3 mb-5">
-          <button
-            onClick={handleGoogle}
-            className="w-full flex items-center justify-center gap-3 rounded-2xl font-semibold text-sm transition-opacity active:opacity-70"
+        {/* Social */}
+        <div className="space-y-2.5 mb-5">
+          <button onClick={handleGoogle}
+            className="w-full flex items-center gap-3 px-4 font-semibold text-sm transition-colors"
             style={{
-              height: 50,
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              border: '1.5px solid rgba(255,255,255,0.2)',
-              color: 'white',
+              height: 50, borderRadius: 14,
+              backgroundColor: '#fff',
+              border: '1.5px solid #E5E0D8',
+              color: '#2C2C2C',
               fontFamily: 'Nunito, sans-serif',
-            }}
-          >
+              cursor: 'pointer',
+            }}>
             <svg width="18" height="18" viewBox="0 0 24 24">
-              <path fill="#EA4335" d="M5.27 9.76A7.08 7.08 0 0 1 19.07 12c0 3.95-3.18 7.08-7.08 7.08a7.08 7.08 0 0 1-6.72-4.84l-3.19 2.47A11.5 11.5 0 0 0 12 23.5c5.85 0 10.77-4.37 11.5-10H12v-4.5H23.5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 1.58 5.77l3.19-2.47z" />
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
             Continuar com Google
           </button>
-          <button
-            onClick={handleApple}
-            className="w-full flex items-center justify-center gap-3 rounded-2xl font-semibold text-sm transition-opacity active:opacity-70"
+          <button onClick={handleApple}
+            className="w-full flex items-center gap-3 px-4 font-semibold text-sm transition-colors"
             style={{
-              height: 50,
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              border: '1.5px solid rgba(255,255,255,0.2)',
-              color: 'white',
+              height: 50, borderRadius: 14,
+              backgroundColor: '#fff',
+              border: '1.5px solid #E5E0D8',
+              color: '#2C2C2C',
               fontFamily: 'Nunito, sans-serif',
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+              cursor: 'pointer',
+            }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#2C2C2C">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
             </svg>
             Continuar com Apple
           </button>
         </div>
 
+        {/* Divisor */}
         <div className="flex items-center gap-3 mb-5">
-          <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
-          <span
-            className="text-xs"
-            style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'Nunito, sans-serif' }}
-          >
+          <div className="flex-1 h-px" style={{ backgroundColor: '#E5E0D8' }} />
+          <span className="text-xs" style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif' }}>
             ou use e-mail
           </span>
-          <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
+          <div className="flex-1 h-px" style={{ backgroundColor: '#E5E0D8' }} />
         </div>
 
+        {/* Error box */}
+        {error && (
+          <div className="mb-4 px-3 py-2.5 rounded-xl text-xs leading-relaxed"
+            style={{ backgroundColor: '#FCEAEA', border: '1px solid #f5caca', color: '#C04A4A', fontFamily: 'Nunito, sans-serif' }}>
+            {error}
+          </div>
+        )}
+
+        {/* Form */}
         <AnimatePresence mode="wait">
-          <motion.form
-            key={tab}
-            initial={{ opacity: 0, y: 10 }}
+          <motion.form key={tab}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
             onSubmit={handleSubmit}
             className="space-y-4"
-            noValidate
-          >
+            noValidate>
+
             {/* Email */}
-            <div className="space-y-1.5">
-              <Label
-                className="text-xs font-semibold"
-                style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'Nunito, sans-serif' }}
-              >
+            <div>
+              <label className="block mb-[5px]" style={{
+                fontFamily: 'Nunito, sans-serif', fontSize: 10, fontWeight: 700,
+                color: '#7A7A7A', textTransform: 'uppercase', letterSpacing: '0.5px'
+              }}>
                 E-mail
-              </Label>
-              <Input
+              </label>
+              <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onBlur={() => touch('email')}
                 placeholder="voce@email.com"
                 autoComplete="email"
-                className="h-12 rounded-2xl border-0 text-sm"
+                className="w-full px-4 py-3 text-sm outline-none transition-all"
                 style={{
                   fontFamily: 'Nunito, sans-serif',
-                  backgroundColor: 'rgba(255,255,255,0.12)',
-                  color: 'white',
+                  backgroundColor: '#E8E8E2',
+                  border: `1.5px solid ${emailError ? '#C04A4A' : 'transparent'}`,
+                  borderRadius: 12, color: '#2C2C2C',
                 }}
+                onFocus={e => { if (!emailError) e.target.style.borderColor = '#C7B3C5'; }}
+                onBlur={e => { touch('email'); if (!emailError) e.target.style.borderColor = 'transparent'; }}
               />
               {emailError && (
-                <p className="text-[11px]" style={{ color: '#fca5a5', fontFamily: 'Nunito, sans-serif' }}>
+                <p className="mt-1 text-[11px]"
+                  style={{ color: '#C04A4A', fontFamily: 'Nunito, sans-serif' }}>
                   {emailError}
                 </p>
               )}
             </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <Label
-                className="text-xs font-semibold"
-                style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'Nunito, sans-serif' }}
-              >
+            {/* Senha */}
+            <div>
+              <label className="block mb-[5px]" style={{
+                fontFamily: 'Nunito, sans-serif', fontSize: 10, fontWeight: 700,
+                color: '#7A7A7A', textTransform: 'uppercase', letterSpacing: '0.5px'
+              }}>
                 Senha
-              </Label>
+              </label>
               <div className="relative">
-                <Input
+                <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   onBlur={() => touch('password')}
-                  placeholder="••••••••"
+                  placeholder={tab === 'signup' ? 'Crie sua senha' : 'Sua senha'}
                   autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
-                  className="h-12 rounded-2xl border-0 pr-11 text-sm"
+                  className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all"
                   style={{
                     fontFamily: 'Nunito, sans-serif',
-                    backgroundColor: 'rgba(255,255,255,0.12)',
-                    color: 'white',
+                    backgroundColor: '#E8E8E2',
+                    border: '1.5px solid transparent',
+                    borderRadius: 12, color: '#2C2C2C',
                   }}
+                  onFocus={e => e.target.style.borderColor = '#C7B3C5'}
+                  onBlur={e => { touch('password'); e.target.style.borderColor = 'transparent'; }}
                 />
-                <button
-                  type="button"
+                <button type="button" tabIndex={-1}
                   onClick={() => setShowPassword(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
-                  tabIndex={-1}
-                  style={{ color: 'rgba(255,255,255,0.5)' }}
-                >
-                  {showPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                  style={{ color: '#7A7A7A', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  {showPassword
+                    ? <EyeSlashIcon className="w-4 h-4" />
+                    : <EyeIcon className="w-4 h-4" />}
                 </button>
               </div>
 
+              {/* Requisitos senha */}
               {showPasswordRules && (
-                <div className="pt-1 space-y-1">
+                <div className="mt-2 space-y-1">
                   <PasswordRule ok={passwordStrength.minLength} label="≥ 6 caracteres" />
                   <PasswordRule ok={passwordStrength.hasUppercase} label="1 maiúscula" />
                   <PasswordRule ok={passwordStrength.hasNumber} label="1 número" />
@@ -543,66 +533,38 @@ export default function AuthPage() {
               )}
             </div>
 
-            {error && (
-              <div
-                className="px-3 py-2.5 rounded-xl"
-                style={{ backgroundColor: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)' }}
-              >
-                <p className="text-xs font-medium" style={{ color: '#fca5a5', fontFamily: 'Nunito, sans-serif' }}>
-                  {error}
-                </p>
+            {/* Esqueci senha */}
+            {tab === 'login' && (
+              <div className="text-right -mt-1">
+                <button type="button"
+                  onClick={() => navigate('/reset-password')}
+                  className="text-xs font-bold"
+                  style={{ color: '#806e84', fontFamily: 'Nunito, sans-serif', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Esqueci minha senha
+                </button>
               </div>
             )}
 
-            {success && (
-              <div
-                className="px-3 py-2.5 rounded-xl"
-                style={{ backgroundColor: 'rgba(120,150,135,0.2)', border: '1px solid rgba(120,150,135,0.35)' }}
-              >
-                <p className="text-xs font-medium" style={{ color: '#86efac', fontFamily: 'Nunito, sans-serif' }}>
-                  {success}
-                </p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-2xl font-bold text-[15px] transition-opacity"
+            {/* CTA */}
+            <button type="submit" disabled={loading}
+              className="w-full rounded-2xl font-bold text-[15px] text-white transition-opacity disabled:opacity-50"
               style={{
-                height: 52,
-                backgroundColor: 'white',
-                color: '#806e84',
+                height: 52, backgroundColor: '#806e84',
                 fontFamily: 'Nunito, sans-serif',
-                opacity: loading ? 0.7 : 1,
-              }}
-            >
-              {loading
-                ? 'Aguarde...'
-                : tab === 'signup'
-                ? 'Criar minha conta →'
-                : 'Entrar →'}
+                border: 'none', cursor: 'pointer',
+              }}>
+              {loading ? 'Aguarde...' : tab === 'signup' ? 'Criar minha conta →' : 'Entrar →'}
             </button>
 
-            {tab === 'login' && (
-              <button
-                type="button"
-                onClick={() => navigate('/reset-password')}
-                className="w-full text-center text-[12px] font-semibold pt-1"
-                style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Nunito, sans-serif' }}
-              >
-                Esqueci minha senha
-              </button>
+            {/* Termos */}
+            {tab === 'signup' && (
+              <p className="text-center text-[11px] leading-relaxed"
+                style={{ color: '#7A7A7A', fontFamily: 'Nunito, sans-serif' }}>
+                Ao continuar, você concorda com nossos{' '}
+                <a href="#" style={{ color: '#806e84' }}>Termos de Uso</a> e{' '}
+                <a href="#" style={{ color: '#806e84' }}>Política de Privacidade</a>
+              </p>
             )}
-
-            <p
-              className="text-[10px] text-center pt-1 leading-relaxed"
-              style={{ color: 'rgba(255,255,255,0.35)', fontFamily: 'Nunito, sans-serif' }}
-            >
-              Ao continuar, você concorda com nossos{' '}
-              <span style={{ color: 'rgba(255,255,255,0.55)' }}>Termos de Uso</span> e{' '}
-              <span style={{ color: 'rgba(255,255,255,0.55)' }}>Política de Privacidade</span>
-            </p>
           </motion.form>
         </AnimatePresence>
       </div>

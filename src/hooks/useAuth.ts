@@ -32,9 +32,9 @@ export function useAuth(): AuthState {
         .from('profiles')
         .select('full_name, onboarding_complete')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      return data as Profile | null;
+      return (data as unknown) as Profile | null;
     }
 
     async function init() {

@@ -167,5 +167,3 @@ export default function App() {
     </QueryClientProvider>
   );
 }
-<BrowserRouter>
-<NinhoApp />

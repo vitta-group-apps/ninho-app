@@ -100,8 +100,8 @@ export function ForgotPasswordPage() {
                 Link enviado!
               </p>
               <p className="text-[13px] mt-1 font-nunito leading-snug" style={{ color: '#7A7A7A' }}>
-                Enviamos um link para
-              </p>
+                Se esse e-mail estiver cadastrado, você receberá um link em breve.
+               </p>
               <p className="text-[14px] font-bold font-nunito mt-0.5" style={{ color: '#806e84' }}>
                 {email}
               </p>

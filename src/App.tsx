@@ -1,3 +1,4 @@
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
@@ -137,6 +138,8 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/reset-password"  element={<ResetPasswordPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/onboarding/*"   element={<OnboardingGuard />} />
       <Route path="/"               element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/onboarding" replace />} />
       <Route path="/*"              element={isLoggedIn ? <AuthedRoutes /> : <Navigate to="/onboarding" replace />} />

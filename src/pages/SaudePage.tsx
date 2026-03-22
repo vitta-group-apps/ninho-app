@@ -585,7 +585,7 @@ function MedicationModal({
                   {f.label}
                 </p>
                 <input type="text" placeholder={f.placeholder}
-                  value={(form as Record<string, string>)[f.key]}
+                  value={(form as Record<string, unknown>)[f.key] as string}
                   onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
                   style={inputStyle}
                 />

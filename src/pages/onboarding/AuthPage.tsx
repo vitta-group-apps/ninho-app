@@ -508,7 +508,6 @@ export default function AuthPage() {
                     border: '1.5px solid transparent',
                     borderRadius: 12, color: '#2C2C2C',
                   }}
-                  onFocus={e => e.target.style.borderColor = '#C7B3C5'}
                   onBlur={e => { touch('password'); e.target.style.borderColor = 'transparent'; }}
                 />
                 <button type="button" tabIndex={-1}

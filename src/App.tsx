@@ -169,8 +169,3 @@ export default function App() {
 }
 <BrowserRouter>
 <NinhoApp />
-</BrowserRouter>
-</TooltipProvider>
-</QueryClientProvider>
-);
-}

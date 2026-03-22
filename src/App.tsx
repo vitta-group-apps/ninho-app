@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
@@ -37,6 +37,15 @@ import ChildPage from '@/pages/onboarding/ChildPage';
 import CompletePage from '@/pages/onboarding/CompletePage';
 
 const queryClient = new QueryClient();
+
+// ─── Single auth context so useAuth() is only called once ───────────────────
+type AuthCtx = ReturnType<typeof useAuth>;
+const AuthContext = createContext<AuthCtx | null>(null);
+function useAuthContext() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuthContext must be inside AuthProvider');
+  return ctx;
+}
 
 function AuthedRoutes() {
   return (
@@ -78,7 +87,7 @@ function AuthedRoutes() {
 }
 
 function OnboardingGuard() {
-  const { user, isLoggedIn, loading } = useAuth();
+  const { user, isLoggedIn, loading } = useAuthContext();
   const { loading: statusLoading, hasFamily, hasChild, familyId } = useOnboardingStatus(user?.id ?? null);
   const navigate = useNavigate();
 
@@ -114,7 +123,7 @@ function OnboardingGuard() {
 }
 
 function AppRouter() {
-  const { user, isLoggedIn, loading } = useAuth();
+  const { isLoggedIn, loading } = useAuthContext();
 
   if (loading) {
     return (
@@ -136,21 +145,22 @@ function AppRouter() {
 }
 
 function NinhoApp() {
-  const { session, loading } = useAuth();
+  const auth = useAuth(); // called ONCE here
+  const { session, loading } = auth;
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   const splashDuration = !loading && session ? 1000 : 2400;
 
   return (
-    <>
+    <AuthContext.Provider value={auth}>
       <AnimatePresence>
         {!splashDone && (
           <SplashScreen key="splash" onFinish={handleSplashFinish} duration={splashDuration} />
         )}
       </AnimatePresence>
       {splashDone && <AppRouter />}
-    </>
+    </AuthContext.Provider>
   );
 }
 

@@ -18,7 +18,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDownIcon, ChevronRightIcon, XMarkIcon,
@@ -109,9 +108,9 @@ function computeVaccineState(ageMonths: number, appliedVaccineIds: Set<string>) 
     return vm > ageMonths && vm <= ageMonths + 3 && !appliedVaccineIds.has(v.id);
   });
   const future = vaccineSchedule.filter(v => {
-    const vm = v.ageMonths ?? 0;
-    return vm > ageMonths + 3;
-  });
+  const vm = v.ageMonths ?? 0;
+  return vm > ageMonths + 3 && !appliedVaccineIds.has(v.id);
+});
   return { applied, due, upcoming, future };
 }
 
@@ -815,7 +814,9 @@ export default function SaudePage() {
   }
 
   const activeMeds = medications.filter(m => m.active);
-  const upcomingConsults = consultations.filter(c => c.date >= new Date().toISOString().split('T')[0]);
+  const today = new Date().toISOString().split('T')[0];
+const upcomingConsults = consultations.filter(c => c.date && c.date >= today);
+const pastConsults = consultations.filter(c => c.date && c.date < today);
   const pastConsults = consultations.filter(c => c.date < new Date().toISOString().split('T')[0]);
 
   const inputStyle = {
@@ -1289,7 +1290,15 @@ export default function SaudePage() {
             })()}
 
             {growthHistory.filter(e => e.weight != null).length >= 2 && (() => {
-              const chartData = [...growthHistory].filter(e => e.weight != null).reverse().map(e => ({ date: e.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), peso: e.weight }));
+              const chartData = [...growthHistory]
+  .filter(e => e.weight != null)
+  .reverse()
+  .map(e => ({
+    date: e.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+    peso: e.weight != null && e.weight >= 1000
+      ? +(e.weight / 1000).toFixed(2)
+      : e.weight,
+  }));
               return (
                 <div>
                   <SectionLabel>Evolução do peso (kg)</SectionLabel>

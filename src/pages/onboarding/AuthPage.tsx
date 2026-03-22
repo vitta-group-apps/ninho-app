@@ -533,7 +533,7 @@ export default function AuthPage() {
             {tab === 'login' && (
               <div className="text-right -mt-1">
                 <button type="button"
-                  onClick={() => navigate('/reset-password')}
+                  onClick={() => navigate('/forgot-password')}
                   className="text-xs font-bold"
                   style={{ color: '#806e84', fontFamily: 'Nunito, sans-serif', background: 'none', border: 'none', cursor: 'pointer' }}>
                   Esqueci minha senha

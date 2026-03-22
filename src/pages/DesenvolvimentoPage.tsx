@@ -1,19 +1,8 @@
 /**
  * DesenvolvimentoPage — Crescer
  *
- * Estrutura:
- *   1. Header roxo com fase atual + idade
- *   2. Card de contexto da fase (descrição educativa)
- *   3. Atividade sugerida do dia
- *   4. Marcos de desenvolvimento por categoria
- *      (Motor Grosso, Motor Fino, Linguagem, Socioafetivo)
- *   5. Conquistas registradas
- *
- * Dados:
- *   - Marcos inline (hardcoded por fase) — sem dependência de tabela
- *     milestones_catalog ainda não populada
- *   - Conquistas salvas em health_logs type='note' details.type='milestone'
- *   - Fase calculada via getAgeContext (já existe no projeto)
+ * Usa ageJourneys.ts como fonte única de dados de desenvolvimento.
+ * Conquistas salvas em health_logs type='note' details.type='milestone'
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -26,6 +15,15 @@ import { getAgeContext } from '@/lib/eventSystem';
 import { SectionLabel, InlineStatusPill } from '@/components/ds';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
+import {
+  getJourneyPhase,
+  getPhaseLabel,
+  DOMAIN_COLORS,
+  DOMAIN_LABELS,
+  type Milestone,
+  type MilestoneDomain,
+  type StimulationActivity,
+} from '@/lib/ageJourneys';
 
 // ── Cores fixas ──
 const MAUVE        = '#806e84';
@@ -44,190 +42,33 @@ const PAGE_BG      = '#F8F5F0';
 const TXT          = '#2C2C2C';
 const TXT_MUTED    = '#7A7A7A';
 
-// ── Tipos ──
-type MilestoneCategory = 'motor_grosso' | 'motor_fino' | 'linguagem' | 'socioafetivo';
-
-interface Milestone {
-  id: string;
-  title: string;
-  description: string;
-  category: MilestoneCategory;
-  source: string;
+// Mapeia domain → bg claro para badges e cards
+function domainBg(domain: MilestoneDomain): string {
+  const map: Record<MilestoneDomain, string> = {
+    motor:     SAGE_BG,
+    linguagem: '#e8f4f8',
+    social:    MAUVE_BG,
+    cognitivo: AMBER_BG,
+  };
+  return map[domain];
 }
 
+function domainBorder(domain: MilestoneDomain): string {
+  const map: Record<MilestoneDomain, string> = {
+    motor:     SAGE_BORDER,
+    linguagem: '#b8dae6',
+    social:    MAUVE_BORDER,
+    cognitivo: AMBER_BORDER,
+  };
+  return map[domain];
+}
+
+// ── Interfaces ──
 interface AchievedMilestone {
   id: string;
   milestoneId: string;
   achievedAt: Date;
   notes?: string;
-}
-
-interface PhaseData {
-  emoji: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  activity: {
-    emoji: string;
-    category: string;
-    title: string;
-    description: string;
-  };
-  milestones: Milestone[];
-}
-
-// ── Configuração de categorias ──
-const CATEGORY_CONFIG: Record<MilestoneCategory, { emoji: string; label: string; color: string; bg: string }> = {
-  motor_grosso:  { emoji: '🤸', label: 'Motor Grosso',   color: SAGE,  bg: SAGE_BG },
-  motor_fino:    { emoji: '✋', label: 'Motor Fino',      color: MAUVE, bg: MAUVE_BG },
-  linguagem:     { emoji: '🗣️', label: 'Linguagem',       color: AMBER, bg: AMBER_BG },
-  socioafetivo:  { emoji: '❤️', label: 'Socioafetivo',    color: '#C04A4A', bg: '#FCEAEA' },
-};
-
-// ── Dados de fases (baseados em AAP 2022 + OMS) ──
-function getPhaseData(ageMonths: number): PhaseData {
-  if (ageMonths < 1) return {
-    emoji: '🐣',
-    title: 'Recém-nascido',
-    subtitle: 'Primeiras semanas de vida',
-    description: 'O mundo é completamente novo. Visão, tato e olfato são os principais sentidos agora. Seu bebê reconhece sua voz — é a mais familiar de todas.',
-    activity: {
-      emoji: '👁️', category: 'Socioafetivo', title: 'Contato visual',
-      description: 'Segure o bebê a 20–30cm do rosto e olhe nos olhos dele. Fale devagar. Ele pode focar por alguns segundos.',
-    },
-    milestones: [
-      { id: 'rn-1', title: 'Reage a sons altos', description: 'Pisca ou se sobressalta com barulhos', category: 'linguagem', source: 'AAP 2022' },
-      { id: 'rn-2', title: 'Foca rosto a 20cm', description: 'Consegue focar brevemente no rosto do cuidador', category: 'socioafetivo', source: 'OMS' },
-      { id: 'rn-3', title: 'Reflexo de preensão', description: 'Fecha os dedos ao tocar a palma da mão', category: 'motor_fino', source: 'AAP 2022' },
-      { id: 'rn-4', title: 'Vira a cabeça', description: 'Vira levemente para buscar a voz materna', category: 'motor_grosso', source: 'OMS' },
-    ],
-  };
-
-  if (ageMonths < 3) return {
-    emoji: '🌱',
-    title: 'Fase de descobertas',
-    subtitle: `${ageMonths} ${ageMonths === 1 ? 'mês' : 'meses'} — 0 a 3 meses`,
-    description: 'O cérebro está formando milhares de conexões por segundo. Sorrisos, sons e contato visual são estímulos poderosos agora. Cada interação conta.',
-    activity: {
-      emoji: '🤸', category: 'Motor Grosso', title: 'Tempo de barriga',
-      description: 'Coloque o bebê de bruços por 3–5 minutos. Observe se ele tenta levantar a cabeça. Fale com ele durante a atividade. Nunca deixe dormindo de bruços.',
-    },
-    milestones: [
-      { id: '0-3-1', title: 'Levanta a cabeça de bruços', description: '75% das crianças atingem aos 2m', category: 'motor_grosso', source: 'AAP 2022' },
-      { id: '0-3-2', title: 'Abre e fecha as mãos', description: 'Começa a explorar com as mãos', category: 'motor_fino', source: 'OMS' },
-      { id: '0-3-3', title: 'Sorriso social', description: 'Sorri em resposta ao rosto ou voz de alguém', category: 'socioafetivo', source: 'AAP 2022' },
-      { id: '0-3-4', title: 'Faz sons e gorgolejados', description: 'Responde a vozes com sons diferentes do choro', category: 'linguagem', source: 'OMS' },
-      { id: '0-3-5', title: 'Segue objetos com os olhos', description: 'Acompanha um objeto em movimento de lado a lado', category: 'motor_fino', source: 'AAP 2022' },
-    ],
-  };
-
-  if (ageMonths < 6) return {
-    emoji: '🌟',
-    title: 'Fase da exploração',
-    subtitle: `${ageMonths} meses — 3 a 6 meses`,
-    description: 'Tudo vai para a boca — é assim que ele aprende. Músicas, livros coloridos e espelhos são ótimos estímulos. Ele já reconhece seu rosto e sorri ao te ver.',
-    activity: {
-      emoji: '🪞', category: 'Socioafetivo', title: 'Espelho mágico',
-      description: 'Segure o bebê na frente de um espelho. Aponte para o reflexo e diga o nome dele. Observe a reação curiosa — ele ainda não sabe que é ele!',
-    },
-    milestones: [
-      { id: '3-6-1', title: 'Sustenta a cabeça firme', description: 'Mantém a cabeça erguida sem apoio', category: 'motor_grosso', source: 'AAP 2022' },
-      { id: '3-6-2', title: 'Rola de bruços para o dorso', description: 'Consegue se virar sozinho', category: 'motor_grosso', source: 'OMS' },
-      { id: '3-6-3', title: 'Segura objetos', description: 'Agarra e mantém objetos na mão', category: 'motor_fino', source: 'AAP 2022' },
-      { id: '3-6-4', title: 'Gargalhadas', description: 'Ri alto em resposta a estímulos', category: 'linguagem', source: 'OMS' },
-      { id: '3-6-5', title: 'Reconhece rostos familiares', description: 'Demonstra preferência por pessoas conhecidas', category: 'socioafetivo', source: 'AAP 2022' },
-    ],
-  };
-
-  if (ageMonths < 9) return {
-    emoji: '🚀',
-    title: 'Fase da curiosidade',
-    subtitle: `${ageMonths} meses — 6 a 9 meses`,
-    description: 'A mobilidade está chegando. Sentar, engatinhar, explorar. Introdução alimentar começa nessa fase — cada novo sabor é uma aventura. A ansiedade de separação também aparece.',
-    activity: {
-      emoji: '🎵', category: 'Linguagem', title: 'Canções com movimentos',
-      description: 'Cante músicas simples com gestos (bater palma, balançar). Repita a mesma música todos os dias. A antecipação dos gestos é um grande estímulo cognitivo.',
-    },
-    milestones: [
-      { id: '6-9-1', title: 'Senta com apoio', description: 'Mantém postura sentada com suporte leve', category: 'motor_grosso', source: 'AAP 2022' },
-      { id: '6-9-2', title: 'Transfere objetos entre as mãos', description: 'Passa um brinquedo de uma mão para a outra', category: 'motor_fino', source: 'OMS' },
-      { id: '6-9-3', title: 'Balbucia sílabas', description: 'Produz sons como "ba", "da", "ma"', category: 'linguagem', source: 'AAP 2022' },
-      { id: '6-9-4', title: 'Responde ao próprio nome', description: 'Vira a cabeça quando chamado', category: 'socioafetivo', source: 'OMS' },
-      { id: '6-9-5', title: 'Ansiedade de separação', description: 'Chora ou fica agitado quando cuidador sai', category: 'socioafetivo', source: 'AAP 2022' },
-    ],
-  };
-
-  if (ageMonths < 12) return {
-    emoji: '🏃',
-    title: 'Fase do movimento',
-    subtitle: `${ageMonths} meses — 9 a 12 meses`,
-    description: 'Engatinhar, se levantar, dar os primeiros passos. A comunicação avança rápido — ele já entende muito mais do que fala. As primeiras palavras estão chegando.',
-    activity: {
-      emoji: '📦', category: 'Motor Fino', title: 'Jogo de encaixe',
-      description: 'Ofereça potes com tampas ou brinquedos de encaixe simples. Tirar e colocar desenvolve coordenação e causa-efeito. Celebre cada tentativa!',
-    },
-    milestones: [
-      { id: '9-12-1', title: 'Senta sem apoio', description: 'Mantém postura sentada de forma independente', category: 'motor_grosso', source: 'AAP 2022' },
-      { id: '9-12-2', title: 'Pinça — polegar e indicador', description: 'Pega objetos pequenos com dois dedos', category: 'motor_fino', source: 'OMS' },
-      { id: '9-12-3', title: 'Primeiras palavras', description: '"Mamã", "papá" com significado', category: 'linguagem', source: 'AAP 2022' },
-      { id: '9-12-4', title: 'Imita gestos', description: 'Acena tchau, bate palmas imitando adultos', category: 'socioafetivo', source: 'OMS' },
-      { id: '9-12-5', title: 'Fica em pé com apoio', description: 'Se levanta segurando em móveis', category: 'motor_grosso', source: 'AAP 2022' },
-    ],
-  };
-
-  if (ageMonths < 18) return {
-    emoji: '👶',
-    title: 'Primeiros passos',
-    subtitle: `${ageMonths} meses — 12 a 18 meses`,
-    description: 'Os primeiros passos independentes chegam! O vocabulário cresce rapidamente. A autonomia aumenta — junto com a birra. É tudo desenvolvimento normal.',
-    activity: {
-      emoji: '📚', category: 'Linguagem', title: 'Leitura compartilhada',
-      description: 'Leia livros com imagens grandes e cores. Aponte para os objetos e nomeie. Deixe que ele vire as páginas. 15 minutos por dia faz grande diferença no vocabulário.',
-    },
-    milestones: [
-      { id: '12-18-1', title: 'Caminha sozinho', description: 'Primeiros passos sem apoio', category: 'motor_grosso', source: 'AAP 2022' },
-      { id: '12-18-2', title: 'Empilha 2 blocos', description: 'Consegue empilhar objetos um sobre o outro', category: 'motor_fino', source: 'OMS' },
-      { id: '12-18-3', title: 'Vocabulário de 5–10 palavras', description: 'Usa palavras com significado consistente', category: 'linguagem', source: 'AAP 2022' },
-      { id: '12-18-4', title: 'Jogo simbólico inicial', description: 'Faz de conta com brinquedos (ex: coloca colher na boneca)', category: 'socioafetivo', source: 'OMS' },
-      { id: '12-18-5', title: 'Aponta para pedir', description: 'Usa o dedo indicador para mostrar o que quer', category: 'linguagem', source: 'AAP 2022' },
-    ],
-  };
-
-  if (ageMonths < 24) return {
-    emoji: '🌈',
-    title: 'Fase da linguagem',
-    subtitle: `${ageMonths} meses — 18 a 24 meses`,
-    description: 'Explosão de linguagem! As palavras e frases curtas aparecem rapidamente. A criança começa a entender regras sociais simples e a brincar com outras crianças.',
-    activity: {
-      emoji: '🎨', category: 'Motor Fino', title: 'Rabiscos livres',
-      description: 'Ofereça papel grande e giz de cera grosso. Deixe rabiscar livremente sem julgamento. O processo é mais importante que o resultado. Fala sobre as cores.',
-    },
-    milestones: [
-      { id: '18-24-1', title: 'Corre com equilíbrio', description: 'Corre sem cair com frequência', category: 'motor_grosso', source: 'AAP 2022' },
-      { id: '18-24-2', title: 'Frases de 2 palavras', description: '"Quer água", "papai foi"', category: 'linguagem', source: 'OMS' },
-      { id: '18-24-3', title: 'Jogo paralelo', description: 'Brinca ao lado de outras crianças (ainda não junto)', category: 'socioafetivo', source: 'AAP 2022' },
-      { id: '18-24-4', title: 'Segue instruções simples', description: 'Entende "pega o sapato" sem gestos', category: 'linguagem', source: 'OMS' },
-      { id: '18-24-5', title: 'Torre de 6 blocos', description: 'Empilha vários objetos com controle', category: 'motor_fino', source: 'AAP 2022' },
-    ],
-  };
-
-  return {
-    emoji: '🦋',
-    title: 'Fase da independência',
-    subtitle: `${ageMonths} meses — acima de 2 anos`,
-    description: 'A personalidade se consolida. Autonomia, criatividade e socialização são os focos. Birras ainda aparecem — é a criança testando limites. Paciência e consistência são os melhores aliados.',
-    activity: {
-      emoji: '🧩', category: 'Cognitivo', title: 'Quebra-cabeça simples',
-      description: 'Ofereça quebra-cabeças de 4–8 peças grandes. Comece mostrando como encaixar uma peça. Deixe que ele resolva sozinho. Valorize o esforço, não só o resultado.',
-    },
-    milestones: [
-      { id: '24+-1', title: 'Sobe escadas alternando os pés', description: 'Sobe e desce com equilíbrio', category: 'motor_grosso', source: 'AAP 2022' },
-      { id: '24+-2', title: 'Frases de 3+ palavras', description: 'Frases com sujeito, verbo e complemento', category: 'linguagem', source: 'OMS' },
-      { id: '24+-3', title: 'Jogo simbólico elaborado', description: 'Cria histórias com brinquedos', category: 'socioafetivo', source: 'AAP 2022' },
-      { id: '24+-4', title: 'Recorta com tesoura', description: 'Controle refinado de tesoura com ponta arredondada', category: 'motor_fino', source: 'OMS' },
-      { id: '24+-5', title: 'Reconhece emoções', description: 'Nomeia "feliz", "triste", "com medo"', category: 'socioafetivo', source: 'AAP 2022' },
-    ],
-  };
 }
 
 // ── Modal de registro de marco ──
@@ -245,11 +86,13 @@ function MilestoneModal({
   onSaved: (achieved: AchievedMilestone) => void;
 }) {
   const today = new Date().toISOString().split('T')[0];
-  const [date, setDate]   = useState(today);
-  const [notes, setNotes] = useState('');
+  const [date, setDate]     = useState(today);
+  const [notes, setNotes]   = useState('');
   const [saving, setSaving] = useState(false);
 
-  const cat = CATEGORY_CONFIG[milestone.category];
+  const color  = DOMAIN_COLORS[milestone.domain];
+  const bg     = domainBg(milestone.domain);
+  const border = domainBorder(milestone.domain);
 
   async function confirm() {
     setSaving(true);
@@ -260,23 +103,26 @@ function MilestoneModal({
         type:        'note',
         occurred_at: new Date(date + 'T12:00:00').toISOString(),
         details: {
-          type:           'milestone',
-          milestone_id:   milestone.id,
-          milestone_title: milestone.title,
-          category:       milestone.category,
-          notes:          notes.trim() || null,
-          achieved_on:    date,
+          type:            'milestone',
+          milestone_id:    milestone.id,
+          milestone_title: milestone.label,
+          domain:          milestone.domain,
+          notes:           notes.trim() || null,
+          achieved_on:     date,
         },
       }).select('id').single();
       if (error) throw error;
-      onSaved({ id: data.id, milestoneId: milestone.id, achievedAt: new Date(date + 'T12:00:00'), notes: notes.trim() || undefined });
-      toast({ title: `🎉 Marco registrado!`, description: milestone.title });
+      onSaved({
+        id: data.id,
+        milestoneId: milestone.id,
+        achievedAt: new Date(date + 'T12:00:00'),
+        notes: notes.trim() || undefined,
+      });
+      toast({ title: '🎉 Marco registrado!', description: milestone.label });
       onClose();
     } catch {
       toast({ title: 'Erro ao registrar marco', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   return (
@@ -296,7 +142,7 @@ function MilestoneModal({
                 Registrar marco 🎉
               </p>
               <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
-                {milestone.title}
+                {milestone.label}
               </p>
             </div>
             <button onClick={onClose} style={{ color: TXT_MUTED }}>
@@ -304,21 +150,28 @@ function MilestoneModal({
             </button>
           </div>
 
-          <div className="rounded-2xl px-4 py-3 flex items-center gap-3"
-            style={{ backgroundColor: cat.bg, border: `1px solid ${CARD_BORDER}` }}>
-            <span className="text-[20px]">{cat.emoji}</span>
+          {/* Info do marco */}
+          <div className="rounded-2xl px-4 py-3 flex items-start gap-3"
+            style={{ backgroundColor: bg, border: `1px solid ${border}` }}>
+            <span className="text-[20px] flex-shrink-0 mt-0.5">{milestone.emoji}</span>
             <div>
-              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide" style={{ color: TXT_MUTED }}>
-                {cat.label}
+              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-0.5"
+                style={{ color }}>
+                {DOMAIN_LABELS[milestone.domain]}
               </p>
               <p className="text-[13px] font-nunito leading-snug" style={{ color: TXT }}>
                 {milestone.description}
               </p>
+              <p className="text-[10px] font-nunito mt-1" style={{ color: TXT_MUTED }}>
+                Esperado: {milestone.ageHint}
+              </p>
             </div>
           </div>
 
+          {/* Data */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-2" style={{ color: TXT_MUTED }}>
+            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-2"
+              style={{ color: TXT_MUTED }}>
               Quando aconteceu?
             </p>
             <input type="date" value={date} max={today}
@@ -328,8 +181,10 @@ function MilestoneModal({
             />
           </div>
 
+          {/* Notas */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-2" style={{ color: TXT_MUTED }}>
+            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-2"
+              style={{ color: TXT_MUTED }}>
               Como foi? (opcional)
             </p>
             <textarea value={notes} onChange={e => setNotes(e.target.value)}
@@ -368,33 +223,38 @@ function MilestoneRow({
   achieved?: AchievedMilestone;
   onRegister: (m: Milestone) => void;
 }) {
-  const cat = CATEGORY_CONFIG[milestone.category];
+  const color  = DOMAIN_COLORS[milestone.domain];
+  const bg     = domainBg(milestone.domain);
+
   return (
-    <div className="flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-all"
+    <div className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
       style={{
-        backgroundColor: achieved ? cat.bg : CARD_BG,
-        border: `1px solid ${achieved ? CARD_BORDER : CARD_BORDER}`,
-        opacity: achieved ? 0.9 : 1,
+        backgroundColor: achieved ? bg : CARD_BG,
+        border: `1px solid ${CARD_BORDER}`,
       }}>
       <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[15px] flex-shrink-0 mt-0.5"
-        style={{ backgroundColor: achieved ? cat.color : MUTED_BG }}>
-        {achieved ? '✓' : cat.emoji}
+        style={{ backgroundColor: achieved ? color : MUTED_BG }}>
+        <span style={{ filter: achieved ? 'brightness(10)' : 'none' }}>
+          {achieved ? '✓' : milestone.emoji}
+        </span>
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-bold font-quicksand leading-tight" style={{ color: TXT }}>
-          {milestone.title}
+          {milestone.label}
         </p>
         <p className="text-[11px] font-nunito mt-0.5 leading-snug" style={{ color: TXT_MUTED }}>
           {milestone.description}
         </p>
-        {achieved && (
-          <p className="text-[10px] font-bold font-nunito mt-1" style={{ color: cat.color }}>
-            ✓ Registrado em {achieved.achievedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+        {achieved ? (
+          <p className="text-[10px] font-bold font-nunito mt-1" style={{ color }}>
+            ✓ {achieved.achievedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+            {achieved.notes && ` · ${achieved.notes}`}
+          </p>
+        ) : (
+          <p className="text-[9px] font-nunito mt-0.5" style={{ color: '#CBCBC8' }}>
+            Esperado: {milestone.ageHint}
           </p>
         )}
-        <p className="text-[9px] font-nunito mt-0.5" style={{ color: '#CBCBC8' }}>
-          Fonte: {milestone.source}
-        </p>
       </div>
       {!achieved && (
         <button onClick={() => onRegister(milestone)}
@@ -407,6 +267,64 @@ function MilestoneRow({
   );
 }
 
+// ── Atividade card ──
+function ActivityCard({
+  activity,
+  done,
+  onToggle,
+}: {
+  activity: StimulationActivity;
+  done: boolean;
+  onToggle: () => void;
+}) {
+  const color  = DOMAIN_COLORS[activity.domain];
+  const bg     = domainBg(activity.domain);
+  const border = domainBorder(activity.domain);
+
+  return (
+    <div className="rounded-2xl p-4 space-y-3"
+      style={{
+        backgroundColor: done ? SAGE_BG : bg,
+        border: `1px solid ${done ? SAGE_BORDER : border}`,
+      }}>
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
+          style={{ backgroundColor: done ? SAGE_BG : CARD_BG, border: `1px solid ${done ? SAGE_BORDER : border}` }}>
+          {activity.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+              {activity.title}
+            </p>
+            <span className="text-[9px] font-bold font-nunito px-1.5 py-0.5 rounded-full uppercase tracking-wide"
+              style={{ backgroundColor: done ? SAGE_BG : bg, color: done ? SAGE : color, border: `1px solid ${done ? SAGE_BORDER : border}` }}>
+              {DOMAIN_LABELS[activity.domain]}
+            </span>
+          </div>
+          <p className="text-[12px] font-bold font-nunito mb-1" style={{ color: done ? SAGE : color }}>
+            Por quê: <span className="font-normal" style={{ color: TXT_MUTED }}>{activity.why}</span>
+          </p>
+          <p className="text-[12px] font-nunito leading-relaxed" style={{ color: TXT_MUTED }}>
+            {activity.how}
+          </p>
+        </div>
+      </div>
+
+      <button onClick={onToggle}
+        className="w-full py-2.5 rounded-xl text-[12px] font-bold font-nunito transition-all active:scale-95"
+        style={{
+          backgroundColor: done ? SAGE : CARD_BG,
+          color: done ? 'white' : color,
+          border: `1.5px solid ${done ? SAGE : border}`,
+          cursor: 'pointer',
+        }}>
+        {done ? '✓ Feito hoje!' : 'Marcar como feita hoje'}
+      </button>
+    </div>
+  );
+}
+
 // ── Main Page ──
 export default function DesenvolvimentoPage() {
   const { user }        = useAuth();
@@ -414,21 +332,23 @@ export default function DesenvolvimentoPage() {
 
   const ageCtx    = activeChild ? getAgeContext(activeChild.birth_date) : null;
   const ageMonths = ageCtx?.months ?? 0;
-  const phase     = getPhaseData(ageMonths);
+  const phase     = getJourneyPhase(ageMonths);
   const childName = activeChild?.name ?? 'seu filho';
+  const phaseLabel = getPhaseLabel(ageMonths);
 
-  const [achieved, setAchieved]         = useState<AchievedMilestone[]>([]);
-  const [loading, setLoading]           = useState(true);
+  const [achieved, setAchieved]           = useState<AchievedMilestone[]>([]);
+  const [loading, setLoading]             = useState(true);
   const [confirmMilestone, setConfirmMilestone] = useState<Milestone | null>(null);
-  const [activityDone, setActivityDone] = useState(false);
-  const [expandedCats, setExpandedCats] = useState<Set<MilestoneCategory>>(
-    new Set(['motor_grosso', 'linguagem'])
+  const [doneActivities, setDoneActivities] = useState<Set<string>>(new Set());
+  const [expandedDomains, setExpandedDomains] = useState<Set<MilestoneDomain>>(
+    new Set(['motor', 'linguagem'])
   );
+  const [showWatchpoints, setShowWatchpoints] = useState(false);
 
-  function toggleCat(cat: MilestoneCategory) {
-    setExpandedCats(prev => {
+  function toggleDomain(d: MilestoneDomain) {
+    setExpandedDomains(prev => {
       const next = new Set(prev);
-      if (next.has(cat)) { next.delete(cat); } else { next.add(cat); }
+      if (next.has(d)) { next.delete(d); } else { next.add(d); }
       return next;
     });
   }
@@ -454,26 +374,29 @@ export default function DesenvolvimentoPage() {
         }
       }
       setAchieved(list);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [activeChild]);
 
   useEffect(() => { loadAchieved(); }, [loadAchieved]);
 
-  // Agrupa marcos por categoria
-  const milestonesByCategory = phase.milestones.reduce((acc, m) => {
-    if (!acc[m.category]) acc[m.category] = [];
-    acc[m.category].push(m);
-    return acc;
-  }, {} as Record<MilestoneCategory, Milestone[]>);
+  // Agrupa marcos por domínio
+  const domains = Array.from(
+    new Set(phase.milestones.map(m => m.domain))
+  ) as MilestoneDomain[];
 
-  const achievedIds = new Set(achieved.map(a => a.milestoneId));
+  const milestonesByDomain = domains.reduce((acc, d) => {
+    acc[d] = phase.milestones.filter(m => m.domain === d);
+    return acc;
+  }, {} as Record<MilestoneDomain, Milestone[]>);
+
+  const achievedIds   = new Set(achieved.map(a => a.milestoneId));
   const achievedCount = phase.milestones.filter(m => achievedIds.has(m.id)).length;
   const totalCount    = phase.milestones.length;
   const progressPct   = totalCount > 0 ? Math.round((achievedCount / totalCount) * 100) : 0;
 
-  const categories = Object.keys(milestonesByCategory) as MilestoneCategory[];
+  // Atividade em destaque — primeira não concluída hoje
+  const featuredActivity = phase.stimulation.find(a => !doneActivities.has(a.id))
+    ?? phase.stimulation[0];
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: PAGE_BG }}>
@@ -484,14 +407,13 @@ export default function DesenvolvimentoPage() {
           paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
           backgroundColor: MAUVE,
           borderRadius: '0 0 24px 24px',
-        }}
-      >
+        }}>
         <h1 className="text-[22px] font-bold font-quicksand" style={{ color: 'white' }}>
           Crescer
         </h1>
         <p className="text-[13px] mt-0.5 font-nunito" style={{ color: 'rgba(255,255,255,0.65)' }}>
           {activeChild ? childName : 'Desenvolvimento'}
-          {ageCtx && <span style={{ opacity: 0.75 }}> · {ageCtx.phaseHint}</span>}
+          {ageCtx && <span style={{ opacity: 0.75 }}> · {phaseLabel}</span>}
         </p>
       </div>
 
@@ -503,30 +425,32 @@ export default function DesenvolvimentoPage() {
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-[24px] flex-shrink-0"
               style={{ backgroundColor: MAUVE_BG }}>
-              {phase.emoji}
+              🌱
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
-                {phase.title}
+                {phase.label}
               </p>
               <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
-                {phase.subtitle}
+                {phaseLabel}
               </p>
             </div>
           </div>
 
           <p className="text-[13px] font-nunito leading-relaxed" style={{ color: '#4b4b47' }}>
-            {phase.description}
+            {phase.phaseSummary}
           </p>
 
-          {/* Barra de progresso dos marcos */}
+          {/* Barra de progresso */}
           {!loading && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[11px] font-bold font-nunito uppercase tracking-wide" style={{ color: TXT_MUTED }}>
+                <p className="text-[11px] font-bold font-nunito uppercase tracking-wide"
+                  style={{ color: TXT_MUTED }}>
                   Marcos desta fase
                 </p>
-                <p className="text-[11px] font-bold font-nunito" style={{ color: achievedCount > 0 ? SAGE : TXT_MUTED }}>
+                <p className="text-[11px] font-bold font-nunito"
+                  style={{ color: achievedCount > 0 ? SAGE : TXT_MUTED }}>
                   {achievedCount}/{totalCount}
                 </p>
               </div>
@@ -548,53 +472,62 @@ export default function DesenvolvimentoPage() {
           )}
         </div>
 
-        {/* ATIVIDADE SUGERIDA */}
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito" style={{ color: TXT_MUTED }}>
-            Atividade sugerida hoje
-          </p>
-          <div className="rounded-2xl p-4 space-y-3"
-            style={{ backgroundColor: activityDone ? SAGE_BG : AMBER_BG, border: `1px solid ${activityDone ? SAGE_BORDER : AMBER_BORDER}` }}>
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
-                style={{ backgroundColor: activityDone ? SAGE_BG : AMBER_BG, border: `1px solid ${activityDone ? SAGE_BORDER : AMBER_BORDER}` }}>
-                {phase.activity.emoji}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
-                    {phase.activity.title}
-                  </p>
-                  <span className="text-[10px] font-bold font-nunito px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: activityDone ? SAGE_BG : AMBER_BG, color: activityDone ? SAGE : AMBER, border: `1px solid ${activityDone ? SAGE_BORDER : AMBER_BORDER}` }}>
-                    {phase.activity.category}
-                  </span>
-                </div>
-                <p className="text-[12px] font-nunito leading-relaxed" style={{ color: TXT_MUTED }}>
-                  {phase.activity.description}
-                </p>
-              </div>
-            </div>
+        {/* ATIVIDADE EM DESTAQUE */}
+        {featuredActivity && (
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
+              style={{ color: TXT_MUTED }}>
+              Atividade sugerida hoje
+            </p>
+            <ActivityCard
+              activity={featuredActivity}
+              done={doneActivities.has(featuredActivity.id)}
+              onToggle={() => setDoneActivities(prev => {
+                const next = new Set(prev);
+                if (next.has(featuredActivity.id)) { next.delete(featuredActivity.id); }
+                else { next.add(featuredActivity.id); }
+                return next;
+              })}
+            />
 
-            <button
-              onClick={() => setActivityDone(v => !v)}
-              className="w-full py-2.5 rounded-xl text-[12px] font-bold font-nunito transition-all active:scale-95"
-              style={{
-                backgroundColor: activityDone ? SAGE : 'white',
-                color: activityDone ? 'white' : AMBER,
-                border: `1.5px solid ${activityDone ? SAGE : AMBER_BORDER}`,
-                cursor: 'pointer',
-              }}>
-              {activityDone ? '✓ Atividade feita hoje!' : 'Marcar como feita hoje'}
-            </button>
+            {/* Mais atividades */}
+            {phase.stimulation.length > 1 && (
+              <div className="mt-2 space-y-2">
+                {phase.stimulation
+                  .filter(a => a.id !== featuredActivity.id)
+                  .map(a => (
+                    <ActivityCard
+                      key={a.id}
+                      activity={a}
+                      done={doneActivities.has(a.id)}
+                      onToggle={() => setDoneActivities(prev => {
+                        const next = new Set(prev);
+                        if (next.has(a.id)) { next.delete(a.id); } else { next.add(a.id); }
+                        return next;
+                      })}
+                    />
+                  ))}
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* MARCOS DE DESENVOLVIMENTO */}
+        {/* MARCOS POR DOMÍNIO */}
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito" style={{ color: TXT_MUTED }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
+            style={{ color: TXT_MUTED }}>
             Marcos de desenvolvimento
           </p>
+
+          {/* Aviso ético */}
+          <div className="rounded-xl px-3 py-2.5 flex items-start gap-2 mb-3"
+            style={{ backgroundColor: MUTED_BG }}>
+            <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
+            <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
+              Marcos são referências, não obrigações. Cada criança se desenvolve no seu ritmo.
+              Consulte o pediatra se tiver dúvidas.
+            </p>
+          </div>
 
           {loading ? (
             <div className="space-y-3">
@@ -602,39 +535,32 @@ export default function DesenvolvimentoPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Info box */}
-              <div className="rounded-xl px-3 py-2.5 flex items-start gap-2" style={{ backgroundColor: MUTED_BG }}>
-                <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
-                <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
-                  Marcos são referências, não obrigações. Cada criança se desenvolve no seu ritmo. Consulte o pediatra se tiver dúvidas.
-                </p>
-              </div>
-
-              {categories.map(cat => {
-                const catConfig = CATEGORY_CONFIG[cat];
-                const catMilestones = milestonesByCategory[cat] ?? [];
-                const catAchieved  = catMilestones.filter(m => achievedIds.has(m.id)).length;
-                const isExpanded   = expandedCats.has(cat);
+              {domains.map(domain => {
+                const color       = DOMAIN_COLORS[domain];
+                const bg          = domainBg(domain);
+                const domMilestones = milestonesByDomain[domain] ?? [];
+                const domAchieved   = domMilestones.filter(m => achievedIds.has(m.id)).length;
+                const isExpanded    = expandedDomains.has(domain);
 
                 return (
-                  <div key={cat} className="rounded-2xl overflow-hidden"
+                  <div key={domain} className="rounded-2xl overflow-hidden"
                     style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
-                    <button onClick={() => toggleCat(cat)}
+                    <button onClick={() => toggleDomain(domain)}
                       className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors"
                       style={{ backgroundColor: isExpanded ? MAUVE_BG : 'transparent' }}>
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[15px] flex-shrink-0"
-                        style={{ backgroundColor: catConfig.bg }}>
-                        {catConfig.emoji}
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[14px] flex-shrink-0"
+                        style={{ backgroundColor: bg }}>
+                        {DOMAIN_LABELS[domain].split(' ')[0]}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
-                          {catConfig.label}
+                          {DOMAIN_LABELS[domain].split(' ').slice(1).join(' ')}
                         </p>
                         <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
-                          {catAchieved}/{catMilestones.length} registrados
+                          {domAchieved}/{domMilestones.length} registrados
                         </p>
                       </div>
-                      {catAchieved === catMilestones.length && catMilestones.length > 0 && (
+                      {domAchieved === domMilestones.length && domMilestones.length > 0 && (
                         <InlineStatusPill label="Completo" variant="active" color={SAGE} />
                       )}
                       <span className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
@@ -653,7 +579,7 @@ export default function DesenvolvimentoPage() {
                         >
                           <div className="px-3 pb-3 pt-2 space-y-2"
                             style={{ borderTop: `1px solid ${CARD_BORDER}` }}>
-                            {catMilestones.map(m => (
+                            {domMilestones.map(m => (
                               <MilestoneRow
                                 key={m.id}
                                 milestone={m}
@@ -672,33 +598,94 @@ export default function DesenvolvimentoPage() {
           )}
         </div>
 
+        {/* WATCHPOINTS — colapsável */}
+        {phase.watchpoints.length > 0 && (
+          <div>
+            <button
+              onClick={() => setShowWatchpoints(v => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all"
+              style={{
+                backgroundColor: showWatchpoints ? '#FCEAEA' : CARD_BG,
+                border: `1px solid ${showWatchpoints ? '#f5caca' : CARD_BORDER}`,
+              }}>
+              <span className="text-[18px] flex-shrink-0">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                  Sinais para observar
+                </p>
+                <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
+                  Converse com o pediatra se notar algo
+                </p>
+              </div>
+              <span className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
+                {showWatchpoints ? '▾' : '▸'}
+              </span>
+            </button>
+
+            <AnimatePresence initial={false}>
+              {showWatchpoints && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-2 space-y-2">
+                    {phase.watchpoints.map(wp => (
+                      <div key={wp.id} className="flex items-start gap-3 px-4 py-3 rounded-2xl"
+                        style={{ backgroundColor: '#FCEAEA', border: '1px solid #f5caca' }}>
+                        <span className="text-[14px] flex-shrink-0 mt-0.5">
+                          {DOMAIN_LABELS[wp.domain].split(' ')[0]}
+                        </span>
+                        <p className="text-[12px] font-nunito leading-snug" style={{ color: '#7a3030' }}>
+                          {wp.description}
+                        </p>
+                      </div>
+                    ))}
+                    <div className="px-3 py-2.5 rounded-xl"
+                      style={{ backgroundColor: MUTED_BG }}>
+                      <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
+                        Esses sinais são referências para conversar com o pediatra — não diagnósticos.
+                        Cada criança tem seu ritmo único.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
         {/* CONQUISTAS REGISTRADAS */}
         {achieved.length > 0 && (
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito" style={{ color: TXT_MUTED }}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
+              style={{ color: TXT_MUTED }}>
               Conquistas de {childName}
             </p>
             <div className="space-y-2">
-              {achieved.slice(0, 5).map(a => {
+              {achieved.slice(0, 6).map(a => {
                 const milestone = phase.milestones.find(m => m.id === a.milestoneId);
                 if (!milestone) return null;
-                const cat = CATEGORY_CONFIG[milestone.category];
+                const color = DOMAIN_COLORS[milestone.domain];
+                const bg    = domainBg(milestone.domain);
                 return (
                   <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl"
-                    style={{ backgroundColor: cat.bg, border: `1px solid ${CARD_BORDER}` }}>
+                    style={{ backgroundColor: bg, border: `1px solid ${CARD_BORDER}` }}>
                     <span className="text-[18px] flex-shrink-0">🎉</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
-                        {milestone.title}
+                        {milestone.label}
                       </p>
                       <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
                         {a.achievedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
                         {a.notes ? ` · ${a.notes}` : ''}
                       </p>
                     </div>
-                    <span className="text-[10px] font-bold font-nunito px-2 py-1 rounded-full"
-                      style={{ backgroundColor: CARD_BG, color: cat.color }}>
-                      {cat.label}
+                    <span className="text-[9px] font-bold font-nunito px-2 py-1 rounded-full uppercase"
+                      style={{ backgroundColor: CARD_BG, color }}>
+                      {DOMAIN_LABELS[milestone.domain].split(' ')[0]}
                     </span>
                   </div>
                 );
@@ -715,7 +702,8 @@ export default function DesenvolvimentoPage() {
             <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
               Nenhum marco registrado ainda
             </p>
-            <p className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto" style={{ color: TXT_MUTED }}>
+            <p className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
+              style={{ color: TXT_MUTED }}>
               Quando {childName} atingir um marco, toque em "Atingido" para registrar e guardar a memória.
             </p>
           </div>

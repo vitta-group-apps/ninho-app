@@ -465,7 +465,6 @@ export default function AuthPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                onBlur={() => touch('email')}
                 placeholder="voce@email.com"
                 autoComplete="email"
                 className="w-full px-4 py-3 text-sm outline-none transition-all"

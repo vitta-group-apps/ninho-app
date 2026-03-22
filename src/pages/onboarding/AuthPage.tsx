@@ -287,9 +287,14 @@ export default function AuthPage() {
       const msg = err instanceof Error ? err.message : '';
       if (msg.includes('Invalid login credentials'))
         setError('E-mail ou senha incorretos. Verifique e tente novamente.');
-      else if (msg.includes('Email not confirmed')) {
-        setError('Confirme seu e-mail antes de entrar.');
-        setShowOTP(true);
+      } else if (msg.includes('Email not confirmed')) {
+  if (tab === 'signup') {
+    setShowOTP(true);
+  } else {
+    setError('Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada ou crie uma nova conta.');
+  }
+}
+
       } else if (msg.includes('User already registered'))
         setError('Esse e-mail já está cadastrado. Tente entrar ou recuperar a senha.');
       else if (msg.includes('Password should be at least'))

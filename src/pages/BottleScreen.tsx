@@ -21,14 +21,19 @@ import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import { makePayloadNotes } from '@/lib/routineUtils';
 import {
-  ScreenHeader,
-  StickyFooterCTA,
-  SectionLabel,
-  ChipGroup,
-  ReportToggle,
+  ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle,
 } from '@/components/ds';
 
-const BOTTLE_COLOR = 'hsl(var(--color-bottle))';
+// ── Cores fixas ──
+const BOTTLE_COLOR  = '#C8894A';
+const BOTTLE_BG     = '#FDF3E9';
+const BOTTLE_BORDER = '#f0d5b0';
+const CARD_BG       = '#ffffff';
+const CARD_BORDER   = '#E5E0D8';
+const MUTED_BG      = '#E8E8E2';
+const PAGE_BG       = '#F8F5F0';
+const TXT           = '#2C2C2C';
+const TXT_MUTED     = '#7A7A7A';
 
 type FeedType = 'bottle' | 'formula';
 
@@ -49,9 +54,9 @@ const AMOUNT_OPTIONS = [
 ];
 
 const TEMP_OPTIONS = [
-  { value: 'cold',  label: '🧊 Fria' },
-  { value: 'warm',  label: '☁️ Morna' },
-  { value: 'hot',   label: '🌡️ Quente' },
+  { value: 'cold', label: '🧊 Fria' },
+  { value: 'warm', label: '☁️ Morna' },
+  { value: 'hot',  label: '🌡️ Quente' },
 ];
 
 const REACTION_OPTIONS = [
@@ -67,14 +72,14 @@ export default function BottleScreen() {
   const { user } = useAuth();
   const { activeChildId, activeChild } = useActiveChild();
 
-  const [feedType, setFeedType] = useState<FeedType>('bottle');
-  const [amount, setAmount] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
-  const [temperature, setTemperature] = useState('');
-  const [reactions, setReactions] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
+  const [feedType, setFeedType]           = useState<FeedType>('bottle');
+  const [amount, setAmount]               = useState('');
+  const [customAmount, setCustomAmount]   = useState('');
+  const [temperature, setTemperature]     = useState('');
+  const [reactions, setReactions]         = useState<string[]>([]);
+  const [notes, setNotes]                 = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]               = useState(false);
 
   const resolvedAmount = amount || customAmount;
 
@@ -83,8 +88,8 @@ export default function BottleScreen() {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        session_type: feedType,
-        feeding_method: feedType,
+        session_type:    feedType,
+        feeding_method:  feedType,
       };
       if (resolvedAmount)        payload.amount_ml         = Number(resolvedAmount);
       if (temperature)           payload.temperature       = temperature;
@@ -103,30 +108,25 @@ export default function BottleScreen() {
       navigate(-1);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
-  const typeLabel = feedType === 'formula' ? 'fórmula' : 'mamadeira';
+  const typeLabel   = feedType === 'formula' ? 'fórmula' : 'mamadeira';
   const amountLabel = resolvedAmount ? ` · ${resolvedAmount}ml` : '';
-  const ctaLabel = saving ? 'Salvando...' : `Registrar ${typeLabel}${amountLabel}`;
+  const ctaLabel    = saving ? 'Salvando...' : `Registrar ${typeLabel}${amountLabel}`;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: PAGE_BG }}>
       <ScreenHeader
         title={feedType === 'formula' ? 'Registrar fórmula' : 'Registrar mamadeira'}
         childName={activeChild?.name}
       />
 
       <div className="ds-form-body">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="space-y-6"
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }} className="space-y-6">
 
-          {/* ── Type ── */}
+          {/* Tipo */}
           <div>
             <SectionLabel>Tipo</SectionLabel>
             <ChipGroup
@@ -137,7 +137,7 @@ export default function BottleScreen() {
             />
           </div>
 
-          {/* ── Amount ── */}
+          {/* Quantidade */}
           <div>
             <SectionLabel>Quantidade</SectionLabel>
             <ChipGroup
@@ -147,17 +147,20 @@ export default function BottleScreen() {
               accentColor={BOTTLE_COLOR}
             />
             <input
-              type="number"
-              inputMode="numeric"
+              type="number" inputMode="numeric"
               placeholder="Outro valor em ml"
               value={customAmount}
               onChange={e => { setCustomAmount(e.target.value); setAmount(''); }}
-              className="mt-3 w-full h-11 px-4 rounded-2xl text-[13px] border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
-              style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': BOTTLE_COLOR } as React.CSSProperties}
+              className="mt-3 w-full h-11 px-4 rounded-2xl text-[13px] font-nunito outline-none"
+              style={{
+                backgroundColor: MUTED_BG,
+                border: `1.5px solid ${customAmount ? BOTTLE_COLOR : CARD_BORDER}`,
+                color: TXT,
+              }}
             />
           </div>
 
-          {/* ── Temperature ── */}
+          {/* Temperatura */}
           <div>
             <SectionLabel>Temperatura</SectionLabel>
             <ChipGroup
@@ -168,7 +171,7 @@ export default function BottleScreen() {
             />
           </div>
 
-          {/* ── Reaction ── */}
+          {/* Reação */}
           <div>
             <SectionLabel>Como reagiu?</SectionLabel>
             <ChipGroup
@@ -180,18 +183,14 @@ export default function BottleScreen() {
             />
           </div>
 
-          <div className="h-px bg-border" />
+          <div className="h-px" style={{ backgroundColor: CARD_BORDER }} />
 
-          {/* ── Observations ── */}
+          {/* Observações */}
           <div>
             <SectionLabel>Observações</SectionLabel>
-            <Textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)}
               placeholder="Alguma observação sobre esta alimentação..."
-              className="ds-textarea"
-              rows={3}
-            />
+              className="ds-textarea" rows={3} />
           </div>
 
           <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />

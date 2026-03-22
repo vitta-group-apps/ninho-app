@@ -190,7 +190,7 @@ export default function HomePage() {
       .from('health_logs')
       .select('id, details', { count: 'exact' })
       .eq('child_id', activeChild.id)
-      .eq('type', 'consultation')
+      .eq('type', 'note')
       .then(({ data, count }) => {
         setConsultationCount(count ?? 0);
         const today = new Date().toISOString().split('T')[0];
@@ -500,5 +500,4 @@ export default function HomePage() {
       )}
     </div>
   );
-}
 }

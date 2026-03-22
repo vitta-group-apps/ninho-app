@@ -465,7 +465,6 @@ export default function AuthPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                onBlur={() => touch('email')}
                 placeholder="voce@email.com"
                 autoComplete="email"
                 className="w-full px-4 py-3 text-sm outline-none transition-all"
@@ -475,7 +474,6 @@ export default function AuthPage() {
                   border: `1.5px solid ${emailError ? '#C04A4A' : 'transparent'}`,
                   borderRadius: 12, color: '#2C2C2C',
                 }}
-                onFocus={e => { if (!emailError) e.target.style.borderColor = '#C7B3C5'; }}
                 onBlur={e => { touch('email'); if (!emailError) e.target.style.borderColor = 'transparent'; }}
               />
               {emailError && (
@@ -499,7 +497,6 @@ export default function AuthPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  onBlur={() => touch('password')}
                   placeholder={tab === 'signup' ? 'Crie sua senha' : 'Sua senha'}
                   autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
                   className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all"
@@ -509,7 +506,6 @@ export default function AuthPage() {
                     border: '1.5px solid transparent',
                     borderRadius: 12, color: '#2C2C2C',
                   }}
-                  onFocus={e => e.target.style.borderColor = '#C7B3C5'}
                   onBlur={e => { touch('password'); e.target.style.borderColor = 'transparent'; }}
                 />
                 <button type="button" tabIndex={-1}

@@ -497,7 +497,6 @@ export default function AuthPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  onBlur={() => touch('password')}
                   placeholder={tab === 'signup' ? 'Crie sua senha' : 'Sua senha'}
                   autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
                   className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all"

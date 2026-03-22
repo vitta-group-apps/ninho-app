@@ -20,18 +20,18 @@ interface SignupEmailProps {
   siteName: string
   siteUrl: string
   recipient: string
-  otp: string
+  token: string
 }
 
 export const SignupEmail = ({
   siteName = 'Ninho',
   siteUrl = 'https://ninho-app.online',
   recipient,
-  otp = '123456',
+  token = '123456',
 }: SignupEmailProps) => (
   <Html lang="pt-BR" dir="ltr">
     <Head />
-    <Preview>Seu código de confirmação é {otp} — Ninho 🐣</Preview>
+    <Preview>Seu código de confirmação é {token} — Ninho 🐣</Preview>
     <Body style={main}>
 
       <Container style={wrapper}>
@@ -66,7 +66,7 @@ export const SignupEmail = ({
           {/* Bloco do código OTP */}
           <Section style={otpWrapper}>
             <Text style={otpLabel}>Seu código de confirmação</Text>
-            <Text style={otpCode}>{otp}</Text>
+            <Text style={otpCode}>{token}</Text>
             <Text style={otpExpiry}>Válido por 1 hora</Text>
           </Section>
 

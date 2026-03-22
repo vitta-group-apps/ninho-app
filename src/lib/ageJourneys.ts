@@ -569,10 +569,10 @@ export function getWatchpoints(ageMonths: number): WatchPoint[] {
 }
 
 export const DOMAIN_COLORS: Record<MilestoneDomain, string> = {
-  motor:     'hsl(152,15%,55%)',
-  linguagem: 'hsl(200,40%,50%)',
-  social:    'hsl(270,12%,52%)',
-  cognitivo: 'hsl(32,80%,57%)',
+  motor:     '#789687',
+  linguagem: '#5b9db5',
+  social:    '#806e84',
+  cognitivo: '#C8894A',
 };
 
 export const DOMAIN_LABELS: Record<MilestoneDomain, string> = {

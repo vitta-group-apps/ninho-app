@@ -20,14 +20,18 @@ import { toast } from '@/hooks/use-toast';
 import { parsePayload, makePayloadNotes, getUserNotes, fmtRangeDuration, fmtTime } from '@/lib/routineUtils';
 import type { RoutineLog } from '@/lib/eventSystem';
 import {
-  ScreenHeader,
-  StickyFooterCTA,
-  SectionLabel,
-  ChipGroup,
-  ReportToggle,
+  ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle,
 } from '@/components/ds';
 
-const SLEEP_COLOR = 'hsl(var(--color-sleep))';
+// ── Cores fixas ──
+const SLEEP_COLOR  = '#806e84';
+const SLEEP_BG     = '#f4f0f3';
+const SLEEP_BORDER = '#e3d9e2';
+const SLEEP_LIGHT  = '#ede8ef';
+const CARD_BG      = '#ffffff';
+const CARD_BORDER  = '#E5E0D8';
+const TXT          = '#2C2C2C';
+const TXT_MUTED    = '#7A7A7A';
 
 const SLEEP_LOCATION_OPTIONS = [
   { value: 'berco',    label: '🛏 Berço' },
@@ -62,44 +66,37 @@ const AWAKENINGS_LABEL: Record<string, string> = {
   '0': 'Nenhuma vez', '1': '1 vez', '2': '2 vezes', '3+': '3 ou mais',
 };
 
-// ─── Read-only row ─────────────────────────────────────────────────────────
-
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0">
-      <p className="text-[13px] text-muted-foreground font-nunito flex-shrink-0">{label}</p>
-      <p className="text-[13px] font-semibold font-nunito text-foreground text-right">{value}</p>
+    <div className="flex items-start justify-between gap-4 py-3 last:border-0"
+      style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
+      <p className="text-[13px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>{label}</p>
+      <p className="text-[13px] font-semibold font-nunito text-right" style={{ color: TXT }}>{value}</p>
     </div>
   );
 }
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SleepDetailScreen() {
   const navigate = useNavigate();
   const { logId } = useParams<{ logId: string }>();
 
-  const [log, setLog] = useState<RoutineLog | null>(null);
+  const [log, setLog]         = useState<RoutineLog | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]   = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Editable fields
-  const [location, setLocation] = useState('');
-  const [howFellAsleep, setHowFellAsleep] = useState('');
-  const [awakenings, setAwakenings] = useState('');
-  const [notes, setNotes] = useState('');
+  const [location, setLocation]             = useState('');
+  const [howFellAsleep, setHowFellAsleep]   = useState('');
+  const [awakenings, setAwakenings]         = useState('');
+  const [notes, setNotes]                   = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
   useEffect(() => {
     if (!logId) return;
     (async () => {
       const { data } = await supabase
-        .from('routine_logs')
-        .select('*')
-        .eq('id', logId)
-        .maybeSingle();
+        .from('routine_logs').select('*').eq('id', logId).maybeSingle();
       if (data) {
         setLog(data);
         const p = parsePayload(data.notes);
@@ -119,95 +116,68 @@ export default function SleepDetailScreen() {
     try {
       const existing = parsePayload(log.notes);
       const payload: Record<string, unknown> = { ...existing };
-
-      if (location)        payload.location         = location;       else delete payload.location;
-      if (howFellAsleep)   payload.how_fell_asleep   = howFellAsleep;  else delete payload.how_fell_asleep;
-      if (awakenings)      payload.awakenings         = awakenings;    else delete payload.awakenings;
-      if (includeInReport) payload.include_in_report  = true;          else delete payload.include_in_report;
+      if (location)        payload.location          = location;      else delete payload.location;
+      if (howFellAsleep)   payload.how_fell_asleep   = howFellAsleep; else delete payload.how_fell_asleep;
+      if (awakenings)      payload.awakenings         = awakenings;   else delete payload.awakenings;
+      if (includeInReport) payload.include_in_report  = true;         else delete payload.include_in_report;
       delete payload._notes;
 
       const { error } = await supabase
-        .from('routine_logs')
-        .update({ notes: makePayloadNotes(payload, notes) })
-        .eq('id', log.id);
-
+        .from('routine_logs').update({ notes: makePayloadNotes(payload, notes) }).eq('id', log.id);
       if (error) throw error;
       toast({ title: '✓ Alterações salvas' });
       setIsEditing(false);
-      // Refresh log
       const { data } = await supabase.from('routine_logs').select('*').eq('id', log.id).maybeSingle();
       if (data) setLog(data);
     } catch (e: unknown) {
-      toast({
-        title: 'Erro ao salvar',
-        description: e instanceof Error ? e.message : 'Tente novamente',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
+      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
+    } finally { setSaving(false); }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin border-primary" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F8F5F0' }}>
+        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: SLEEP_COLOR }} />
       </div>
     );
   }
 
   if (!log) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F8F5F0' }}>
         <ScreenHeader title="Sono" onBack={() => navigate(-1)} />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-muted-foreground font-nunito text-sm">Registro não encontrado.</p>
+          <p className="text-sm font-nunito" style={{ color: TXT_MUTED }}>Registro não encontrado.</p>
         </div>
       </div>
     );
   }
 
   const isOngoing = !log.end_time;
-  const duration = log.end_time ? fmtRangeDuration(log.start_time, log.end_time) : null;
-  const p = parsePayload(log.notes);
+  const duration  = log.end_time ? fmtRangeDuration(log.start_time, log.end_time) : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F8F5F0' }}>
       <ScreenHeader
         title="Sono"
-        onBack={() => {
-          if (isEditing) {
-            setIsEditing(false);
-          } else {
-            navigate(-1);
-          }
-        }}
+        onBack={() => { if (isEditing) { setIsEditing(false); } else { navigate(-1); } }}
       />
 
       <div className="ds-form-body">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="space-y-5"
-        >
-          {/* ── Summary card — always visible ────────────────────────────── */}
-          <div
-            className="p-4 rounded-2xl"
-            style={{
-              backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 9%, hsl(var(--card)))`,
-              border: `1.5px solid color-mix(in srgb, ${SLEEP_COLOR} 22%, transparent)`,
-            }}
-          >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }} className="space-y-5">
+
+          {/* Summary card */}
+          <div className="p-4 rounded-2xl"
+            style={{ backgroundColor: SLEEP_BG, border: `1.5px solid ${SLEEP_BORDER}` }}>
             <div className="flex items-center gap-3">
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
-                style={{ backgroundColor: `color-mix(in srgb, ${SLEEP_COLOR} 18%, transparent)` }}
-              >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ backgroundColor: SLEEP_LIGHT }}>
                 😴
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
+                <p className="text-[14px] font-bold font-quicksand leading-tight" style={{ color: TXT }}>
                   {isOngoing ? 'Sono em andamento' : 'Sono'}
                 </p>
                 <p className="text-[12px] font-semibold font-nunito mt-0.5" style={{ color: SLEEP_COLOR }}>
@@ -217,93 +187,54 @@ export default function SleepDetailScreen() {
                 </p>
               </div>
               {isOngoing && (
-                <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: SLEEP_COLOR }} />
+                <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0"
+                  style={{ backgroundColor: SLEEP_COLOR }} />
               )}
             </div>
           </div>
 
-          {/* ── READ MODE ─────────────────────────────────────────────────── */}
           <AnimatePresence mode="wait">
             {!isEditing ? (
-              <motion.div
-                key="read"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                {/* Detail rows */}
-                <div
-                  className="rounded-2xl px-4 overflow-hidden"
-                  style={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                >
-                  <DetailRow label="Onde dormiu" value={LOCATION_LABEL[location] ?? null} />
+              <motion.div key="read" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                <div className="rounded-2xl px-4 overflow-hidden"
+                  style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+                  <DetailRow label="Onde dormiu"    value={LOCATION_LABEL[location] ?? null} />
                   <DetailRow label="Como adormeceu" value={HOW_LABEL[howFellAsleep] ?? null} />
                   <DetailRow label="Acordou durante" value={AWAKENINGS_LABEL[awakenings] ?? null} />
                   {notes && <DetailRow label="Observações" value={notes} />}
                   {includeInReport && <DetailRow label="Relatório médico" value="Incluído" />}
                 </div>
-
-                {/* If no data filled in yet */}
                 {!location && !howFellAsleep && !awakenings && !notes && (
-                  <p className="text-center text-[13px] text-muted-foreground font-nunito py-4">
+                  <p className="text-center text-[13px] font-nunito py-4" style={{ color: TXT_MUTED }}>
                     Nenhuma informação adicional registrada.
                   </p>
                 )}
               </motion.div>
             ) : (
-              /* ── EDIT MODE ──────────────────────────────────────────────── */
-              <motion.div
-                key="edit"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                className="space-y-6"
-              >
+              <motion.div key="edit" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="space-y-6">
                 <div>
                   <SectionLabel>Onde dormiu?</SectionLabel>
-                  <ChipGroup
-                    options={SLEEP_LOCATION_OPTIONS}
-                    value={location}
-                    onToggle={v => setLocation(prev => prev === v ? '' : v)}
-                    accentColor={SLEEP_COLOR}
-                  />
+                  <ChipGroup options={SLEEP_LOCATION_OPTIONS} value={location}
+                    onToggle={v => setLocation(prev => prev === v ? '' : v)} accentColor={SLEEP_COLOR} />
                 </div>
-
                 <div>
                   <SectionLabel>Como adormeceu?</SectionLabel>
-                  <ChipGroup
-                    options={SLEEP_HOW_OPTIONS}
-                    value={howFellAsleep}
-                    onToggle={v => setHowFellAsleep(prev => prev === v ? '' : v)}
-                    accentColor={SLEEP_COLOR}
-                  />
+                  <ChipGroup options={SLEEP_HOW_OPTIONS} value={howFellAsleep}
+                    onToggle={v => setHowFellAsleep(prev => prev === v ? '' : v)} accentColor={SLEEP_COLOR} />
                 </div>
-
                 <div>
                   <SectionLabel>Acordou durante o sono?</SectionLabel>
-                  <ChipGroup
-                    options={AWAKENINGS_OPTIONS}
-                    value={awakenings}
-                    onToggle={v => setAwakenings(prev => prev === v ? '' : v)}
-                    accentColor={SLEEP_COLOR}
-                  />
+                  <ChipGroup options={AWAKENINGS_OPTIONS} value={awakenings}
+                    onToggle={v => setAwakenings(prev => prev === v ? '' : v)} accentColor={SLEEP_COLOR} />
                 </div>
-
-                <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
-
+                <div className="h-px" style={{ backgroundColor: CARD_BORDER }} />
                 <div>
                   <SectionLabel>Observações</SectionLabel>
-                  <Textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="Dormiu tranquilo, acordou uma vez..."
-                    className="ds-textarea"
-                    rows={3}
-                  />
+                  <Textarea value={notes} onChange={e => setNotes(e.target.value)}
+                    placeholder="Dormiu tranquilo, acordou uma vez..." className="ds-textarea" rows={3} />
                 </div>
-
                 <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
               </motion.div>
             )}
@@ -311,7 +242,6 @@ export default function SleepDetailScreen() {
         </motion.div>
       </div>
 
-      {/* CTA: READ → "Editar" | EDIT → "Salvar alterações" */}
       {!isEditing ? (
         <StickyFooterCTA
           primaryLabel="Editar"
@@ -326,7 +256,6 @@ export default function SleepDetailScreen() {
           primaryColor={SLEEP_COLOR}
           secondaryLabel="Cancelar"
           onSecondary={() => {
-            // Reset to last saved state
             if (log) {
               const pp = parsePayload(log.notes);
               setLocation(String(pp.location ?? ''));

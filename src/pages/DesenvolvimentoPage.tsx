@@ -1,14 +1,13 @@
-// Restored content of DesenvolvimentoPage.tsx as it was before commit 2f2f26c89c86c23697f915cc127a22b578506be7
-
+// Implementation of DesenvolvimentoPage component
 import React from 'react';
 
 const DesenvolvimentoPage = () => {
-    return (
-        <div>
-            <h1>Desenvolvimento</h1>
-            <p>Conteúdo restaurado.</p>
-        </div>
-    );
+  return (
+    <div>
+      <h1>Desenvolvimento Page</h1>
+      <p>Content goes here...</p>
+    </div>
+  );
 };
 
 export default DesenvolvimentoPage;

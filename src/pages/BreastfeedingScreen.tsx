@@ -20,23 +20,29 @@ import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import { makePayloadNotes, fmtTimer, fmtDurationShort } from '@/lib/routineUtils';
 import {
-  ScreenHeader,
-  StickyFooterCTA,
-  SectionLabel,
-  ChipGroup,
-  ReportToggle,
-  InlineStatusPill,
+  ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle, InlineStatusPill,
 } from '@/components/ds';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ── Cores fixas ──
+const FEED_COLOR   = '#789687';
+const FEED_BG      = '#ebf0ed';
+const FEED_LIGHT   = '#f0f5f2';
+const FEED_BORDER  = '#ccd9d3';
+const CARD_BG      = '#ffffff';
+const CARD_BORDER  = '#E5E0D8';
+const MUTED_BG     = '#E8E8E2';
+const PAGE_BG      = '#F8F5F0';
+const TXT          = '#2C2C2C';
+const TXT_MUTED    = '#7A7A7A';
+const DANGER       = '#C04A4A';
+const DANGER_BG    = '#FCEAEA';
+const DANGER_BORDER = '#f5caca';
 
 export const FEED_SESSION_KEY = 'ninho_feed_session_v6';
-const FEED_COLOR = 'hsl(var(--color-feed))';
 
 type Side = 'L' | 'R';
 type SessionStatus = 'ACTIVE' | 'PAUSED' | 'FINISHED';
 type Phase = 'suggest' | 'session' | 'ended' | 'manual';
-
 interface SideTimes { L: number; R: number; }
 
 export interface FeedSession {
@@ -50,13 +56,8 @@ export interface FeedSession {
 }
 
 interface FinishedData {
-  totalSec: number;
-  leftSec: number;
-  rightSec: number;
-  switches: number;
-  start: Date;
-  end: Date;
-  lastSide: Side;
+  totalSec: number; leftSec: number; rightSec: number;
+  switches: number; start: Date; end: Date; lastSide: Side;
 }
 
 const QUICK_TAGS = [
@@ -67,8 +68,7 @@ const QUICK_TAGS = [
   { id: 'rejeitou_lado', label: '↩️ Rejeitou lado' },
 ];
 
-// ─── Persistence ─────────────────────────────────────────────────────────────
-
+// ── Persistence ──
 export function saveFeedSession(d: FeedSession) {
   try { localStorage.setItem(FEED_SESSION_KEY, JSON.stringify(d)); } catch { /* noop */ }
 }
@@ -82,16 +82,15 @@ export function loadFeedSession(): FeedSession | null {
   catch { return null; }
 }
 
-// ─── SideCard ─────────────────────────────────────────────────────────────────
-
+// ── SideCard ──
 function SideCard({
   side, active, totalMs, status, onClick,
 }: {
   side: Side; active: boolean; totalMs: number;
   status: SessionStatus; onClick?: () => void;
 }) {
-  const label = side === 'L' ? 'Esquerdo' : 'Direito';
-  const arrow = side === 'L' ? '←' : '→';
+  const label    = side === 'L' ? 'Esquerdo' : 'Direito';
+  const arrow    = side === 'L' ? '←' : '→';
   const showPulse = active && status === 'ACTIVE';
 
   return (
@@ -100,56 +99,39 @@ function SideCard({
       disabled={!onClick}
       className="flex-1 rounded-3xl py-5 px-3 text-center transition-all duration-200 select-none"
       style={{
-        backgroundColor: active
-          ? `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))`
-          : 'hsl(var(--muted) / 0.6)',
-        border: `2px solid ${active
-          ? `color-mix(in srgb, ${FEED_COLOR} 35%, transparent)`
-          : 'transparent'}`,
+        backgroundColor: active ? FEED_BG : MUTED_BG,
+        border: `2px solid ${active ? FEED_BORDER : 'transparent'}`,
         opacity: active ? 1 : 0.55,
-        boxShadow: active
-          ? `0 2px 10px color-mix(in srgb, ${FEED_COLOR} 14%, transparent)`
-          : 'none',
+        boxShadow: active ? `0 2px 10px rgba(120,150,135,0.18)` : 'none',
+        cursor: onClick ? 'pointer' : 'default',
       }}
     >
-      <div
-        className="w-11 h-11 rounded-full mx-auto flex items-center justify-center text-[18px] font-bold"
+      <div className="w-11 h-11 rounded-full mx-auto flex items-center justify-center text-[18px] font-bold"
         style={{
-          backgroundColor: active
-            ? `color-mix(in srgb, ${FEED_COLOR} 18%, transparent)`
-            : 'hsl(var(--border))',
-          color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))',
-        }}
-      >
+          backgroundColor: active ? FEED_LIGHT : CARD_BORDER,
+          color: active ? FEED_COLOR : TXT_MUTED,
+        }}>
         {arrow}
       </div>
 
-      <p
-        className="text-[11px] mt-2.5 font-bold uppercase tracking-[0.06em] font-nunito"
-        style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
-      >
+      <p className="text-[11px] mt-2.5 font-bold uppercase tracking-[0.06em] font-nunito"
+        style={{ color: active ? FEED_COLOR : TXT_MUTED }}>
         {label}
       </p>
 
-      {/* Timer — stable fixed height to prevent layout jump */}
       <div className="h-10 flex items-center justify-center mt-1">
-        <p
-          className="text-[28px] font-bold tabular-nums font-quicksand leading-none"
-          style={{ color: active ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
-        >
+        <p className="text-[28px] font-bold tabular-nums font-quicksand leading-none"
+          style={{ color: active ? FEED_COLOR : TXT_MUTED }}>
           {fmtTimer(Math.floor(totalMs / 1000))}
         </p>
       </div>
 
-      {/* Status indicator — always occupies space to prevent layout shift */}
       <div className="h-5 flex items-center justify-center gap-1.5 mt-1">
         {showPulse && (
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: FEED_COLOR }} />
         )}
-        <span
-          className="text-[10px] font-semibold font-nunito"
-          style={{ color: active ? FEED_COLOR : 'transparent' }}
-        >
+        <span className="text-[10px] font-semibold font-nunito"
+          style={{ color: active ? FEED_COLOR : 'transparent' }}>
           {active && status === 'ACTIVE' ? 'ativo' : active && status === 'PAUSED' ? 'pausado' : '\u00A0'}
         </span>
       </div>
@@ -157,53 +139,40 @@ function SideCard({
   );
 }
 
-// ─── Discard review confirm sheet ────────────────────────────────────────────
-// Only shown when user tries to go back from the "ended" review phase.
-// Active/paused sessions persist silently in background — no interruption.
-
+// ── DiscardReviewSheet ──
 function DiscardReviewSheet({
   open, durationSec, onStay, onDiscard,
 }: {
-  open: boolean;
-  durationSec: number;
-  onStay: () => void;
-  onDiscard: () => void;
+  open: boolean; durationSec: number; onStay: () => void; onDiscard: () => void;
 }) {
   if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-      onClick={onStay}
-    >
+    <div className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }} onClick={onStay}>
       <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+        initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-        className="w-full max-w-md rounded-t-3xl px-5 pt-6 space-y-3 bg-card"
-        style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
+        className="w-full max-w-md rounded-t-3xl px-5 pt-6 space-y-3"
+        style={{ backgroundColor: CARD_BG, paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
       >
-        <p className="text-base font-bold text-center font-quicksand text-foreground">
+        <p className="text-base font-bold text-center font-quicksand" style={{ color: TXT }}>
           Descartar o registro?
         </p>
-        <p className="text-sm text-center pb-1 text-muted-foreground font-nunito">
+        <p className="text-sm text-center pb-1 font-nunito" style={{ color: TXT_MUTED }}>
           {durationSec >= 60
             ? `Você tem ${fmtDurationShort(durationSec)} registrados. Esses dados serão perdidos.`
             : 'A revisão será descartada. Tem certeza?'}
         </p>
         <div className="space-y-2 pb-2">
-          <button
-            onClick={onStay}
+          <button onClick={onStay}
             className="w-full py-3.5 rounded-2xl text-sm font-bold text-center transition-all active:scale-95 font-nunito text-white"
-            style={{ backgroundColor: FEED_COLOR }}
-          >
+            style={{ backgroundColor: FEED_COLOR, border: 'none', cursor: 'pointer' }}>
             Continuar e salvar
           </button>
-          <button
-            onClick={onDiscard}
-            className="w-full py-2 text-xs font-semibold text-center font-nunito text-destructive"
-          >
+          <button onClick={onDiscard}
+            className="w-full py-2 text-xs font-semibold text-center font-nunito"
+            style={{ color: DANGER, background: 'none', border: 'none', cursor: 'pointer' }}>
             Descartar e voltar
           </button>
         </div>
@@ -212,46 +181,42 @@ function DiscardReviewSheet({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
+// ── Main Component ──
 export default function BreastfeedingScreen() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { activeChildId, activeChild } = useActiveChild();
 
-  const [phase, setPhase] = useState<Phase>('suggest');
+  const [phase, setPhase]               = useState<Phase>('suggest');
   const [selectedSide, setSelectedSide] = useState<Side>('L');
   const [showBackConfirm, setShowBackConfirm] = useState(false);
-
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('ACTIVE');
+  const [sessionStatus, setSessionStatus]     = useState<SessionStatus>('ACTIVE');
   const [sessionStartEpoch, setSessionStartEpoch] = useState(0);
-  const [activeSide, setActiveSide] = useState<Side>('L');
-  const [switchCount, setSwitchCount] = useState(0);
+  const [activeSide, setActiveSide]       = useState<Side>('L');
+  const [switchCount, setSwitchCount]     = useState(0);
   const sideTimesRef  = useRef<SideTimes>({ L: 0, R: 0 });
   const segmentStart  = useRef<number | null>(null);
   const activeSideRef = useRef<Side>('L');
   const [, forceRender] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [finishedData, setFinishedData] = useState<FinishedData | null>(null);
-  const [obsTags, setObsTags] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
-  const [includeInReport, setIncludeInReport] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [finishedData, setFinishedData]           = useState<FinishedData | null>(null);
+  const [obsTags, setObsTags]                     = useState<string[]>([]);
+  const [notes, setNotes]                         = useState('');
+  const [includeInReport, setIncludeInReport]     = useState(false);
+  const [saving, setSaving]                       = useState(false);
 
-  // Manual mode fields
-  const [manualSide, setManualSide] = useState<'L' | 'R' | 'both'>('L');
+  const [manualSide, setManualSide]               = useState<'L' | 'R' | 'both'>('L');
   const [manualDurationMin, setManualDurationMin] = useState('');
-  const [manualStartTime, setManualStartTime] = useState(() => {
+  const [manualStartTime, setManualStartTime]     = useState(() => {
     const now = new Date();
-    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   });
 
-  // Load existing session on mount
   useEffect(() => {
     const existing = loadFeedSession();
     if (existing && existing.childId === activeChildId) {
-      sideTimesRef.current = existing.sideTimes;
+      sideTimesRef.current  = existing.sideTimes;
       activeSideRef.current = existing.activeSide;
       setActiveSide(existing.activeSide);
       setSwitchCount(existing.switchCount);
@@ -283,10 +248,6 @@ export default function BreastfeedingScreen() {
     return { L, R, total: L + R };
   }
 
-  function getCurrentTotalSec(): number {
-    return Math.floor(getDisplay().total / 1000);
-  }
-
   function persist(status: SessionStatus) {
     if (!activeChildId) return;
     saveFeedSession({
@@ -302,9 +263,9 @@ export default function BreastfeedingScreen() {
 
   function handleStart() {
     const now = Date.now();
-    sideTimesRef.current = { L: 0, R: 0 };
+    sideTimesRef.current  = { L: 0, R: 0 };
     activeSideRef.current = selectedSide;
-    segmentStart.current = now;
+    segmentStart.current  = now;
     setActiveSide(selectedSide);
     setSwitchCount(0);
     setSessionStartEpoch(now);
@@ -320,7 +281,7 @@ export default function BreastfeedingScreen() {
     sideTimesRef.current[activeSideRef.current] += now - segmentStart.current;
     const next: Side = activeSideRef.current === 'L' ? 'R' : 'L';
     activeSideRef.current = next;
-    segmentStart.current = now;
+    segmentStart.current  = now;
     setActiveSide(next);
     setSwitchCount(c => c + 1);
     forceRender(n => n + 1);
@@ -352,12 +313,12 @@ export default function BreastfeedingScreen() {
     stopTicker();
     const totalMs = sideTimesRef.current.L + sideTimesRef.current.R;
     setFinishedData({
-      totalSec: Math.floor(totalMs / 1000),
-      leftSec:  Math.floor(sideTimesRef.current.L / 1000),
-      rightSec: Math.floor(sideTimesRef.current.R / 1000),
-      switches: switchCount,
+      totalSec:  Math.floor(totalMs / 1000),
+      leftSec:   Math.floor(sideTimesRef.current.L / 1000),
+      rightSec:  Math.floor(sideTimesRef.current.R / 1000),
+      switches:  switchCount,
       start: new Date(sessionStartEpoch),
-      end: new Date(),
+      end:   new Date(),
       lastSide: activeSideRef.current,
     });
     setPhase('ended');
@@ -369,7 +330,7 @@ export default function BreastfeedingScreen() {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        session_type: 'breastfeed',
+        session_type:  'breastfeed',
         total_seconds: finishedData.totalSec,
         left_seconds:  finishedData.leftSec,
         right_seconds: finishedData.rightSec,
@@ -392,9 +353,7 @@ export default function BreastfeedingScreen() {
       navigate(-1);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function handleSaveManual() {
@@ -402,19 +361,16 @@ export default function BreastfeedingScreen() {
     setSaving(true);
     try {
       const durationSec = manualDurationMin ? Number(manualDurationMin) * 60 : 0;
-      // Parse start time from HH:MM input
       const now = new Date();
       const [hours, minutes] = manualStartTime.split(':').map(Number);
       const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
-      const endDate = durationSec > 0 ? new Date(startDate.getTime() + durationSec * 1000) : now;
-
+      const endDate   = durationSec > 0 ? new Date(startDate.getTime() + durationSec * 1000) : now;
       const sideMap: Record<'L' | 'R' | 'both', { left: number; right: number }> = {
         L:    { left: durationSec, right: 0 },
         R:    { left: 0, right: durationSec },
         both: { left: Math.floor(durationSec / 2), right: Math.ceil(durationSec / 2) },
       };
       const { left, right } = sideMap[manualSide];
-
       const payload: Record<string, unknown> = {
         session_type:  'breastfeed',
         total_seconds: durationSec,
@@ -440,34 +396,19 @@ export default function BreastfeedingScreen() {
       navigate(-1);
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   function handleBack() {
-    // Sessions are background-persistent — navigating away never interrupts them.
-    // Only the "ended" phase (unsaved review) needs a confirmation to prevent data loss.
     if (phase === 'ended' || phase === 'manual') {
       setShowBackConfirm(true);
     } else {
-      // session or suggest: just navigate back — session continues in background
       navigate(-1);
     }
   }
 
-  function handleConfirmContinue() { setShowBackConfirm(false); }
-  function handleConfirmSaveReview() {
-    setShowBackConfirm(false);
-    if (phase === 'session') handleEnd();
-  }
-  function handleConfirmDiscard() {
-    clearFeedSession();
-    navigate(-1);
-  }
-
-  const display = getDisplay();
-  const totalSec = getCurrentTotalSec();
+  const display  = getDisplay();
+  const totalSec = Math.floor(display.total / 1000);
 
   const statusPill = phase === 'session' ? (
     <InlineStatusPill
@@ -478,8 +419,7 @@ export default function BreastfeedingScreen() {
   ) : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* DS Header */}
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: PAGE_BG }}>
       <ScreenHeader
         title="Amamentação"
         childName={activeChild?.name}
@@ -487,16 +427,12 @@ export default function BreastfeedingScreen() {
         statusSlot={statusPill}
       />
 
-      {/* Scrollable body */}
       <div className="ds-form-body">
 
-        {/* ── SUGGEST ───────────────────────────────────────────────── */}
+        {/* ── SUGGEST ── */}
         {phase === 'suggest' && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col gap-6 pt-4"
-          >
-            {/* Side selector — primary action, no theatrical intro */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col gap-6 pt-4">
             <div>
               <SectionLabel>Escolha o lado para iniciar</SectionLabel>
               <div className="flex gap-3">
@@ -507,51 +443,44 @@ export default function BreastfeedingScreen() {
               </div>
             </div>
 
-            {/* Secondary actions — visually separated */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-border">
-              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground font-nunito mb-1">
+            <div className="flex flex-col gap-2 pt-2" style={{ borderTop: `1px solid ${CARD_BORDER}` }}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] font-nunito mb-1"
+                style={{ color: TXT_MUTED }}>
                 Outras opções
               </p>
-              <button
-                onClick={() => navigate('/bottle')}
-                className="w-full py-3 rounded-2xl text-[13px] font-semibold font-nunito text-center transition-all active:scale-95 bg-muted text-foreground"
-              >
+              <button onClick={() => navigate('/bottle')}
+                className="w-full py-3 rounded-2xl text-[13px] font-semibold font-nunito text-center transition-all active:scale-95"
+                style={{ backgroundColor: MUTED_BG, color: TXT, border: 'none', cursor: 'pointer' }}>
                 🍼 Mamadeira ou fórmula
               </button>
               <button
                 onClick={() => {
                   const now = new Date();
-                  setManualStartTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+                  setManualStartTime(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
                   setManualDurationMin('');
                   setManualSide('L');
                   setPhase('manual');
                 }}
-                className="w-full py-2.5 text-[12px] font-semibold font-nunito text-center text-muted-foreground"
-              >
+                className="w-full py-2.5 text-[12px] font-semibold font-nunito text-center"
+                style={{ color: TXT_MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>
                 Registrar sem cronômetro
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* ── SESSION ───────────────────────────────────────────────── */}
+        {/* ── SESSION ── */}
         {phase === 'session' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-            {/* Total timer — dominant visual element */}
-            <div
-              className="flex flex-col items-center py-6 px-4 rounded-2xl"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 7%, hsl(var(--card)))`,
-                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
-              }}
-            >
-              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-2 text-muted-foreground font-nunito">
+            {/* Total timer */}
+            <div className="flex flex-col items-center py-6 px-4 rounded-2xl"
+              style={{ backgroundColor: FEED_BG, border: `1.5px solid ${FEED_BORDER}` }}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-2 font-nunito"
+                style={{ color: TXT_MUTED }}>
                 Tempo total
               </p>
-              <p
-                className="text-[52px] font-bold tabular-nums font-quicksand leading-none"
-                style={{ color: FEED_COLOR }}
-              >
+              <p className="text-[52px] font-bold tabular-nums font-quicksand leading-none"
+                style={{ color: FEED_COLOR }}>
                 {fmtTimer(Math.floor(display.total / 1000))}
               </p>
               {sessionStatus === 'ACTIVE' && (
@@ -563,7 +492,7 @@ export default function BreastfeedingScreen() {
                 </div>
               )}
               {sessionStatus === 'PAUSED' && (
-                <p className="text-[11px] font-semibold font-nunito mt-2 text-muted-foreground">
+                <p className="text-[11px] font-semibold font-nunito mt-2" style={{ color: TXT_MUTED }}>
                   Sessão pausada
                 </p>
               )}
@@ -582,88 +511,70 @@ export default function BreastfeedingScreen() {
                 ))}
               </div>
               {switchCount > 0 && (
-                <p className="text-center text-[12px] mt-2 text-muted-foreground font-nunito">
+                <p className="text-center text-[12px] mt-2 font-nunito" style={{ color: TXT_MUTED }}>
                   {switchCount} troca{switchCount > 1 ? 's' : ''} de lado
                 </p>
               )}
             </div>
 
-            {/* Trocar de lado — always visible, disabled when not active */}
+            {/* Trocar de lado */}
             <button
               onClick={sessionStatus === 'ACTIVE' ? handleSwitch : undefined}
               disabled={sessionStatus !== 'ACTIVE'}
               className="w-full py-3.5 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
               style={{
-                backgroundColor: sessionStatus === 'ACTIVE'
-                  ? `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`
-                  : 'hsl(var(--muted))',
-                color: sessionStatus === 'ACTIVE' ? FEED_COLOR : 'hsl(var(--muted-foreground))',
-                border: `1.5px solid ${sessionStatus === 'ACTIVE'
-                  ? `color-mix(in srgb, ${FEED_COLOR} 25%, transparent)`
-                  : 'transparent'}`,
+                backgroundColor: sessionStatus === 'ACTIVE' ? FEED_LIGHT : MUTED_BG,
+                color: sessionStatus === 'ACTIVE' ? FEED_COLOR : TXT_MUTED,
+                border: `1.5px solid ${sessionStatus === 'ACTIVE' ? FEED_BORDER : 'transparent'}`,
                 opacity: sessionStatus === 'ACTIVE' ? 1 : 0.45,
-              }}
-            >
+                cursor: sessionStatus === 'ACTIVE' ? 'pointer' : 'default',
+              }}>
               ⇄ Trocar de lado
             </button>
 
             {/* Controls */}
             <div className="flex gap-3">
               {sessionStatus === 'ACTIVE' ? (
-                <button
-                  onClick={handlePause}
-                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 bg-secondary text-foreground"
-                >
+                <button onClick={handlePause}
+                  className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95"
+                  style={{ backgroundColor: MUTED_BG, color: TXT, border: 'none', cursor: 'pointer' }}>
                   Pausar
                 </button>
               ) : (
-                <button
-                  onClick={handleResume}
+                <button onClick={handleResume}
                   className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, transparent)`,
-                    color: FEED_COLOR,
-                    border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 30%, transparent)`,
-                  }}
-                >
+                  style={{ backgroundColor: FEED_LIGHT, color: FEED_COLOR, border: `1.5px solid ${FEED_BORDER}`, cursor: 'pointer' }}>
                   Continuar
                 </button>
               )}
-              <button
-                onClick={handleEnd}
+              <button onClick={handleEnd}
                 className="flex-1 py-4 rounded-2xl text-[14px] font-bold font-nunito transition-all active:scale-95 text-white"
-                style={{ backgroundColor: FEED_COLOR }}
-              >
+                style={{ backgroundColor: FEED_COLOR, border: 'none', cursor: 'pointer' }}>
                 Encerrar
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* ── MANUAL ────────────────────────────────────────────────── */}
+        {/* ── MANUAL ── */}
         {phase === 'manual' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            {/* Header */}
-            <div
-              className="flex items-center gap-3 p-4 rounded-2xl"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
-                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
-              }}
-            >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
-                style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
-              >
+            <div className="flex items-center gap-3 p-4 rounded-2xl"
+              style={{ backgroundColor: FEED_BG, border: `1.5px solid ${FEED_BORDER}` }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ backgroundColor: FEED_LIGHT }}>
                 🤱
               </div>
               <div>
-                <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">Registro manual</p>
-                <p className="text-[12px] font-nunito text-muted-foreground mt-0.5">Preencha os dados da mamada</p>
+                <p className="text-[14px] font-bold font-quicksand leading-tight" style={{ color: TXT }}>
+                  Registro manual
+                </p>
+                <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                  Preencha os dados da mamada
+                </p>
               </div>
             </div>
 
-            {/* Side selection */}
             <div>
               <SectionLabel>Qual lado?</SectionLabel>
               <div className="flex gap-3">
@@ -674,27 +585,19 @@ export default function BreastfeedingScreen() {
                 ] as { val: 'L' | 'R' | 'both'; label: string; arrow: string }[]).map(opt => {
                   const isActive = manualSide === opt.val;
                   return (
-                    <button
-                      key={opt.val}
-                      onClick={() => setManualSide(opt.val)}
+                    <button key={opt.val} onClick={() => setManualSide(opt.val)}
                       className="flex-1 flex flex-col items-center gap-1.5 py-4 px-2 rounded-2xl font-bold transition-all active:scale-95 font-nunito"
                       style={{
-                        backgroundColor: isActive
-                          ? `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))`
-                          : 'hsl(var(--card))',
-                        border: `2px solid ${isActive ? FEED_COLOR : 'hsl(var(--border))'}`,
-                      }}
-                    >
-                      <span
-                        className="text-[20px] font-bold"
-                        style={{ color: isActive ? FEED_COLOR : 'hsl(var(--muted-foreground))' }}
-                      >
+                        backgroundColor: isActive ? FEED_BG : CARD_BG,
+                        border: `2px solid ${isActive ? FEED_COLOR : CARD_BORDER}`,
+                        cursor: 'pointer',
+                      }}>
+                      <span className="text-[20px] font-bold"
+                        style={{ color: isActive ? FEED_COLOR : TXT_MUTED }}>
                         {opt.arrow}
                       </span>
-                      <p
-                        className="text-[11px] font-bold"
-                        style={{ color: isActive ? FEED_COLOR : 'hsl(var(--foreground))' }}
-                      >
+                      <p className="text-[11px] font-bold"
+                        style={{ color: isActive ? FEED_COLOR : TXT }}>
                         {opt.label}
                       </p>
                     </button>
@@ -703,89 +606,63 @@ export default function BreastfeedingScreen() {
               </div>
             </div>
 
-            {/* Duration */}
             <div>
               <SectionLabel>Duração (minutos)</SectionLabel>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="1"
-                max="120"
-                placeholder="ex: 15"
-                value={manualDurationMin}
+              <input type="number" inputMode="numeric" min="1" max="120"
+                placeholder="ex: 15" value={manualDurationMin}
                 onChange={e => setManualDurationMin(e.target.value)}
-                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
-                style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': FEED_COLOR } as React.CSSProperties}
+                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold font-nunito outline-none"
+                style={{ backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`, color: TXT }}
               />
             </div>
 
-            {/* Start time */}
             <div>
               <SectionLabel>Horário de início</SectionLabel>
-              <input
-                type="time"
-                value={manualStartTime}
+              <input type="time" value={manualStartTime}
                 onChange={e => setManualStartTime(e.target.value)}
-                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold border bg-card text-foreground font-nunito outline-none focus:ring-2 focus:ring-offset-0"
-                style={{ borderColor: 'hsl(var(--border))', '--tw-ring-color': FEED_COLOR } as React.CSSProperties}
+                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold font-nunito outline-none"
+                style={{ backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`, color: TXT }}
               />
             </div>
 
-            <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
+            <div className="h-px" style={{ backgroundColor: CARD_BORDER }} />
 
-            {/* Quick tags */}
             <div>
               <SectionLabel>Como foi a mamada?</SectionLabel>
               <ChipGroup
                 options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
                 values={obsTags}
                 onToggle={id => setObsTags(p => p.includes(id) ? p.filter(t => t !== id) : [...p, id])}
-                accentColor={FEED_COLOR}
-                multiSelect
+                accentColor={FEED_COLOR} multiSelect
               />
             </div>
 
-            {/* Observations */}
             <div>
               <SectionLabel>Observações</SectionLabel>
-              <Textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)}
                 placeholder="Como foi a mamada? Alguma observação..."
-                className="ds-textarea"
-                rows={3}
-              />
+                className="ds-textarea" rows={3} />
             </div>
 
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
-
           </motion.div>
         )}
 
-        {/* ── ENDED ─────────────────────────────────────────────────── */}
+        {/* ── ENDED ── */}
         {phase === 'ended' && finishedData && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-
-            {/* Session summary — clean, informative */}
-            <div
-              className="p-4 rounded-2xl"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 8%, hsl(var(--card)))`,
-                border: `1.5px solid color-mix(in srgb, ${FEED_COLOR} 22%, transparent)`,
-              }}
-            >
+            <div className="p-4 rounded-2xl"
+              style={{ backgroundColor: FEED_BG, border: `1.5px solid ${FEED_BORDER}` }}>
               <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
-                  style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 16%, transparent)` }}
-                >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[20px] flex-shrink-0"
+                  style={{ backgroundColor: FEED_LIGHT }}>
                   🤱
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold font-quicksand text-foreground leading-tight">
+                  <p className="text-[14px] font-bold font-quicksand leading-tight" style={{ color: TXT }}>
                     Amamentação encerrada
                   </p>
-                  <p className="text-[12px] font-nunito text-muted-foreground">
+                  <p className="text-[12px] font-nunito" style={{ color: TXT_MUTED }}>
                     Revise e salve o registro abaixo
                   </p>
                 </div>
@@ -793,19 +670,17 @@ export default function BreastfeedingScreen() {
               {finishedData.totalSec > 0 && (
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: 'Esquerdo', value: finishedData.leftSec > 0 ? fmtDurationShort(finishedData.leftSec) : '—' },
+                    { label: 'Esquerdo', value: finishedData.leftSec  > 0 ? fmtDurationShort(finishedData.leftSec)  : '—' },
                     { label: 'Direito',  value: finishedData.rightSec > 0 ? fmtDurationShort(finishedData.rightSec) : '—' },
                     { label: 'Trocas',   value: `${finishedData.switches}` },
                   ].map(stat => (
-                    <div
-                      key={stat.label}
-                      className="rounded-xl px-2 py-2.5 text-center"
-                      style={{ backgroundColor: `color-mix(in srgb, ${FEED_COLOR} 10%, hsl(var(--card)))` }}
-                    >
+                    <div key={stat.label} className="rounded-xl px-2 py-2.5 text-center"
+                      style={{ backgroundColor: FEED_LIGHT }}>
                       <p className="text-[15px] font-bold font-quicksand" style={{ color: FEED_COLOR }}>
                         {stat.value}
                       </p>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground font-nunito mt-0.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wide font-nunito mt-0.5"
+                        style={{ color: TXT_MUTED }}>
                         {stat.label}
                       </p>
                     </div>
@@ -814,39 +689,31 @@ export default function BreastfeedingScreen() {
               )}
             </div>
 
-            {/* Quick tags */}
             <div>
               <SectionLabel>Observações rápidas</SectionLabel>
               <ChipGroup
                 options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
                 values={obsTags}
                 onToggle={id => setObsTags(p => p.includes(id) ? p.filter(t => t !== id) : [...p, id])}
-                accentColor={FEED_COLOR}
-                multiSelect
+                accentColor={FEED_COLOR} multiSelect
               />
             </div>
 
-            <div className="h-px" style={{ backgroundColor: 'hsl(var(--border))' }} />
+            <div className="h-px" style={{ backgroundColor: CARD_BORDER }} />
 
-            {/* Notes */}
             <div>
               <SectionLabel>Anotações (opcional)</SectionLabel>
-              <Textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)}
                 placeholder="Alguma observação sobre essa mamada..."
-                className="ds-textarea"
-                rows={3}
-              />
+                className="ds-textarea" rows={3} />
             </div>
 
             <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
-
           </motion.div>
         )}
       </div>
 
-      {/* DS Sticky CTA — only on suggest, manual and ended phases */}
+      {/* CTAs */}
       {phase === 'suggest' && (
         <StickyFooterCTA
           primaryLabel={`Iniciar — lado ${selectedSide === 'L' ? 'esquerdo' : 'direito'}`}
@@ -872,18 +739,17 @@ export default function BreastfeedingScreen() {
           primaryLoading={saving}
           primaryColor={FEED_COLOR}
           tertiaryLabel="Descartar e voltar"
-          onTertiary={handleConfirmDiscard}
+          onTertiary={() => { clearFeedSession(); navigate(-1); }}
         />
       )}
 
-      {/* Discard review guard — only shown in "ended" phase */}
       <AnimatePresence>
         {showBackConfirm && (
           <DiscardReviewSheet
             open
             durationSec={finishedData?.totalSec ?? 0}
-            onStay={handleConfirmContinue}
-            onDiscard={handleConfirmDiscard}
+            onStay={() => setShowBackConfirm(false)}
+            onDiscard={() => { clearFeedSession(); navigate(-1); }}
           />
         )}
       </AnimatePresence>

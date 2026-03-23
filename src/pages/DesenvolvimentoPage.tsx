@@ -15,6 +15,7 @@ import { getAgeContext } from '@/lib/eventSystem';
 import { SectionLabel, InlineStatusPill } from '@/components/ds';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
+import { PaywallGate } from '@/components/paywall/PaywallGate';
 import {
   getJourneyPhase,
   getPhaseLabel,
@@ -472,245 +473,238 @@ export default function DesenvolvimentoPage() {
           )}
         </div>
 
-        {/* ATIVIDADE EM DESTAQUE */}
-        {featuredActivity && (
+  {/* CONTEÚDO PREMIUM — atividades, marcos, watchpoints, conquistas */}
+        <PaywallGate feature="marcos_premium">
+
+          {/* ATIVIDADE EM DESTAQUE */}
+          {featuredActivity && (
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
+                style={{ color: TXT_MUTED }}>
+                Atividade sugerida hoje
+              </p>
+              <ActivityCard
+                activity={featuredActivity}
+                done={doneActivities.has(featuredActivity.id)}
+                onToggle={() => setDoneActivities(prev => {
+                  const next = new Set(prev);
+                  if (next.has(featuredActivity.id)) { next.delete(featuredActivity.id); }
+                  else { next.add(featuredActivity.id); }
+                  return next;
+                })}
+              />
+              {phase.stimulation.length > 1 && (
+                <div className="mt-2 space-y-2">
+                  {phase.stimulation
+                    .filter(a => a.id !== featuredActivity.id)
+                    .map(a => (
+                      <ActivityCard
+                        key={a.id}
+                        activity={a}
+                        done={doneActivities.has(a.id)}
+                        onToggle={() => setDoneActivities(prev => {
+                          const next = new Set(prev);
+                          if (next.has(a.id)) { next.delete(a.id); } else { next.add(a.id); }
+                          return next;
+                        })}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MARCOS POR DOMÍNIO */}
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
               style={{ color: TXT_MUTED }}>
-              Atividade sugerida hoje
+              Marcos de desenvolvimento
             </p>
-            <ActivityCard
-              activity={featuredActivity}
-              done={doneActivities.has(featuredActivity.id)}
-              onToggle={() => setDoneActivities(prev => {
-                const next = new Set(prev);
-                if (next.has(featuredActivity.id)) { next.delete(featuredActivity.id); }
-                else { next.add(featuredActivity.id); }
-                return next;
-              })}
-            />
-
-            {/* Mais atividades */}
-            {phase.stimulation.length > 1 && (
-              <div className="mt-2 space-y-2">
-                {phase.stimulation
-                  .filter(a => a.id !== featuredActivity.id)
-                  .map(a => (
-                    <ActivityCard
-                      key={a.id}
-                      activity={a}
-                      done={doneActivities.has(a.id)}
-                      onToggle={() => setDoneActivities(prev => {
-                        const next = new Set(prev);
-                        if (next.has(a.id)) { next.delete(a.id); } else { next.add(a.id); }
-                        return next;
-                      })}
-                    />
-                  ))}
+            <div className="rounded-xl px-3 py-2.5 flex items-start gap-2 mb-3"
+              style={{ backgroundColor: MUTED_BG }}>
+              <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
+              <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
+                Marcos são referências, não obrigações. Cada criança se desenvolve no seu ritmo.
+                Consulte o pediatra se tiver dúvidas.
+              </p>
+            </div>
+            {loading ? (
+              <div className="space-y-3">
+                {[0,1,2].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {domains.map(domain => {
+                  const color         = DOMAIN_COLORS[domain];
+                  const bg            = domainBg(domain);
+                  const domMilestones = milestonesByDomain[domain] ?? [];
+                  const domAchieved   = domMilestones.filter(m => achievedIds.has(m.id)).length;
+                  const isExpanded    = expandedDomains.has(domain);
+                  return (
+                    <div key={domain} className="rounded-2xl overflow-hidden"
+                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+                      <button onClick={() => toggleDomain(domain)}
+                        className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors"
+                        style={{ backgroundColor: isExpanded ? MAUVE_BG : 'transparent' }}>
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[14px] flex-shrink-0"
+                          style={{ backgroundColor: bg }}>
+                          {DOMAIN_LABELS[domain].split(' ')[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                            {DOMAIN_LABELS[domain].split(' ').slice(1).join(' ')}
+                          </p>
+                          <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
+                            {domAchieved}/{domMilestones.length} registrados
+                          </p>
+                        </div>
+                        {domAchieved === domMilestones.length && domMilestones.length > 0 && (
+                          <InlineStatusPill label="Completo" variant="active" color={SAGE} />
+                        )}
+                        <span className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
+                          {isExpanded ? '▾' : '▸'}
+                        </span>
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-3 pb-3 pt-2 space-y-2"
+                              style={{ borderTop: `1px solid ${CARD_BORDER}` }}>
+                              {domMilestones.map(m => (
+                                <MilestoneRow
+                                  key={m.id}
+                                  milestone={m}
+                                  achieved={achieved.find(a => a.milestoneId === m.id)}
+                                  onRegister={setConfirmMilestone}
+                                />
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
-        )}
 
-        {/* MARCOS POR DOMÍNIO */}
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
-            style={{ color: TXT_MUTED }}>
-            Marcos de desenvolvimento
-          </p>
-
-          {/* Aviso ético */}
-          <div className="rounded-xl px-3 py-2.5 flex items-start gap-2 mb-3"
-            style={{ backgroundColor: MUTED_BG }}>
-            <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
-            <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
-              Marcos são referências, não obrigações. Cada criança se desenvolve no seu ritmo.
-              Consulte o pediatra se tiver dúvidas.
-            </p>
-          </div>
-
-          {loading ? (
-            <div className="space-y-3">
-              {[0,1,2].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {domains.map(domain => {
-                const color       = DOMAIN_COLORS[domain];
-                const bg          = domainBg(domain);
-                const domMilestones = milestonesByDomain[domain] ?? [];
-                const domAchieved   = domMilestones.filter(m => achievedIds.has(m.id)).length;
-                const isExpanded    = expandedDomains.has(domain);
-
-                return (
-                  <div key={domain} className="rounded-2xl overflow-hidden"
-                    style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
-                    <button onClick={() => toggleDomain(domain)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors"
-                      style={{ backgroundColor: isExpanded ? MAUVE_BG : 'transparent' }}>
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[14px] flex-shrink-0"
-                        style={{ backgroundColor: bg }}>
-                        {DOMAIN_LABELS[domain].split(' ')[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
-                          {DOMAIN_LABELS[domain].split(' ').slice(1).join(' ')}
+          {/* WATCHPOINTS */}
+          {phase.watchpoints.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowWatchpoints(v => !v)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all"
+                style={{
+                  backgroundColor: showWatchpoints ? '#FCEAEA' : CARD_BG,
+                  border: `1px solid ${showWatchpoints ? '#f5caca' : CARD_BORDER}`,
+                }}>
+                <span className="text-[18px] flex-shrink-0">⚠️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                    Sinais para observar
+                  </p>
+                  <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
+                    Converse com o pediatra se notar algo
+                  </p>
+                </div>
+                <span className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
+                  {showWatchpoints ? '▾' : '▸'}
+                </span>
+              </button>
+              <AnimatePresence initial={false}>
+                {showWatchpoints && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 space-y-2">
+                      {phase.watchpoints.map(wp => (
+                        <div key={wp.id} className="flex items-start gap-3 px-4 py-3 rounded-2xl"
+                          style={{ backgroundColor: '#FCEAEA', border: '1px solid #f5caca' }}>
+                          <span className="text-[14px] flex-shrink-0 mt-0.5">
+                            {DOMAIN_LABELS[wp.domain].split(' ')[0]}
+                          </span>
+                          <p className="text-[12px] font-nunito leading-snug" style={{ color: '#7a3030' }}>
+                            {wp.description}
+                          </p>
+                        </div>
+                      ))}
+                      <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: MUTED_BG }}>
+                        <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
+                          Esses sinais são referências para conversar com o pediatra — não diagnósticos.
                         </p>
-                        <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
-                          {domAchieved}/{domMilestones.length} registrados
-                        </p>
                       </div>
-                      {domAchieved === domMilestones.length && domMilestones.length > 0 && (
-                        <InlineStatusPill label="Completo" variant="active" color={SAGE} />
-                      )}
-                      <span className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
-                        {isExpanded ? '▾' : '▸'}
-                      </span>
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2, ease: 'easeInOut' }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-3 pb-3 pt-2 space-y-2"
-                            style={{ borderTop: `1px solid ${CARD_BORDER}` }}>
-                            {domMilestones.map(m => (
-                              <MilestoneRow
-                                key={m.id}
-                                milestone={m}
-                                achieved={achieved.find(a => a.milestoneId === m.id)}
-                                onRegister={setConfirmMilestone}
-                              />
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
-        </div>
 
-        {/* WATCHPOINTS — colapsável */}
-        {phase.watchpoints.length > 0 && (
-          <div>
-            <button
-              onClick={() => setShowWatchpoints(v => !v)}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all"
-              style={{
-                backgroundColor: showWatchpoints ? '#FCEAEA' : CARD_BG,
-                border: `1px solid ${showWatchpoints ? '#f5caca' : CARD_BORDER}`,
-              }}>
-              <span className="text-[18px] flex-shrink-0">⚠️</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
-                  Sinais para observar
-                </p>
-                <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
-                  Converse com o pediatra se notar algo
-                </p>
-              </div>
-              <span className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
-                {showWatchpoints ? '▾' : '▸'}
-              </span>
-            </button>
-
-            <AnimatePresence initial={false}>
-              {showWatchpoints && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-2 space-y-2">
-                    {phase.watchpoints.map(wp => (
-                      <div key={wp.id} className="flex items-start gap-3 px-4 py-3 rounded-2xl"
-                        style={{ backgroundColor: '#FCEAEA', border: '1px solid #f5caca' }}>
-                        <span className="text-[14px] flex-shrink-0 mt-0.5">
-                          {DOMAIN_LABELS[wp.domain].split(' ')[0]}
-                        </span>
-                        <p className="text-[12px] font-nunito leading-snug" style={{ color: '#7a3030' }}>
-                          {wp.description}
+          {/* CONQUISTAS */}
+          {achieved.length > 0 && (
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
+                style={{ color: TXT_MUTED }}>
+                Conquistas de {childName}
+              </p>
+              <div className="space-y-2">
+                {achieved.slice(0, 6).map(a => {
+                  const milestone = phase.milestones.find(m => m.id === a.milestoneId);
+                  if (!milestone) return null;
+                  const color = DOMAIN_COLORS[milestone.domain];
+                  const bg    = domainBg(milestone.domain);
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+                      style={{ backgroundColor: bg, border: `1px solid ${CARD_BORDER}` }}>
+                      <span className="text-[18px] flex-shrink-0">🎉</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                          {milestone.label}
+                        </p>
+                        <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                          {a.achievedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                          {a.notes ? ` · ${a.notes}` : ''}
                         </p>
                       </div>
-                    ))}
-                    <div className="px-3 py-2.5 rounded-xl"
-                      style={{ backgroundColor: MUTED_BG }}>
-                      <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
-                        Esses sinais são referências para conversar com o pediatra — não diagnósticos.
-                        Cada criança tem seu ritmo único.
-                      </p>
+                      <span className="text-[9px] font-bold font-nunito px-2 py-1 rounded-full uppercase"
+                        style={{ backgroundColor: CARD_BG, color }}>
+                        {DOMAIN_LABELS[milestone.domain].split(' ')[0]}
+                      </span>
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {/* CONQUISTAS REGISTRADAS */}
-        {achieved.length > 0 && (
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
-              style={{ color: TXT_MUTED }}>
-              Conquistas de {childName}
-            </p>
-            <div className="space-y-2">
-              {achieved.slice(0, 6).map(a => {
-                const milestone = phase.milestones.find(m => m.id === a.milestoneId);
-                if (!milestone) return null;
-                const color = DOMAIN_COLORS[milestone.domain];
-                const bg    = domainBg(milestone.domain);
-                return (
-                  <div key={a.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl"
-                    style={{ backgroundColor: bg, border: `1px solid ${CARD_BORDER}` }}>
-                    <span className="text-[18px] flex-shrink-0">🎉</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
-                        {milestone.label}
-                      </p>
-                      <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
-                        {a.achievedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
-                        {a.notes ? ` · ${a.notes}` : ''}
-                      </p>
-                    </div>
-                    <span className="text-[9px] font-bold font-nunito px-2 py-1 rounded-full uppercase"
-                      style={{ backgroundColor: CARD_BG, color }}>
-                      {DOMAIN_LABELS[milestone.domain].split(' ')[0]}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Empty state */}
-        {!loading && achieved.length === 0 && (
-          <div className="rounded-2xl px-5 py-8 text-center"
-            style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
-            <p className="text-3xl mb-2">⭐</p>
-            <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
-              Nenhum marco registrado ainda
-            </p>
-            <p className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
-              style={{ color: TXT_MUTED }}>
-              Quando {childName} atingir um marco, toque em "Atingido" para registrar e guardar a memória.
-            </p>
-          </div>
-        )}
+          {/* Empty state */}
+          {!loading && achieved.length === 0 && (
+            <div className="rounded-2xl px-5 py-8 text-center"
+              style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+              <p className="text-3xl mb-2">⭐</p>
+              <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+                Nenhum marco registrado ainda
+              </p>
+              <p className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
+                style={{ color: TXT_MUTED }}>
+                Quando {childName} atingir um marco, toque em "Atingido" para registrar e guardar a memória.
+              </p>
+            </div>
+          )}
 
-      </div>
-
+        </PaywallGate>
+        
       {/* Modal */}
       <AnimatePresence>
         {confirmMilestone && activeChild && user && (

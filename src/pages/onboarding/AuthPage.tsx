@@ -70,7 +70,7 @@ function PasswordRule({ ok, label }: {ok: boolean;label: string;}) {
 // ─── OTP Screen ──────────────────────────────────────────────────────────────
 function OTPScreen({ email, onBack }: {email: string;onBack: () => void;}) {
   const navigate = useNavigate();
-  const [digits, setDigits] = useState(['', '', '', '', '']);
+  const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [timer, setTimer] = useState(59);
@@ -87,8 +87,8 @@ function OTPScreen({ email, onBack }: {email: string;onBack: () => void;}) {
     const next = [...digits];
     next[i] = v;
     setDigits(next);
-    if (v && i < 4) {
-      (document.getElementById(`otp-${i + 1}`) as HTMLInputElement)?.focus();
+    if (v && i < 5) {
+    (document.getElementById(`otp-${i + 1}`) as HTMLInputElement)?.focus();
     }
   }
 
@@ -100,7 +100,7 @@ function OTPScreen({ email, onBack }: {email: string;onBack: () => void;}) {
 
   async function verify() {
     const token = digits.join('');
-    if (token.length < 5) return;
+    if (token.length < 6) return;
     setError('');
     setLoading(true);
     try {
@@ -111,7 +111,7 @@ function OTPScreen({ email, onBack }: {email: string;onBack: () => void;}) {
       if (data.session) navigate('/onboarding/nome');
     } catch {
       setError('Código inválido. Verifique e tente novamente.');
-      setDigits(['', '', '', '', '']);
+      setDigits(['', '', '', '', '', '']);
       document.getElementById('otp-0')?.focus();
     } finally {
       setLoading(false);
@@ -144,7 +144,7 @@ function OTPScreen({ email, onBack }: {email: string;onBack: () => void;}) {
         </h2>
         <p className="relative z-10 text-[13px]"
         style={{ color: 'rgba(255,255,255,0.55)', fontFamily: 'Nunito, sans-serif', lineHeight: 1.5 }}>
-          Enviamos um código de 5 dígitos para{' '}
+          Enviamos um código de 6 dígitos para{' '}
           <strong style={{ color: 'white' }}>{email}</strong>
         </p>
       </div>
@@ -186,7 +186,7 @@ function OTPScreen({ email, onBack }: {email: string;onBack: () => void;}) {
 
         <button
           onClick={verify}
-          disabled={loading || digits.join('').length < 5}
+          disabled={loading || digits.join('').length < 6}
           className="w-full rounded-2xl font-bold text-[15px] mb-4 transition-opacity disabled:opacity-40"
           style={{
             height: 52,

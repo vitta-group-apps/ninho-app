@@ -10,7 +10,7 @@ import { ChildAvatar } from '@/components/home/ChildSwitcher';
 import { EventCard } from '@/components/events/EventCard';
 import { InlineStatusPill, SectionLabel } from '@/components/ds';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PaywallGate } from '@/components/paywall/PaywallGate';
+import { PaywallGate } from '@/components/PaywallGate';
 import type { RoutineLog } from '@/lib/eventSystem';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';

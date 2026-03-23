@@ -34,6 +34,7 @@ import { toast } from '@/hooks/use-toast';
 import { getAgeContext } from '@/lib/eventSystem';
 import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PaywallGate } from '@/components/paywall/PaywallGate';
 
 // ── Cores fixas do design system — sem color-mix, sem hsl(var()) ──
 const SAGE         = '#789687';
@@ -1412,76 +1413,88 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
         </div>
 
         {/* RELATÓRIO MÉDICO */}
-        <ExpandableSection id="report" emoji="📋" title="Relatório médico"
-          statusPill={savedNotes.length > 0 ? <InlineStatusPill label={`${savedNotes.length} nota${savedNotes.length > 1 ? 's' : ''}`} variant="active" color={SAGE} /> : <InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />}
-          summary="Notas e eventos para compartilhar com o pediatra"
-          open={openSection === 'report'} onToggle={() => toggle('report')}
-        >
-          <div>
-            <SectionLabel>Adicionar nota livre</SectionLabel>
-            <textarea value={quickNote} onChange={e => setQuickNote(e.target.value)}
-              placeholder="Ex: mamou menos hoje, irritado após vacina..."
-              rows={3} style={{ ...inputStyle, resize: 'none' }}
-            />
-            <button onClick={saveQuickNote} disabled={savingNote || !quickNote.trim()}
-              className="mt-2 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}>
-              {savingNote ? 'Salvando…' : 'Salvar nota'}
-            </button>
-            {noteSavedFeedback && (
-              <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl"
-                style={{ backgroundColor: SAGE_BG }}>
-                <span className="text-[13px]">✓</span>
-                <p className="text-[12px] font-semibold font-nunito" style={{ color: SAGE }}>Nota salva com data e hora</p>
+       {/* RELATÓRIO MÉDICO — premium */}
+        <PaywallGate feature="relatorio">
+          <ExpandableSection id="report" emoji="📋" title="Relatório médico"
+            statusPill={savedNotes.length > 0
+              ? <InlineStatusPill label={`${savedNotes.length} nota${savedNotes.length > 1 ? 's' : ''}`} variant="active" color={SAGE} />
+              : <InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />}
+            summary="Notas e eventos para compartilhar com o pediatra"
+            open={openSection === 'report'} onToggle={() => toggle('report')}
+          >
+            <div>
+              <SectionLabel>Adicionar nota livre</SectionLabel>
+              <textarea value={quickNote} onChange={e => setQuickNote(e.target.value)}
+                placeholder="Ex: mamou menos hoje, irritado após vacina..."
+                rows={3} style={{ ...inputStyle, resize: 'none' }}
+              />
+              <button onClick={saveQuickNote} disabled={savingNote || !quickNote.trim()}
+                className="mt-2 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+                style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}>
+                {savingNote ? 'Salvando…' : 'Salvar nota'}
+              </button>
+              {noteSavedFeedback && (
+                <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl"
+                  style={{ backgroundColor: SAGE_BG }}>
+                  <span className="text-[13px]">✓</span>
+                  <p className="text-[12px] font-semibold font-nunito" style={{ color: SAGE }}>Nota salva com data e hora</p>
+                </div>
+              )}
+            </div>
+
+            {savedNotes.length > 0 && (
+              <div>
+                <SectionLabel>Notas salvas</SectionLabel>
+                <div className="space-y-2">
+                  {savedNotes.map((n, i) => (
+                    <div key={i} className="rounded-2xl px-4 py-3" style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+                      <p className="text-[12px] font-nunito leading-snug" style={{ color: TXT }}>{n.text}</p>
+                      <p className="text-[10px] font-nunito mt-1.5" style={{ color: TXT_MUTED }}>
+                        {n.date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
 
-          {savedNotes.length > 0 && (
-            <div>
-              <SectionLabel>Notas salvas</SectionLabel>
-              <div className="space-y-2">
-                {savedNotes.map((n, i) => (
-                  <div key={i} className="rounded-2xl px-4 py-3" style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
-                    <p className="text-[12px] font-nunito leading-snug" style={{ color: TXT }}>{n.text}</p>
-                    <p className="text-[10px] font-nunito mt-1.5" style={{ color: TXT_MUTED }}>
-                      {n.date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {symptomHistory.length > 0 && (
-            <div>
-              <SectionLabel>Sintomas registrados</SectionLabel>
-              <div className="space-y-1.5">
-                {symptomHistory.slice(0, 3).map(entry => (
-                  <div key={entry.id} className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
-                    style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
-                    <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                      {entry.symptoms.slice(0, 3).map(s => (
-                        <span key={s} className="text-[10px] font-bold font-nunito" style={{ color: AMBER }}>{s}</span>
-                      ))}
-                      {entry.symptoms.length > 3 && <span className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>+{entry.symptoms.length - 3}</span>}
+            {symptomHistory.length > 0 && (
+              <div>
+                <SectionLabel>Sintomas registrados</SectionLabel>
+                <div className="space-y-1.5">
+                  {symptomHistory.slice(0, 3).map(entry => (
+                    <div key={entry.id} className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+                      <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                        {entry.symptoms.slice(0, 3).map(s => (
+                          <span key={s} className="text-[10px] font-bold font-nunito" style={{ color: AMBER }}>{s}</span>
+                        ))}
+                        {entry.symptoms.length > 3 && <span className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>+{entry.symptoms.length - 3}</span>}
+                      </div>
+                      <p className="text-[10px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>
+                        {entry.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                      </p>
                     </div>
-                    <p className="text-[10px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>
-                      {entry.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                    </p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="rounded-2xl p-4 space-y-2" style={{ backgroundColor: MUTED_BG }}>
-            <p className="text-[12px] font-bold font-nunito" style={{ color: TXT }}>O que vale incluir</p>
-            {['🤱 Mamadas com dificuldade ou comportamento diferente', '💩 Fraldas com cor ou consistência incomum', '🌡️ Febre ou sintomas que persistem', '💊 Medicamentos e possíveis reações', '😴 Sono muito longo ou muitos despertares', '📏 Medições de peso e altura recentes'].map(item => (
-              <p key={item} className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>{item}</p>
-            ))}
-          </div>
-        </ExpandableSection>
+            <div className="rounded-2xl p-4 space-y-2" style={{ backgroundColor: MUTED_BG }}>
+              <p className="text-[12px] font-bold font-nunito" style={{ color: TXT }}>O que vale incluir</p>
+              {[
+                '🤱 Mamadas com dificuldade ou comportamento diferente',
+                '💩 Fraldas com cor ou consistência incomum',
+                '🌡️ Febre ou sintomas que persistem',
+                '💊 Medicamentos e possíveis reações',
+                '😴 Sono muito longo ou muitos despertares',
+                '📏 Medições de peso e altura recentes',
+              ].map(item => (
+                <p key={item} className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>{item}</p>
+              ))}
+            </div>
+          </ExpandableSection>
+        </PaywallGate>
 
       </div>
 

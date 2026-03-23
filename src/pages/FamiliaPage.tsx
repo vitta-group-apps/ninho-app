@@ -344,8 +344,35 @@ setMembers(enrichedMembers);
                       </div>
                     );
                   })}
-                </div>
+</div>
               )}
+
+              {/* ADICIONAR CRIANÇA — bloqueado para free */}
+              <PaywallGate feature="segunda_crianca">
+                <button
+                  onClick={() => navigate('/onboarding/child')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-95"
+                  style={{
+                    backgroundColor: MAUVE_BG,
+                    border: `1px solid ${MAUVE_BORDER}`,
+                    cursor: 'pointer',
+                  }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[17px] flex-shrink-0"
+                    style={{ backgroundColor: MUTED_BG }}>
+                    ➕
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                      Adicionar outra criança
+                    </p>
+                    <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                      Acompanhe todos os seus filhos no mesmo lugar
+                    </p>
+                  </div>
+                  <span className="text-[13px] flex-shrink-0" style={{ color: TXT_MUTED }}>→</span>
+                </button>
+              </PaywallGate>
+
             </ExpandBlock>
 
             {/* CUIDADORES */}

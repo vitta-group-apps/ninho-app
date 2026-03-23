@@ -704,7 +704,9 @@ export default function DesenvolvimentoPage() {
           )}
 
         </PaywallGate>
-        
+
+      </div>
+
       {/* Modal */}
       <AnimatePresence>
         {confirmMilestone && activeChild && user && (

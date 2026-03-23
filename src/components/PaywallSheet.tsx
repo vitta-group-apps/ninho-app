@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import type { PaywallFeature } from '@/components/paywall/PaywallGate';
+import type { PaywallFeature } from '@/components/PaywallGate';
 
 // ── Cores fixas ──
 const MAUVE        = '#806e84';

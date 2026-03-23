@@ -1,1 +1,2 @@
-// PaywallSheet.tsx File Content Goes Here
+// Re-export from root PaywallSheet to satisfy imports from PaywallGate
+export { PaywallSheet } from '@/components/PaywallSheet';

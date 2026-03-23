@@ -1,11 +1,5 @@
 /**
  * FamiliaPage — Vertical coordination hub (no horizontal tabs).
- *
- * Sections (all vertical, scrollable):
- *  1. Family identity card (name + stats)
- *  2. Children — detailed health profile cards
- *  3. Caregivers — roles + invite
- *  4. Recent activity (max 3, lightweight preview)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -16,6 +10,7 @@ import { ChildAvatar } from '@/components/home/ChildSwitcher';
 import { EventCard } from '@/components/events/EventCard';
 import { InlineStatusPill, SectionLabel } from '@/components/ds';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PaywallGate } from '@/components/paywall/PaywallGate';
 import type { RoutineLog } from '@/lib/eventSystem';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
@@ -202,7 +197,7 @@ export default function FamiliaPage() {
           <div className="grid grid-cols-3 gap-2">
             {[
               { value: children.length, label: `Criança${children.length !== 1 ? 's' : ''}`, color: EARTH },
-              { value: members.length, label: `Cuidador${members.length !== 1 ? 'es' : ''}`, color: SAGE },
+              { value: members.length,  label: `Cuidador${members.length !== 1 ? 'es' : ''}`, color: SAGE },
               { value: recentLogs.length, label: 'Recentes', color: MAUVE },
             ].map((stat, i) => (
               <div key={i} className="rounded-xl py-3 text-center" style={{ backgroundColor: MUTED_BG }}>
@@ -259,35 +254,30 @@ export default function FamiliaPage() {
                               {new Date(child.birth_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </p>
                           </div>
-
                           <div className="rounded-xl px-3 py-2" style={{ backgroundColor: MUTED_BG }}>
                             <p className="font-nunito" style={{ color: TXT_MUTED }}>Tipo sanguíneo</p>
                             <p className="font-bold font-quicksand mt-0.5" style={{ color: child.blood_type ? TXT : TXT_MUTED }}>
                               {child.blood_type ?? 'Não informado'}
                             </p>
                           </div>
-
                           {g?.weight && (
                             <div className="rounded-xl px-3 py-2" style={{ backgroundColor: MUTED_BG }}>
                               <p className="font-nunito" style={{ color: TXT_MUTED }}>Último peso</p>
                               <p className="font-bold font-quicksand mt-0.5" style={{ color: SAGE }}>{fmtWeight(g.weight)}</p>
                             </div>
                           )}
-
                           {g?.height && (
                             <div className="rounded-xl px-3 py-2" style={{ backgroundColor: MUTED_BG }}>
                               <p className="font-nunito" style={{ color: TXT_MUTED }}>Última altura</p>
                               <p className="font-bold font-quicksand mt-0.5" style={{ color: MAUVE }}>{g.height} cm</p>
                             </div>
                           )}
-
                           {child.pediatrician && (
                             <div className="rounded-xl px-3 py-2 col-span-2" style={{ backgroundColor: MUTED_BG }}>
                               <p className="font-nunito" style={{ color: TXT_MUTED }}>Pediatra</p>
                               <p className="font-bold font-quicksand mt-0.5 truncate" style={{ color: TXT }}>{child.pediatrician}</p>
                             </div>
                           )}
-
                           {child.premature && (
                             <div className="rounded-xl px-3 py-2" style={{ backgroundColor: MUTED_BG }}>
                               <p className="font-nunito" style={{ color: TXT_MUTED }}>Prematuro</p>
@@ -296,7 +286,6 @@ export default function FamiliaPage() {
                               </p>
                             </div>
                           )}
-
                           {child.health_plan && (
                             <div className="rounded-xl px-3 py-2" style={{ backgroundColor: MUTED_BG }}>
                               <p className="font-nunito" style={{ color: TXT_MUTED }}>Plano de saúde</p>
@@ -366,21 +355,27 @@ export default function FamiliaPage() {
                 </div>
               )}
 
-              {/* Convidar */}
-              <div className="flex items-center gap-3 px-4 py-4 rounded-2xl"
-                style={{ backgroundColor: SAGE_BG, border: `1px solid ${SAGE_BORDER}` }}>
-                <span className="text-[22px]">✉️</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>Convidar cuidador</p>
-                  <p className="text-[11px] mt-0.5 font-nunito leading-snug" style={{ color: TXT_MUTED }}>
-                    Compartilhe com parceiro, avós ou babá para coordenar o cuidado.
-                  </p>
+              {/* ── CONVIDAR CUIDADOR — bloqueado para free ── */}
+              <PaywallGate feature="cuidadores">
+                <div className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+                  style={{ backgroundColor: SAGE_BG, border: `1px solid ${SAGE_BORDER}` }}>
+                  <span className="text-[22px]">✉️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                      Convidar cuidador
+                    </p>
+                    <p className="text-[11px] mt-0.5 font-nunito leading-snug" style={{ color: TXT_MUTED }}>
+                      Compartilhe com parceiro, avós ou babá para coordenar o cuidado.
+                    </p>
+                  </div>
+                  <button
+                    className="rounded-xl px-3 py-1.5 text-[11px] font-bold font-nunito flex-shrink-0 text-white transition-all active:scale-95"
+                    style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}>
+                    Convidar
+                  </button>
                 </div>
-                <div className="rounded-xl px-3 py-1.5 text-[11px] font-bold font-nunito flex-shrink-0"
-                  style={{ backgroundColor: MUTED_BG, color: TXT_MUTED }}>
-                  Em breve
-                </div>
-              </div>
+              </PaywallGate>
+
             </ExpandBlock>
 
             {/* ATIVIDADE RECENTE */}

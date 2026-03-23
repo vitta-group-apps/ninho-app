@@ -49,7 +49,7 @@ export function useSubscription(): SubscriptionState {
     }
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('subscriptions')
         .select('status, current_period_end, cancel_at_period_end, provider')
         .eq('family_id', familyId)
@@ -57,7 +57,7 @@ export function useSubscription(): SubscriptionState {
         .order('current_period_end', { ascending: false })
         .limit(1)
         .maybeSingle();
-      setSub(data ?? null);
+      setSub((data as Subscription) ?? null);
     } catch {
       setSub(null);
     } finally {

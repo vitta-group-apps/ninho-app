@@ -817,7 +817,6 @@ export default function SaudePage() {
   const today = new Date().toISOString().split('T')[0];
 const upcomingConsults = consultations.filter(c => c.date && c.date >= today);
 const pastConsults = consultations.filter(c => c.date && c.date < today);
-  const pastConsults = consultations.filter(c => c.date < new Date().toISOString().split('T')[0]);
 
   const inputStyle = {
     backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`,

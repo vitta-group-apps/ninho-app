@@ -28,19 +28,30 @@ export default function NomePage() {
     if (!isValid || !user) return;
     setError('');
     setLoading(true);
-    try {
-      const { error: err } = await supabase
-        .from('profiles')
-        .update({ full_name: name.trim() })
-        .eq('user_id', user.id);
-      if (err) throw err;
-      navigate('/onboarding/family');
-    } catch {
-      setError('Não conseguimos salvar seu nome. Tente novamente.');
-    } finally {
-      setLoading(false);
-    }
+
+  try {
+    const { error: err } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          user_id: user.id,
+          full_name: name.trim(),
+          email: user.email ?? null,
+        },
+        {
+          onConflict: 'user_id',
+        }
+      );
+
+    if (err) throw err;
+
+    navigate('/onboarding/family');
+  } catch {
+    setError('Não conseguimos salvar seus dados. Tente novamente.');
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F8F5F0' }}>

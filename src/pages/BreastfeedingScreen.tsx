@@ -68,6 +68,20 @@ const QUICK_TAGS = [
   { id: 'rejeitou_lado', label: '↩️ Rejeitou lado' },
 ];
 
+function timeToMinutes(time: string) {
+  if (!time || !time.includes(':')) return null;
+  const [h, m] = time.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function minutesToTime(totalMinutes: number) {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 // ── Persistence ──
 export function saveFeedSession(d: FeedSession) {
   try { localStorage.setItem(FEED_SESSION_KEY, JSON.stringify(d)); } catch { /* noop */ }
@@ -209,10 +223,62 @@ export default function BreastfeedingScreen() {
   const [manualSide, setManualSide]               = useState<'L' | 'R' | 'both'>('L');
   const [manualDurationMin, setManualDurationMin] = useState('');
   const [manualStartTime, setManualStartTime]     = useState(() => {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  });
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+});
+  const [manualEndTime, setManualEndTime]         = useState(() => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+});
+function handleManualStartTimeChange(value: string) {
+  setManualStartTime(value);
 
+  const duration = Number(manualDurationMin);
+  const startMin = timeToMinutes(value);
+
+  if (startMin !== null && duration > 0) {
+    setManualEndTime(minutesToTime(startMin + duration));
+  }
+}
+
+function handleManualEndTimeChange(value: string) {
+  setManualEndTime(value);
+
+  const endMin = timeToMinutes(value);
+  const startMin = timeToMinutes(manualStartTime);
+  const duration = Number(manualDurationMin);
+
+  if (endMin !== null && startMin !== null) {
+    const diff = endMin - startMin;
+    const adjustedDiff = diff >= 0 ? diff : diff + 1440;
+    setManualDurationMin(String(adjustedDiff));
+    return;
+  }
+
+  if (endMin !== null && duration > 0) {
+    setManualStartTime(minutesToTime(endMin - duration));
+  }
+}
+
+function handleManualDurationChange(value: string) {
+  setManualDurationMin(value);
+
+  const duration = Number(value);
+  const startMin = timeToMinutes(manualStartTime);
+  const endMin = timeToMinutes(manualEndTime);
+
+  if (!(duration > 0)) return;
+
+  if (startMin !== null) {
+    setManualEndTime(minutesToTime(startMin + duration));
+    return;
+  }
+
+  if (endMin !== null) {
+    setManualStartTime(minutesToTime(endMin - duration));
+  }
+}
+  
   useEffect(() => {
     const existing = loadFeedSession();
     if (existing && existing.childId === activeChildId) {
@@ -456,11 +522,13 @@ export default function BreastfeedingScreen() {
               <button
                 onClick={() => {
                   const now = new Date();
-                  setManualStartTime(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+                  const nowTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                  setManualStartTime(nowTime);
+                  setManualEndTime(nowTime);
                   setManualDurationMin('');
                   setManualSide('L');
                   setPhase('manual');
-                }}
+}}
                 className="w-full py-2.5 text-[12px] font-semibold font-nunito text-center"
                 style={{ color: TXT_MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>
                 Registrar sem cronômetro
@@ -610,20 +678,44 @@ export default function BreastfeedingScreen() {
               <SectionLabel>Duração (minutos)</SectionLabel>
               <input type="number" inputMode="numeric" min="1" max="120"
                 placeholder="ex: 15" value={manualDurationMin}
-                onChange={e => setManualDurationMin(e.target.value)}
+                onChange={e => handleManualDurationChange(e.target.value)}
                 className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold font-nunito outline-none"
                 style={{ backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`, color: TXT }}
               />
             </div>
 
-            <div>
-              <SectionLabel>Horário de início</SectionLabel>
-              <input type="time" value={manualStartTime}
-                onChange={e => setManualStartTime(e.target.value)}
-                className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold font-nunito outline-none"
-                style={{ backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`, color: TXT }}
-              />
-            </div>
+          <div>
+              <SectionLabel>Horários</SectionLabel>
+              <div className="grid grid-cols-2 gap-3">
+               <div>
+               <p className="text-[11px] font-bold uppercase tracking-[0.06em] font-nunito mb-2"
+               style={{ color: TXT_MUTED }}>
+               Início
+               </p>
+              <input
+              type="time"
+              value={manualStartTime}
+              onChange={e => handleManualStartTimeChange(e.target.value)}
+              className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold font-nunito outline-none"
+              style={{ backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`, color: TXT }}
+      />
+    </div>
+
+    <div>
+      <p className="text-[11px] font-bold uppercase tracking-[0.06em] font-nunito mb-2"
+        style={{ color: TXT_MUTED }}>
+        Fim
+      </p>
+      <input
+        type="time"
+        value={manualEndTime}
+        onChange={e => handleManualEndTimeChange(e.target.value)}
+        className="w-full h-12 px-4 rounded-2xl text-[15px] font-semibold font-nunito outline-none"
+        style={{ backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`, color: TXT }}
+      />
+    </div>
+  </div>
+</div>
 
             <div className="h-px" style={{ backgroundColor: CARD_BORDER }} />
 

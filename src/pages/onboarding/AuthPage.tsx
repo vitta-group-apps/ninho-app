@@ -357,7 +357,7 @@ export default function AuthPage() {
           </div>
           <h1 className="text-white text-[22px] font-bold"
           style={{ fontFamily: 'Quicksand, sans-serif' }}>
-            {tab === 'signup' ? 'Crie sua conta' : 'Boas vindas'}
+            {tab === 'signup' ? 'Crie sua conta' : 'Bem-vindo de volta'}
           </h1>
           <p className="mt-1 text-[13px] text-primary-foreground"
           style={{ color: 'rgba(255,255,255,0.55)', fontFamily: 'Nunito, sans-serif', lineHeight: 1.5, maxWidth: 260 }}>

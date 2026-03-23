@@ -68,8 +68,8 @@ export function PaywallSheet({ open, feature, onClose, onSuccess }: PaywallSheet
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           priceId: selectedPlan === 'annual'
-            ? 'price_ninho_annual'    // substitui pelo ID real do Stripe
-            : 'price_ninho_monthly',  // substitui pelo ID real do Stripe
+            ? 'price_1TE9SWEoS6pDYPW0FBL60N7d'  
+            : 'price_1TE9S4EoS6pDYPW0GBbHsSfD', 
           successUrl: `${window.location.origin}/home?upgraded=true`,
           cancelUrl:  window.location.href,
         },

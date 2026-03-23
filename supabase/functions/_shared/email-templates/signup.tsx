@@ -316,3 +316,38 @@ const footer = {
   lineHeight: '1.6',
   margin: '0',
 }
+
+const footerSection = {
+  padding: '24px 40px 32px',
+  textAlign: 'center' as const,
+}
+
+const footerText = {
+  fontSize: '13px',
+  color: '#7A7A7A',
+  margin: '0 0 2px',
+}
+
+const footerBrand = {
+  fontSize: '15px',
+  fontWeight: 'bold' as const,
+  color: '#806e84',
+  margin: '0 0 16px',
+}
+
+const footerLinks = {
+  fontSize: '12px',
+  color: '#9A9A9A',
+  margin: '0 0 8px',
+}
+
+const footerLink = {
+  color: '#806e84',
+  textDecoration: 'none' as const,
+}
+
+const footerAddress = {
+  fontSize: '11px',
+  color: '#AFAFAF',
+  margin: '0',
+}

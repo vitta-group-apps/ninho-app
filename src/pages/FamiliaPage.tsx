@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PaywallGate } from '@/components/PaywallGate';
 import type { RoutineLog } from '@/lib/eventSystem';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 // ── Cores fixas do design system ──
@@ -32,8 +33,18 @@ const PAGE_BG      = '#F8F5F0';
 const EARTH        = '#7e553d';
 const EARTH_BG     = '#f5efe9';
 
+interface Profile {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
 interface Member {
-  id: string; user_id: string; role: string; invited_email: string | null;
+  id: string;
+  user_id: string;
+  role: string;
+  invited_email: string | null;
+  profile?: Profile | null;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -102,6 +113,7 @@ function ExpandBlock({
 
 export default function FamiliaPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { children, familyId, getAgeLabel } = useActiveChild();
 
   const [familyName, setFamilyName]   = useState<string | null>(null);
@@ -138,11 +150,41 @@ export default function FamiliaPage() {
     setLoading(true);
     try {
       const [famRes, memRes] = await Promise.all([
-        supabase.from('families').select('name').eq('id', familyId).maybeSingle(),
-        supabase.from('memberships').select('id, user_id, role, invited_email').eq('family_id', familyId).order('created_at'),
-      ]);
-      setFamilyName(famRes.data?.name ?? null);
-      setMembers((memRes.data ?? []) as Member[]);
+  supabase.from('families').select('name').eq('id', familyId).maybeSingle(),
+  supabase
+    .from('memberships')
+    .select('id, user_id, role, invited_email')
+    .eq('family_id', familyId)
+    .order('created_at'),
+]);
+
+setFamilyName(famRes.data?.name ?? null);
+
+const rawMembers = (memRes.data ?? []) as Member[];
+
+const userIds = rawMembers
+  .map(m => m.user_id)
+  .filter(Boolean);
+
+let profilesMap: Record<string, Profile> = {};
+
+if (userIds.length > 0) {
+  const { data: profilesData } = await supabase
+    .from('profiles')
+    .select('user_id, full_name, email')
+    .in('user_id', userIds);
+
+  profilesMap = Object.fromEntries(
+    ((profilesData ?? []) as Profile[]).map((p) => [p.user_id, p])
+  );
+}
+
+const enrichedMembers = rawMembers.map((member) => ({
+  ...member,
+  profile: profilesMap[member.user_id] ?? null,
+}));
+
+setMembers(enrichedMembers);
       if (children.length) {
         const { data } = await supabase.from('routine_logs').select('*')
           .in('child_id', children.map(c => c.id))
@@ -333,25 +375,56 @@ export default function FamiliaPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {members.map(m => (
-                    <div key={m.id} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
-                      style={{ backgroundColor: PAGE_BG, border: `1px solid ${CARD_BORDER}` }}>
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                        style={{ backgroundColor: MUTED_BG }}>
-                        👤
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold font-quicksand truncate" style={{ color: TXT }}>
-                          {m.invited_email ?? 'Cuidador'}
-                        </p>
-                      </div>
-                      <InlineStatusPill
-                        label={ROLE_LABEL[m.role] ?? m.role}
-                        variant="info"
-                        color={ROLE_COLOR[m.role] ?? TXT_MUTED}
-                      />
-                    </div>
-                  ))}
+                  {members.map(m => {
+  const displayName =
+    m.profile?.full_name?.trim() ||
+    (m.invited_email ? m.invited_email.split('@')[0] : '') ||
+    'Cuidador';
+
+  const displayEmail =
+    m.profile?.email?.trim() ||
+    m.invited_email ||
+    (m.user_id === user?.id ? user.email : null);
+
+  return (
+    <div
+      key={m.id}
+      className="flex items-center gap-3 px-4 py-3.5 rounded-2xl"
+      style={{ backgroundColor: PAGE_BG, border: `1px solid ${CARD_BORDER}` }}
+    >
+      <div
+        className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+        style={{ backgroundColor: MUTED_BG }}
+      >
+        👤
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-[13px] font-bold font-quicksand truncate"
+          style={{ color: TXT }}
+        >
+          {displayName}
+        </p>
+
+        {displayEmail && (
+          <p
+            className="text-[11px] font-nunito truncate mt-0.5"
+            style={{ color: TXT_MUTED }}
+          >
+            {displayEmail}
+          </p>
+        )}
+      </div>
+
+      <InlineStatusPill
+        label={ROLE_LABEL[m.role] ?? m.role}
+        variant="info"
+        color={ROLE_COLOR[m.role] ?? TXT_MUTED}
+      />
+    </div>
+  );
+})}
                 </div>
               )}
 

@@ -34,7 +34,7 @@ import { toast } from '@/hooks/use-toast';
 import { getAgeContext } from '@/lib/eventSystem';
 import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PaywallGate } from '@/components/paywall/PaywallGate';
+import { PaywallGate } from '@/components/PaywallGate';
 
 // ── Cores fixas do design system — sem color-mix, sem hsl(var()) ──
 const SAGE         = '#789687';

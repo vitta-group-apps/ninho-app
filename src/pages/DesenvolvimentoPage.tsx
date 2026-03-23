@@ -15,7 +15,7 @@ import { getAgeContext } from '@/lib/eventSystem';
 import { SectionLabel, InlineStatusPill } from '@/components/ds';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
-import { PaywallGate } from '@/components/paywall/PaywallGate';
+import { PaywallGate } from '@/components/PaywallGate';
 import {
   getJourneyPhase,
   getPhaseLabel,

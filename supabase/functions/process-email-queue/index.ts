@@ -44,16 +44,16 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
 }
 
 async function moveToDlq(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   queue: string,
   msg: { msg_id: number; message: Record<string, any> },
   reason: string
 ): Promise<void> {
   const payload = msg.message
   await supabase.from('email_send_log').insert({
-    message_id: payload.message_id as string ?? null,
-    template_name: ((payload.label || queue) as string),
-    recipient_email: payload.to as string ?? '',
+    message_id: (payload.message_id as string) ?? null,
+    template_name: (payload.label || queue) as string,
+    recipient_email: (payload.to as string) ?? '',
     status: 'dlq',
     error_message: reason,
   })

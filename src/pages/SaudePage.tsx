@@ -514,125 +514,176 @@ function ConsultationModal({
   );
 }
 
-function MedicationModal({
-  childId, userId, onClose, onSaved,
+function GrowthEditModal({
+  entry,
+  onClose,
+  onSave,
 }: {
-  childId: string; userId: string; onClose: () => void;
-  onSaved: (entry: { id: string; name: string; dosage: string; frequency: string; startDate: string; note: string; active: boolean }) => void;
+  entry: GrowthEntry;
+  onClose: () => void;
+  onSave: (payload: {
+    weight?: number;
+    height?: number;
+    note?: string;
+    date: string;
+  }) => Promise<void>;
 }) {
-  const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({ name: '', dosage: '', frequency: '', startDate: today, note: '', active: true });
+  const [form, setForm] = useState({
+    weight: entry.weight != null ? String(entry.weight) : '',
+    height: entry.height != null ? String(entry.height) : '',
+    note: entry.note ?? '',
+    date: new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0],
+  });
   const [saving, setSaving] = useState(false);
 
-  async function save() {
-    if (!form.name.trim()) { toast({ title: 'Informe o nome do medicamento', variant: 'destructive' }); return; }
+  const initialWeight = entry.weight != null ? String(entry.weight) : '';
+  const initialHeight = entry.height != null ? String(entry.height) : '';
+  const initialNote = entry.note ?? '';
+  const initialDate = new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split('T')[0];
+
+  const hasChanges =
+    form.weight !== initialWeight ||
+    form.height !== initialHeight ||
+    form.note !== initialNote ||
+    form.date !== initialDate;
+
+  const canSave =
+    hasChanges &&
+    (form.weight.trim() !== '' || form.height.trim() !== '') &&
+    !!form.date;
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  async function handleSave() {
+    if (!canSave) return;
+
     setSaving(true);
     try {
-      const { data, error } = await supabase.from('health_logs').insert({
-        child_id: childId, author_id: userId, type: 'medication',
-        occurred_at: new Date(form.startDate + 'T00:00:00').toISOString(),
-        details: { type: 'medication', name: form.name.trim(), dosage: form.dosage.trim() || null, frequency: form.frequency.trim() || null, start_date: form.startDate, note: form.note.trim() || null, active: form.active },
-      }).select('id').single();
-      if (error) throw error;
-      onSaved({ id: data.id, ...form });
-      toast({ title: '💊 Medicamento registrado' });
-      onClose();
-    } catch {
-      toast({ title: 'Erro ao salvar medicamento', variant: 'destructive' });
+      await onSave({
+        weight: form.weight.trim() ? parseFloat(form.weight) : undefined,
+        height: form.height.trim() ? parseFloat(form.height) : undefined,
+        note: form.note.trim() || undefined,
+        date: form.date,
+      });
     } finally {
       setSaving(false);
     }
   }
 
-  const inputStyle = {
-    backgroundColor: MUTED_BG, border: `1.5px solid ${CARD_BORDER}`,
-    borderRadius: 12, color: TXT, fontFamily: 'Nunito, sans-serif',
-    fontSize: 13, width: '100%', padding: '12px 16px', outline: 'none',
-  };
-
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
         className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
         style={{ backgroundColor: CARD_BG }}
       >
         <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-4" style={{ backgroundColor: CARD_BORDER }} />
+
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>Adicionar medicamento</p>
-            <button onClick={onClose} style={{ color: TXT_MUTED }}><XMarkIcon className="w-5 h-5" /></button>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
-              Medicamento *
-            </p>
-            <input type="text" placeholder="Ex: Paracetamol, Dipirona..."
-              value={form.name} autoFocus
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              style={inputStyle}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Dose', key: 'dosage', placeholder: 'Ex: 200mg' },
-              { label: 'Frequência', key: 'frequency', placeholder: 'Ex: 6/6h' },
-            ].map(f => (
-              <div key={f.key}>
-                <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
-                  {f.label}
-                </p>
-                <input type="text" placeholder={f.placeholder}
-                  value={(form as Record<string, unknown>)[f.key] as string}
-                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  style={inputStyle}
-                />
-              </div>
-            ))}
-          </div>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
-              Data de início
-            </p>
-            <input type="date" value={form.startDate}
-              onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-              style={inputStyle}
-            />
-          </div>
-          <div className="flex items-center justify-between px-1">
             <div>
-              <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>Medicamento ativo</p>
-              <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>Em uso atualmente</p>
+              <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
+                Editar medição
+              </p>
+              <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                Ajuste os dados salvos
+              </p>
             </div>
-            <button onClick={() => setForm(f => ({ ...f, active: !f.active }))}
-              className="w-12 h-6 rounded-full transition-all"
-              style={{ backgroundColor: form.active ? SAGE : MUTED_BG, border: 'none', cursor: 'pointer' }}>
-              <div className="w-5 h-5 rounded-full bg-white transition-all mx-0.5"
-                style={{ transform: form.active ? 'translateX(24px)' : 'translateX(0)' }} />
+
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
             </button>
           </div>
+
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
-              Observações (opcional)
+            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+              Data da medição
             </p>
-            <textarea rows={2} placeholder="Ex: para febre acima de 38°C..."
-              value={form.note}
-              onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
-              style={{ ...inputStyle, resize: 'none' }}
+            <input
+              type="date"
+              value={form.date}
+              onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
+              style={inputStyle}
             />
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+                Peso (kg)
+              </p>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Ex: 5.2"
+                value={form.weight}
+                onChange={e => setForm(prev => ({ ...prev, weight: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+                Altura (cm)
+              </p>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Ex: 58.5"
+                value={form.height}
+                onChange={e => setForm(prev => ({ ...prev, height: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+              Observação
+            </p>
+            <input
+              type="text"
+              placeholder="Observação (opcional)"
+              value={form.note}
+              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
           <div className="flex gap-3">
-            <button onClick={onClose}
+            <button
+              onClick={onClose}
               className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
-              style={{ backgroundColor: MUTED_BG, color: TXT_MUTED, border: 'none', cursor: 'pointer' }}>
+              style={{ backgroundColor: MUTED_BG, color: TXT_MUTED, border: 'none', cursor: 'pointer' }}
+            >
               Cancelar
             </button>
-            <button onClick={save} disabled={saving || !form.name.trim()}
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !canSave}
               className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}>
-              {saving ? 'Salvando…' : 'Salvar medicamento'}
+              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+            >
+              {saving ? 'Salvando…' : 'Salvar alterações'}
             </button>
           </div>
         </div>
@@ -819,7 +870,7 @@ function GrowthEditModal({
   );
 }
 
-interface GrowthEntry { id: string; weight?: number; height?: number; note?: string;  date: Date;edited?: boolean;}
+interface GrowthEntry { id: string; weight?: number; height?: number; note?: string; date: Date; edited?: boolean;}
 interface SymptomEntry { id: string; symptoms: string[]; note?: string; date: Date; }
 interface NoteEntry { id?: string; text: string; date: Date; }
 interface ConsultationEntry { id: string; doctor: string; specialty: string; date: string; note: string; }
@@ -827,6 +878,14 @@ interface MedicationEntry { id: string; name: string; dosage: string; frequency:
 
 function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
   return [...entries].sort((a, b) => b.date.getTime() - a.date.getTime());
+}
+
+function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
+  return [...entries].sort((a, b) => {
+    const diff = b.date.getTime() - a.date.getTime();
+    if (diff !== 0) return diff;
+    return b.id.localeCompare(a.id);
+  });
 }
 
 export default function SaudePage() {
@@ -872,7 +931,7 @@ export default function SaudePage() {
   const [consultations, setConsultations]     = useState<ConsultationEntry[]>([]);
   const [medications, setMedications]         = useState<MedicationEntry[]>([]);
 
-  const [growthForm, setGrowthForm]     = useState<{ weight?: string; height?: string; note?: string }>({});
+  const [growthForm, setGrowthForm] = useState<{ weight?: string; height?: string; note?: string; date?: string;}>({date: new Date().toISOString().split('T')[0],});  
   const [growthSaving, setGrowthSaving] = useState(false);
   const [loggedSymptoms, setLoggedSymptoms] = useState<string[]>([]);
   const [symptomNote, setSymptomNote]   = useState('');
@@ -898,7 +957,7 @@ export default function SaudePage() {
         if (d.source === 'report' && typeof d.note === 'string') {
           notes.push({ id: row.id, text: d.note, date: new Date(row.occurred_at) });
         } else if (d.type === 'growth') {
-          growth.push({  id: row.id, weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined, height: typeof d.height_cm === 'number' ? d.height_cm : undefined, note: typeof d.note === 'string' ? d.note : undefined, date: new Date(row.occurred_at),edited: false, });       
+      growth.push({  id: row.id,weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined, height: typeof d.height_cm === 'number' ? d.height_cm : undefined,note: typeof d.note === 'string' ? d.note : undefined,date: new Date(row.occurred_at), edited: false,});        
         } else if (d.type === 'symptom' && Array.isArray(d.symptoms)) {
           symptoms.push({ id: row.id, symptoms: d.symptoms as string[], note: typeof d.note === 'string' ? d.note : undefined, date: new Date(row.occurred_at) });
         } else if (d.type === 'consultation') {
@@ -949,22 +1008,55 @@ export default function SaudePage() {
   }
 
   async function saveGrowthMeasurement() {
-    if (!activeChild || !user || (!growthForm.weight && !growthForm.height)) return;
-    setGrowthSaving(true);
-    try {
-      const now = new Date();
-      const { data, error } = await supabase.from('health_logs').insert({
-        child_id: activeChild.id, author_id: user.id, type: 'note', occurred_at: now.toISOString(),
-        details: { type: 'growth', weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null, height_cm: growthForm.height ? parseFloat(growthForm.height) : null, note: growthForm.note ?? null },
-      }).select('id').single();
-      if (error) throw error;
-setGrowthHistory(prev => sortGrowthHistoryDesc([ { id: data?.id ?? '', weight: growthForm.weight ? parseFloat(growthForm.weight) : undefined, height: growthForm.height ? parseFloat(growthForm.height) : undefined, note: growthForm.note, date: now, edited: false, }, ...prev,])
-  );      
-      setGrowthForm({});
-      toast({ title: '📏 Medição salva' });
-    } catch { toast({ title: 'Erro ao salvar medição', variant: 'destructive' }); }
-    finally { setGrowthSaving(false); }
+  if (!activeChild || !user || (!growthForm.weight && !growthForm.height)) return;
+
+  setGrowthSaving(true);
+
+  try {
+    const measuredAt = growthForm.date
+      ? new Date(growthForm.date + 'T12:00:00')
+      : new Date();
+
+    const { data, error } = await supabase.from('health_logs').insert({
+      child_id: activeChild.id,
+      author_id: user.id,
+      type: 'note',
+      occurred_at: measuredAt.toISOString(),
+      details: {
+        type: 'growth',
+        weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
+        height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
+        note: growthForm.note ?? null,
+      },
+    }).select('id').single();
+
+    if (error) throw error;
+
+    setGrowthHistory(prev =>
+      sortGrowthHistoryDesc([
+        {
+          id: data?.id ?? '',
+          weight: growthForm.weight ? parseFloat(growthForm.weight) : undefined,
+          height: growthForm.height ? parseFloat(growthForm.height) : undefined,
+          note: growthForm.note,
+          date: measuredAt,
+          edited: false,
+        },
+        ...prev,
+      ])
+    );
+
+    setGrowthForm({
+      date: new Date().toISOString().split('T')[0],
+    });
+
+    toast({ title: '📏 Medição salva' });
+  } catch {
+    toast({ title: 'Erro ao salvar medição', variant: 'destructive' });
+  } finally {
+    setGrowthSaving(false);
   }
+}
 
   async function updateGrowthMeasurement(
   entryId: string,
@@ -973,7 +1065,7 @@ setGrowthHistory(prev => sortGrowthHistoryDesc([ { id: data?.id ?? '', weight: g
   if (!activeChild || !user) return;
 
   try {
-    const updatedDate = new Date(payload.date + 'T12:00:00');
+    const updatedDate = new Date(payload.date + 'T23:59:59');
 
     const { error } = await supabase
       .from('health_logs')
@@ -1570,29 +1662,67 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
               );
             })()}
 
-            <div>
-              <SectionLabel>Registrar medição</SectionLabel>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>Peso (kg)</p>
-                  <input type="number" step="0.01" placeholder="Ex: 5.2" value={growthForm.weight ?? ''}
-                    onChange={e => setGrowthForm(f => ({ ...f, weight: e.target.value }))} style={inputStyle} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>Altura (cm)</p>
-                  <input type="number" step="0.1" placeholder="Ex: 58.5" value={growthForm.height ?? ''}
-                    onChange={e => setGrowthForm(f => ({ ...f, height: e.target.value }))} style={inputStyle} />
-                </div>
-              </div>
-              <input type="text" placeholder="Observação (opcional)" value={growthForm.note ?? ''}
-                onChange={e => setGrowthForm(f => ({ ...f, note: e.target.value }))}
-                style={{ ...inputStyle, marginTop: 12 }} />
-              <button onClick={saveGrowthMeasurement} disabled={growthSaving || (!growthForm.weight && !growthForm.height)}
-                className="mt-3 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-                style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}>
-                {growthSaving ? 'Salvando…' : 'Salvar medição'}
-              </button>
-            </div>
+          <div>
+  <SectionLabel>Registrar medição</SectionLabel>
+
+  <div>
+    <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+      Data da medição
+    </p>
+    <input
+      type="date"
+      value={growthForm.date ?? ''}
+      onChange={e => setGrowthForm(f => ({ ...f, date: e.target.value }))}
+      style={{ ...inputStyle, marginBottom: 12 }}
+    />
+  </div>
+
+  <div className="grid grid-cols-2 gap-3">
+    <div>
+      <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+        Peso (kg)
+      </p>
+      <input
+        type="number"
+        step="0.01"
+        placeholder="Ex: 5.2"
+        value={growthForm.weight ?? ''}
+        onChange={e => setGrowthForm(f => ({ ...f, weight: e.target.value }))}
+        style={inputStyle}
+      />
+    </div>
+    <div>
+      <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+        Altura (cm)
+      </p>
+      <input
+        type="number"
+        step="0.1"
+        placeholder="Ex: 58.5"
+        value={growthForm.height ?? ''}
+        onChange={e => setGrowthForm(f => ({ ...f, height: e.target.value }))}
+        style={inputStyle}
+      />
+    </div>
+  </div>
+
+  <input
+    type="text"
+    placeholder="Observação (opcional)"
+    value={growthForm.note ?? ''}
+    onChange={e => setGrowthForm(f => ({ ...f, note: e.target.value }))}
+    style={{ ...inputStyle, marginTop: 12 }}
+  />
+
+  <button
+    onClick={saveGrowthMeasurement}
+    disabled={growthSaving || (!growthForm.weight && !growthForm.height)}
+    className="mt-3 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+    style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+  >
+    {growthSaving ? 'Salvando…' : 'Salvar medição'}
+  </button>
+</div>
 
             {growthHistory.length > 0 && (
               <div>

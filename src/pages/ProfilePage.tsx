@@ -88,7 +88,7 @@ function SettingsRow({
   );
 }
 
-export default function ProfilePage() {
+export default function SettingsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { activeChild, children, getAgeLabel } = useActiveChild();
@@ -110,12 +110,11 @@ export default function ProfilePage() {
         }}
       >
         <h1 className="text-[22px] font-bold font-quicksand" style={{ color: 'white' }}>
-          Perfil
+         Configurações
         </h1>
         <p className="text-[13px] mt-0.5 font-nunito" style={{ color: 'rgba(255,255,255,0.65)' }}>
-          Conta, família, dados e preferências
-        </p>
-      </div>
+          Ajustes, dados, família e preferências
+</p>
 
       <div className="px-4 pt-5 space-y-5">
         {/* Criança ativa */}

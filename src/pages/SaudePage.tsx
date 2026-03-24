@@ -275,7 +275,7 @@ function VaccineConfirmModal({
           child_id: childId,
           vaccine_code: vaccine.id,
           vaccine_name: vaccine.shortName,
-          dose_label: vaccine.doses ?? null,
+          dose_label: vaccine.doses ?? '',
           scheduled_age_months: vaccine.ageMonths ?? null,
           scheduled_date: null,
           applied_date: appliedDate,
@@ -934,8 +934,11 @@ export default function SaudePage() {
   }
 }
 
-      setSavedNotes(notes); setGrowthHistory(growth); setSymptomHistory(symptoms);
-      setConsultations(consults); setMedications(meds);
+      setSavedNotes(notes);
+      setGrowthHistory(sortGrowthHistoryDesc(growth));
+      setSymptomHistory(symptoms);
+      setConsultations([...consults].sort((a, b) => a.date.localeCompare(b.date)));
+      setMedications(meds);
 
       const { data: vaccineRows } = await supabase
   .from('child_vaccines')

@@ -1,14 +1,5 @@
 /**
- * SleepDetailScreen — READ-ONLY detail view for a completed sleep session.
- *
- * Route: /sleep/detail/:logId
- *
- * UX Rule (global):
- *   - Opens in READ mode: displays data, NO editable inputs
- *   - "Editar" CTA → toggles to EDIT mode in same screen
- *   - In edit mode: "Salvar alterações" is the only primary CTA
- *
- * DS: ScreenHeader · SectionLabel · ChipGroup · ReportToggle · StickyFooterCTA
+ * SleepDetailScreen — READ-ONLY + INLINE EDIT detail view for a completed sleep session.
  */
 
 import { useState, useEffect } from 'react';
@@ -30,9 +21,11 @@ const SLEEP_BORDER = '#e3d9e2';
 const SLEEP_LIGHT  = '#ede8ef';
 const CARD_BG      = '#ffffff';
 const CARD_BORDER  = '#E5E0D8';
+const MUTED_BG     = '#E8E8E2';
 const TXT          = '#2C2C2C';
 const TXT_MUTED    = '#7A7A7A';
 
+// ── Options (espelha SleepScreen) ──
 const SLEEP_LOCATION_OPTIONS = [
   { value: 'berco',    label: '🛏 Berço' },
   { value: 'colo',     label: '🤱 Colo' },
@@ -50,12 +43,30 @@ const SLEEP_HOW_OPTIONS = [
 ];
 
 const AWAKENINGS_OPTIONS = [
-  { value: '0',  label: 'Nenhuma vez' },
+  { value: '0',  label: 'Nenhuma' },
   { value: '1',  label: '1 vez' },
   { value: '2',  label: '2 vezes' },
   { value: '3+', label: '3 ou mais' },
 ];
 
+const SLEEP_TYPE_OPTIONS = [
+  { value: 'noturno', label: '🌙 Noturno' },
+  { value: 'soneca',  label: '☀️ Soneca' },
+];
+
+const SLEEP_POSITION_OPTIONS = [
+  { value: 'costas',  label: '↑ De costas' },
+  { value: 'lado',    label: '↔ De lado' },
+  { value: 'barriga', label: '↓ De barriga' },
+];
+
+const SLEEP_QUALITY_OPTIONS = [
+  { value: 'tranquilo', label: '😌 Tranquilo' },
+  { value: 'agitado',   label: '😤 Agitado' },
+  { value: 'com_choro', label: '😢 Com choro' },
+];
+
+// ── Labels para leitura ──
 const LOCATION_LABEL: Record<string, string> = {
   berco: 'Berço', colo: 'Colo', carrinho: 'Carrinho', cama: 'Cama', outro: 'Outro',
 };
@@ -64,6 +75,15 @@ const HOW_LABEL: Record<string, string> = {
 };
 const AWAKENINGS_LABEL: Record<string, string> = {
   '0': 'Nenhuma vez', '1': '1 vez', '2': '2 vezes', '3+': '3 ou mais',
+};
+const SLEEP_TYPE_LABEL: Record<string, string> = {
+  noturno: '🌙 Noturno', soneca: '☀️ Soneca',
+};
+const SLEEP_POSITION_LABEL: Record<string, string> = {
+  costas: 'De costas', lado: 'De lado', barriga: 'De barriga',
+};
+const SLEEP_QUALITY_LABEL: Record<string, string> = {
+  tranquilo: '😌 Tranquilo', agitado: '😤 Agitado', com_choro: '😢 Com choro',
 };
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
@@ -86,10 +106,15 @@ export default function SleepDetailScreen() {
   const [saving, setSaving]   = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  const [location, setLocation]             = useState('');
-  const [howFellAsleep, setHowFellAsleep]   = useState('');
-  const [awakenings, setAwakenings]         = useState('');
-  const [notes, setNotes]                   = useState('');
+  // Campos editáveis
+  const [location, setLocation]               = useState('');
+  const [howFellAsleep, setHowFellAsleep]     = useState('');
+  const [awakenings, setAwakenings]           = useState('');
+  const [sleepType, setSleepType]             = useState('');
+  const [sleepPosition, setSleepPosition]     = useState('');
+  const [sleepQuality, setSleepQuality]       = useState('');
+  const [usedPacifier, setUsedPacifier]       = useState(false);
+  const [notes, setNotes]                     = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
   useEffect(() => {
@@ -97,18 +122,23 @@ export default function SleepDetailScreen() {
     (async () => {
       const { data } = await supabase
         .from('routine_logs').select('*').eq('id', logId).maybeSingle();
-      if (data) {
-        setLog(data);
-        const p = parsePayload(data.notes);
-        setLocation(String(p.location ?? ''));
-        setHowFellAsleep(String(p.how_fell_asleep ?? ''));
-        setAwakenings(String(p.awakenings ?? ''));
-        setNotes(getUserNotes(data.notes) ?? '');
-        setIncludeInReport(Boolean(p.include_in_report));
-      }
+      if (data) { setLog(data); loadFields(data); }
       setLoading(false);
     })();
   }, [logId]);
+
+  function loadFields(data: RoutineLog) {
+    const p = parsePayload(data.notes);
+    setLocation(String(p.location ?? ''));
+    setHowFellAsleep(String(p.how_fell_asleep ?? ''));
+    setAwakenings(String(p.awakenings ?? ''));
+    setSleepType(String(p.sleep_type ?? ''));
+    setSleepPosition(String(p.sleep_position ?? ''));
+    setSleepQuality(String(p.sleep_quality ?? ''));
+    setUsedPacifier(Boolean(p.used_pacifier));
+    setNotes(getUserNotes(data.notes) ?? '');
+    setIncludeInReport(Boolean(p.include_in_report));
+  }
 
   async function handleSave() {
     if (!log) return;
@@ -118,8 +148,12 @@ export default function SleepDetailScreen() {
       const payload: Record<string, unknown> = { ...existing };
       if (location)        payload.location          = location;      else delete payload.location;
       if (howFellAsleep)   payload.how_fell_asleep   = howFellAsleep; else delete payload.how_fell_asleep;
-      if (awakenings)      payload.awakenings         = awakenings;   else delete payload.awakenings;
-      if (includeInReport) payload.include_in_report  = true;         else delete payload.include_in_report;
+      if (awakenings)      payload.awakenings        = awakenings;    else delete payload.awakenings;
+      if (sleepType)       payload.sleep_type        = sleepType;     else delete payload.sleep_type;
+      if (sleepPosition)   payload.sleep_position    = sleepPosition; else delete payload.sleep_position;
+      if (sleepQuality)    payload.sleep_quality     = sleepQuality;  else delete payload.sleep_quality;
+      if (usedPacifier)    payload.used_pacifier     = true;          else delete payload.used_pacifier;
+      if (includeInReport) payload.include_in_report = true;          else delete payload.include_in_report;
       delete payload._notes;
 
       const { error } = await supabase
@@ -128,7 +162,7 @@ export default function SleepDetailScreen() {
       toast({ title: '✓ Alterações salvas' });
       setIsEditing(false);
       const { data } = await supabase.from('routine_logs').select('*').eq('id', log.id).maybeSingle();
-      if (data) setLog(data);
+      if (data) { setLog(data); loadFields(data); }
     } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
     } finally { setSaving(false); }
@@ -161,7 +195,7 @@ export default function SleepDetailScreen() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F8F5F0' }}>
       <ScreenHeader
         title="Sono"
-        onBack={() => { if (isEditing) { setIsEditing(false); } else { navigate(-1); } }}
+        onBack={() => { if (isEditing) { loadFields(log); setIsEditing(false); } else { navigate(-1); } }}
       />
 
       <div className="ds-form-body">
@@ -179,6 +213,7 @@ export default function SleepDetailScreen() {
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-bold font-quicksand leading-tight" style={{ color: TXT }}>
                   {isOngoing ? 'Sono em andamento' : 'Sono'}
+                  {sleepType ? ` · ${SLEEP_TYPE_LABEL[sleepType] ?? ''}` : ''}
                 </p>
                 <p className="text-[12px] font-semibold font-nunito mt-0.5" style={{ color: SLEEP_COLOR }}>
                   {fmtTime(log.start_time)}
@@ -195,46 +230,116 @@ export default function SleepDetailScreen() {
 
           <AnimatePresence mode="wait">
             {!isEditing ? (
+              /* ── READ MODE ── */
               <motion.div key="read" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
                 <div className="rounded-2xl px-4 overflow-hidden"
                   style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+                  <DetailRow label="Tipo"           value={SLEEP_TYPE_LABEL[sleepType] ?? null} />
                   <DetailRow label="Onde dormiu"    value={LOCATION_LABEL[location] ?? null} />
                   <DetailRow label="Como adormeceu" value={HOW_LABEL[howFellAsleep] ?? null} />
+                  <DetailRow label="Posição"        value={SLEEP_POSITION_LABEL[sleepPosition] ?? null} />
+                  <DetailRow label="Como foi"       value={SLEEP_QUALITY_LABEL[sleepQuality] ?? null} />
                   <DetailRow label="Acordou durante" value={AWAKENINGS_LABEL[awakenings] ?? null} />
+                  <DetailRow label="Chupeta"        value={usedPacifier ? 'Sim' : null} />
                   {notes && <DetailRow label="Observações" value={notes} />}
                   {includeInReport && <DetailRow label="Relatório médico" value="Incluído" />}
                 </div>
-                {!location && !howFellAsleep && !awakenings && !notes && (
+
+                {!sleepType && !location && !howFellAsleep && !sleepPosition &&
+                 !sleepQuality && !awakenings && !usedPacifier && !notes && (
                   <p className="text-center text-[13px] font-nunito py-4" style={{ color: TXT_MUTED }}>
                     Nenhuma informação adicional registrada.
                   </p>
                 )}
+
+                {/* Aviso posição se não for de costas */}
+                {sleepPosition && sleepPosition !== 'costas' && (
+                  <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                    style={{ backgroundColor: '#FDF3E9', border: '1px solid #f0d5b0' }}>
+                    <span className="text-[12px] flex-shrink-0">⚠️</span>
+                    <p className="text-[11px] font-nunito leading-snug" style={{ color: '#7a5030' }}>
+                      A AAP recomenda que bebês durmam sempre de costas até 1 ano para reduzir o risco de morte súbita.
+                    </p>
+                  </div>
+                )}
               </motion.div>
             ) : (
+              /* ── EDIT MODE ── */
               <motion.div key="edit" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="space-y-6">
+
+                <div>
+                  <SectionLabel>Tipo de sono</SectionLabel>
+                  <ChipGroup options={SLEEP_TYPE_OPTIONS} value={sleepType}
+                    onToggle={v => setSleepType(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+                </div>
+
                 <div>
                   <SectionLabel>Onde dormiu?</SectionLabel>
                   <ChipGroup options={SLEEP_LOCATION_OPTIONS} value={location}
-                    onToggle={v => setLocation(prev => prev === v ? '' : v)} accentColor={SLEEP_COLOR} />
+                    onToggle={v => setLocation(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
                 </div>
+
                 <div>
                   <SectionLabel>Como adormeceu?</SectionLabel>
                   <ChipGroup options={SLEEP_HOW_OPTIONS} value={howFellAsleep}
-                    onToggle={v => setHowFellAsleep(prev => prev === v ? '' : v)} accentColor={SLEEP_COLOR} />
+                    onToggle={v => setHowFellAsleep(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
                 </div>
+
+                <div>
+                  <SectionLabel>Posição de sono</SectionLabel>
+                  <ChipGroup options={SLEEP_POSITION_OPTIONS} value={sleepPosition}
+                    onToggle={v => setSleepPosition(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+                  {sleepPosition && sleepPosition !== 'costas' && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                      style={{ backgroundColor: '#FDF3E9', border: '1px solid #f0d5b0' }}>
+                      <span className="text-[12px] flex-shrink-0">⚠️</span>
+                      <p className="text-[11px] font-nunito leading-snug" style={{ color: '#7a5030' }}>
+                        A AAP recomenda que bebês durmam sempre de costas até 1 ano.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <SectionLabel>Como foi o sono?</SectionLabel>
+                  <ChipGroup options={SLEEP_QUALITY_OPTIONS} value={sleepQuality}
+                    onToggle={v => setSleepQuality(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+                </div>
+
                 <div>
                   <SectionLabel>Acordou durante o sono?</SectionLabel>
                   <ChipGroup options={AWAKENINGS_OPTIONS} value={awakenings}
-                    onToggle={v => setAwakenings(prev => prev === v ? '' : v)} accentColor={SLEEP_COLOR} />
+                    onToggle={v => setAwakenings(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
                 </div>
+
+                <div className="flex items-center justify-between px-1">
+                  <div>
+                    <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                      Usou chupeta
+                    </p>
+                    <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                      A AAP recomenda chupeta durante o sono
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setUsedPacifier(v => !v)}
+                    className="w-12 h-6 rounded-full transition-all flex-shrink-0"
+                    style={{ backgroundColor: usedPacifier ? SLEEP_COLOR : MUTED_BG, border: 'none', cursor: 'pointer' }}>
+                    <div className="w-5 h-5 rounded-full bg-white transition-all mx-0.5"
+                      style={{ transform: usedPacifier ? 'translateX(24px)' : 'translateX(0)' }} />
+                  </button>
+                </div>
+
                 <div className="h-px" style={{ backgroundColor: CARD_BORDER }} />
+
                 <div>
                   <SectionLabel>Observações</SectionLabel>
                   <Textarea value={notes} onChange={e => setNotes(e.target.value)}
                     placeholder="Dormiu tranquilo, acordou uma vez..." className="ds-textarea" rows={3} />
                 </div>
+
                 <ReportToggle checked={includeInReport} onCheckedChange={setIncludeInReport} />
               </motion.div>
             )}
@@ -255,17 +360,7 @@ export default function SleepDetailScreen() {
           primaryLoading={saving}
           primaryColor={SLEEP_COLOR}
           secondaryLabel="Cancelar"
-          onSecondary={() => {
-            if (log) {
-              const pp = parsePayload(log.notes);
-              setLocation(String(pp.location ?? ''));
-              setHowFellAsleep(String(pp.how_fell_asleep ?? ''));
-              setAwakenings(String(pp.awakenings ?? ''));
-              setNotes(getUserNotes(log.notes) ?? '');
-              setIncludeInReport(Boolean(pp.include_in_report));
-            }
-            setIsEditing(false);
-          }}
+          onSecondary={() => { loadFields(log); setIsEditing(false); }}
         />
       )}
     </div>

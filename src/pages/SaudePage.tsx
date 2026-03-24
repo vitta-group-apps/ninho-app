@@ -1604,7 +1604,7 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
                     const deltaH = entry.height != null && prevEntry?.height != null ? +(entry.height - prevEntry.height).toFixed(1) : null;
                     return (
                       <div key={entry.id} className="rounded-2xl px-4 py-3" style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
-                        <div className="flex items-start justify-between gap-3">
+                       <div className="flex items-stretch justify-between gap-3">
   <div className="flex-1 min-w-0">
     <div className="flex items-center gap-3 flex-wrap">
       {entry.weight != null && (
@@ -1639,10 +1639,10 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
 
       {entry.edited && (
         <span
-          className="text-[9px] font-bold font-nunito px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: MAUVE_BG, color: MAUVE, border: `1px solid ${MAUVE_BORDER}` }}
+          className="text-[10px] font-nunito italic"
+          style={{ color: '#A39AA7' }}
         >
-          Editado
+          editado
         </span>
       )}
     </div>
@@ -1653,7 +1653,7 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
       </p>
     )}
 
-    <div className="flex items-center gap-2 mt-2 flex-wrap">
+    <div className="mt-2">
       <p className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>
         {entry.date.toLocaleDateString('pt-BR', {
           day: '2-digit',
@@ -1661,20 +1661,23 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
           year: '2-digit',
         })}
       </p>
-
-      <button
-        onClick={() => setEditingGrowthEntry(entry)}
-        className="px-2.5 py-1 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
-        style={{
-          backgroundColor: MAUVE_BG,
-          color: MAUVE,
-          border: `1px solid ${MAUVE_BORDER}`,
-          cursor: 'pointer',
-        }}
-      >
-        Editar
-      </button>
     </div>
+  </div>
+
+  <div className="flex items-center flex-shrink-0">
+    <button
+      onClick={() => setEditingGrowthEntry(entry)}
+      className="px-3 py-1.5 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
+      style={{
+        backgroundColor: MAUVE_BG,
+        color: MAUVE,
+        border: `1px solid ${MAUVE_BORDER}`,
+        cursor: 'pointer',
+        minWidth: 88,
+      }}
+    >
+      Editar
+    </button>
   </div>
 </div>
                       </div>

@@ -22,6 +22,7 @@ const SAGE_BG      = '#ebf0ed';
 const SAGE_BORDER  = '#ccd9d3';
 const MAUVE        = '#806e84';
 const MAUVE_BG     = '#f4f0f3';
+const MAUVE_BORDER = '#e3d9e2';
 const AMBER        = '#C8894A';
 const CARD_BG      = '#ffffff';
 const CARD_BORDER  = '#E5E0D8';

@@ -170,7 +170,7 @@ export default function SettingsPage() {
                 </div>
 
                 {children.length <= 1 && (
-                  <PaywallGate feature="multiple_children">
+                  <PaywallGate feature="segunda_crianca">
                     <div
                       className="mt-4 rounded-2xl p-4"
                       style={{ backgroundColor: EARTH_BG, border: `1px solid ${CARD_BORDER}` }}

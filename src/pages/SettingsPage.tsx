@@ -114,7 +114,8 @@ export default function SettingsPage() {
         </h1>
         <p className="text-[13px] mt-0.5 font-nunito" style={{ color: 'rgba(255,255,255,0.65)' }}>
           Ajustes, dados, família e preferências
-</p>
+        </p>
+      </div>
 
       <div className="px-4 pt-5 space-y-5">
         {/* Criança ativa */}

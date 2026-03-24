@@ -78,7 +78,9 @@ function AuthedRoutes() {
               <Route path="/crescer"     element={<Navigate to="/development" replace />} />
               <Route path="/family"      element={<FamiliaPage />} />
               <Route path="/familia"     element={<Navigate to="/family" replace />} />
+              <Route path="/profile" element={<ProfilePage />} />
               <Route path="*"            element={<NotFound />} />
+           
             </Routes>
           </AppShell>
         } />

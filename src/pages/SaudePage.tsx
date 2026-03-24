@@ -877,10 +877,6 @@ interface ConsultationEntry { id: string; doctor: string; specialty: string; dat
 interface MedicationEntry { id: string; name: string; dosage: string; frequency: string; startDate: string; note: string; active: boolean; }
 
 function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
-  return [...entries].sort((a, b) => b.date.getTime() - a.date.getTime());
-}
-
-function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
   return [...entries].sort((a, b) => {
     const diff = b.date.getTime() - a.date.getTime();
     if (diff !== 0) return diff;

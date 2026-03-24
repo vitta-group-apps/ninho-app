@@ -72,44 +72,67 @@ export default function BottleScreen() {
   const { user } = useAuth();
   const { activeChildId, activeChild } = useActiveChild();
 
-  const [feedType, setFeedType]           = useState<FeedType>('bottle');
-  const [amount, setAmount]               = useState('');
-  const [customAmount, setCustomAmount]   = useState('');
-  const [temperature, setTemperature]     = useState('');
-  const [reactions, setReactions]         = useState<string[]>([]);
-  const [notes, setNotes]                 = useState('');
+  const [feedType, setFeedType] = useState<FeedType>('bottle');
+  const [amount, setAmount] = useState('');
+  const [customAmount, setCustomAmount] = useState('');
+  const [temperature, setTemperature] = useState('');
+  const [reactions, setReactions] = useState<string[]>([]);
+  const [notes, setNotes] = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
-  const [saving, setSaving]               = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [feedDate, setFeedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [feedTime, setFeedTime] = useState(() => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+});
 
   const resolvedAmount = amount || customAmount;
 
   async function handleSave() {
-    if (!user || !activeChildId) return;
-    setSaving(true);
-    try {
-      const payload: Record<string, unknown> = {
-        session_type:    feedType,
-        feeding_method:  feedType,
-      };
-      if (resolvedAmount)        payload.amount_ml         = Number(resolvedAmount);
-      if (temperature)           payload.temperature       = temperature;
-      if (reactions.length > 0)  payload.tags              = reactions.join(',');
-      if (includeInReport)       payload.include_in_report = true;
+  if (!user || !activeChildId) return;
 
-      const { error } = await supabase.from('routine_logs').insert({
-        child_id:   activeChildId,
-        author_id:  user.id,
-        type:       'feed',
-        start_time: new Date().toISOString(),
-        notes:      makePayloadNotes(payload, notes),
-      });
-      if (error) throw error;
-      toast({ title: feedType === 'formula' ? '🍼 Fórmula registrada' : '🍼 Mamadeira registrada' });
-      navigate(-1);
-    } catch (e: unknown) {
-      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally { setSaving(false); }
+  setSaving(true);
+
+  try {
+    const payload: Record<string, unknown> = {
+      session_type: feedType,
+      feeding_method: feedType,
+      manual_entry: true,
+    };
+
+    if (resolvedAmount) payload.amount_ml = Number(resolvedAmount);
+    if (temperature) payload.temperature = temperature;
+    if (reactions.length > 0) payload.tags = reactions.join(',');
+    if (includeInReport) payload.include_in_report = true;
+
+    const feedDateTime = new Date(`${feedDate}T${feedTime}:00`);
+
+    const { error } = await supabase.from('routine_logs').insert({
+      child_id: activeChildId,
+      author_id: user.id,
+      type: 'feed',
+      start_time: feedDateTime.toISOString(),
+      notes: makePayloadNotes(payload, notes),
+    });
+
+    if (error) throw error;
+
+    toast({
+      title: feedType === 'formula' ? '🍼 Fórmula registrada' : '🍼 Mamadeira registrada',
+    });
+
+    navigate(-1);
+  } catch (e: unknown) {
+    toast({
+      title: 'Erro ao salvar',
+      description: e instanceof Error ? e.message : 'Tente novamente',
+      variant: 'destructive',
+    });
+  } finally {
+    setSaving(false);
   }
+}
 
   const typeLabel   = feedType === 'formula' ? 'fórmula' : 'mamadeira';
   const amountLabel = resolvedAmount ? ` · ${resolvedAmount}ml` : '';
@@ -160,6 +183,52 @@ export default function BottleScreen() {
             />
           </div>
 
+          {/* Quando foi */}
+          <div>
+           <SectionLabel>Quando foi</SectionLabel>
+           <div className="grid grid-cols-2 gap-3">
+    <div>
+      <p
+           className="text-[11px] font-bold uppercase tracking-[0.06em] font-nunito mb-2"
+           style={{ color: TXT_MUTED }}
+      >
+        Data
+      </p>
+      <input
+        type="date"
+        value={feedDate}
+        onChange={e => setFeedDate(e.target.value)}
+        className="w-full h-11 px-4 rounded-2xl text-[13px] font-nunito outline-none"
+        style={{
+          backgroundColor: MUTED_BG,
+          border: `1.5px solid ${CARD_BORDER}`,
+          color: TXT,
+        }}
+      />
+    </div>
+
+    <div>
+      <p
+        className="text-[11px] font-bold uppercase tracking-[0.06em] font-nunito mb-2"
+        style={{ color: TXT_MUTED }}
+      >
+        Horário
+      </p>
+      <input
+        type="time"
+        value={feedTime}
+        onChange={e => setFeedTime(e.target.value)}
+        className="w-full h-11 px-4 rounded-2xl text-[13px] font-nunito outline-none"
+        style={{
+          backgroundColor: MUTED_BG,
+          border: `1.5px solid ${CARD_BORDER}`,
+          color: TXT,
+        }}
+      />
+    </div>
+  </div>
+</div>
+          
           {/* Temperatura */}
           <div>
             <SectionLabel>Temperatura</SectionLabel>
@@ -199,11 +268,12 @@ export default function BottleScreen() {
       </div>
 
       <StickyFooterCTA
-        primaryLabel={ctaLabel}
-        onPrimary={handleSave}
-        primaryLoading={saving}
-        primaryColor={BOTTLE_COLOR}
-      />
+  primaryLabel={ctaLabel}
+  onPrimary={handleSave}
+  primaryLoading={saving}
+  primaryColor={BOTTLE_COLOR}
+  primaryDisabled={!feedDate || !feedTime}
+/>
     </div>
   );
 }

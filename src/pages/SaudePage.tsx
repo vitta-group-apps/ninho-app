@@ -264,36 +264,42 @@ function VaccineConfirmModal({
   const [saving, setSaving] = useState(false);
 
   async function confirm() {
-    if (!appliedDate) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('health_logs').insert({
-        child_id:    childId,
-        author_id:   userId,
-        type:        'vaccine',
-        occurred_at: new Date(appliedDate + 'T12:00:00').toISOString(),
-        details: {
-          type:          'vaccine_confirmation',
-          vaccine_id:    vaccine.id,
-          vaccine_name:  vaccine.shortName,
-          vaccine_label: vaccine.name,
-          diseases:      vaccine.diseases,
-          doses:         vaccine.doses ?? null,
-          applied_on:    appliedDate,
-          source:        'manual_confirm',
+  if (!appliedDate) return;
+  setSaving(true);
+
+  try {
+    const { error } = await supabase
+      .from('child_vaccines')
+      .upsert(
+        {
+          child_id: childId,
+          vaccine_code: vaccine.id,
+          vaccine_name: vaccine.shortName,
+          dose_label: vaccine.doses ?? null,
+          scheduled_age_months: vaccine.ageMonths ?? null,
+          scheduled_date: null,
+          applied_date: appliedDate,
+          status: 'applied',
+          source: 'app',
+          notes: null,
         },
-      });
-      if (error) throw error;
-      onConfirmed(vaccine.id, appliedDate);
-      toast({ title: `✅ ${vaccine.shortName} confirmada` });
-      onClose();
-    } catch (e) {
-      console.error('[vaccine confirm]', e);
-      toast({ title: 'Erro ao confirmar vacina', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
+        {
+          onConflict: 'child_id,vaccine_code,dose_label',
+        }
+      );
+
+    if (error) throw error;
+
+    onConfirmed(vaccine.id, appliedDate);
+    toast({ title: `✅ ${vaccine.shortName} confirmada` });
+    onClose();
+  } catch (e) {
+    console.error('[vaccine confirm]', e);
+    toast({ title: 'Erro ao confirmar vacina', variant: 'destructive' });
+  } finally {
+    setSaving(false);
   }
+}
 
   return (
     <>
@@ -879,18 +885,37 @@ export default function SaudePage() {
       setSavedNotes(notes); setGrowthHistory(growth); setSymptomHistory(symptoms);
       setConsultations(consults); setMedications(meds);
 
-      const vaccineEntries = (healthData ?? []).filter(r => r.type === 'vaccine' && (r.details as Record<string, unknown>)?.type === 'vaccine_confirmation');
-      const appliedIds = new Set<string>();
-      const appliedDates: Record<string, string> = {};
-      for (const entry of vaccineEntries) {
-        const d = (entry.details ?? {}) as Record<string, unknown>;
-        if (typeof d.vaccine_id === 'string') {
-          appliedIds.add(d.vaccine_id);
-          if (typeof d.applied_on === 'string') appliedDates[d.vaccine_id] = d.applied_on;
-        }
-      }
-      setAppliedVaccineIds(appliedIds);
-      setAppliedVaccineDates(appliedDates);
+      const { data: vaccineRows } = await supabase
+  .from('child_vaccines')
+  .select(`
+    id,
+    child_id,
+    vaccine_code,
+    vaccine_name,
+    dose_label,
+    status,
+    applied_date,
+    scheduled_age_months,
+    scheduled_date,
+    source,
+    notes
+  `)
+  .eq('child_id', activeChild.id);
+
+const appliedIds = new Set<string>();
+const appliedDates: Record<string, string> = {};
+
+for (const row of vaccineRows ?? []) {
+  if (row.status === 'applied' && row.vaccine_code) {
+    appliedIds.add(row.vaccine_code);
+    if (row.applied_date) {
+      appliedDates[row.vaccine_code] = row.applied_date;
+    }
+  }
+}
+
+setAppliedVaccineIds(appliedIds);
+setAppliedVaccineDates(appliedDates);
     } finally {
       setDbLoading(false);
     }

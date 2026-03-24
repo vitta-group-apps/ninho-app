@@ -436,11 +436,19 @@ function ConsultationModal({
     if (!form.date) { toast({ title: 'Informe a data da consulta', variant: 'destructive' }); return; }
     setSaving(true);
     try {
-      const { data, error } = await supabase.from('health_logs').insert({
-        child_id: childId, author_id: userId, type: 'note',
+    const { data, error } = await supabase.from('health_logs').insert({
+        child_id: childId,
+        author_id: userId,
+        type: 'consultation',
         occurred_at: new Date(form.date + 'T00:00:00').toISOString(),
-        details: { type: 'consultation', doctor: form.doctor.trim() || null, specialty: form.specialty.trim() || null, note: form.note.trim() || null, date: form.date },
-      }).select('id').single();
+        details: {
+        type: 'consultation',
+        doctor: form.doctor.trim() || null,
+        specialty: form.specialty.trim() || null,
+        note: form.note.trim() || null,
+        date: form.date,
+     },
+}).select('id').single();
       if (error) throw error;
       onSaved({ id: data.id, ...form });
       toast({ title: '🩺 Consulta registrada' });
@@ -545,7 +553,7 @@ function MedicationModal({
       const { data, error } = await supabase.from('health_logs').insert({
         child_id: childId, author_id: userId, type: 'medication',
         occurred_at: form.startDate ? new Date(form.startDate + 'T00:00:00').toISOString() : new Date().toISOString(),
-        details: { type: 'medication', name: form.name.trim(), dosage: form.dosage.trim() || null, frequency: form.frequency.trim() || null, note: form.note.trim() || null, active: true, startDate: form.startDate || null },
+        details: { type: 'medication', name: form.name.trim(), dosage: form.dosage.trim() || null, frequency: form.frequency.trim() || null, note: form.note.trim() || null, active: true, start_date: form.startDate || null, },
       }).select('id').single();
       if (error) throw error;
       onSaved({ id: data.id, name: form.name.trim(), dosage: form.dosage.trim(), frequency: form.frequency.trim(), startDate: form.startDate, note: form.note.trim(), active: true });
@@ -868,19 +876,63 @@ export default function SaudePage() {
       const consults: ConsultationEntry[] = [], meds: MedicationEntry[] = [];
 
       for (const row of (healthData ?? [])) {
-        const d = (row.details ?? {}) as Record<string, unknown>;
-        if (d.source === 'report' && typeof d.note === 'string') {
-          notes.push({ id: row.id, text: d.note, date: new Date(row.occurred_at) });
-        } else if (d.type === 'growth') {
-      growth.push({  id: row.id,weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined, height: typeof d.height_cm === 'number' ? d.height_cm : undefined,note: typeof d.note === 'string' ? d.note : undefined,date: new Date(row.occurred_at), edited: false,});        
-        } else if (d.type === 'symptom' && Array.isArray(d.symptoms)) {
-          symptoms.push({ id: row.id, symptoms: d.symptoms as string[], note: typeof d.note === 'string' ? d.note : undefined, date: new Date(row.occurred_at) });
-        } else if (d.type === 'consultation') {
-          consults.push({ id: row.id, doctor: typeof d.doctor === 'string' ? d.doctor : '', specialty: typeof d.specialty === 'string' ? d.specialty : '', date: typeof d.date === 'string' ? d.date : '', note: typeof d.note === 'string' ? d.note : '' });
-        } else if (d.type === 'medication') {
-          meds.push({ id: row.id, name: typeof d.name === 'string' ? d.name : '', dosage: typeof d.dosage === 'string' ? d.dosage : '', frequency: typeof d.frequency === 'string' ? d.frequency : '', startDate: typeof d.start_date === 'string' ? d.start_date : '', note: typeof d.note === 'string' ? d.note : '', active: d.active !== false });
-        }
-      }
+  const d = (row.details ?? {}) as Record<string, unknown>;
+
+  if (row.type === 'medical_note' && typeof d.note === 'string') {
+    notes.push({
+      id: row.id,
+      text: d.note,
+      date: new Date(row.occurred_at),
+    });
+    continue;
+  }
+
+  if (row.type === 'growth') {
+    growth.push({
+      id: row.id,
+      weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined,
+      height: typeof d.height_cm === 'number' ? d.height_cm : undefined,
+      note: typeof d.note === 'string' ? d.note : undefined,
+      date: new Date(row.occurred_at),
+      edited: false,
+    });
+    continue;
+  }
+
+  if (row.type === 'symptom' && Array.isArray(d.symptoms)) {
+    symptoms.push({
+      id: row.id,
+      symptoms: d.symptoms as string[],
+      note: typeof d.note === 'string' ? d.note : undefined,
+      date: new Date(row.occurred_at),
+    });
+    continue;
+  }
+
+  if (row.type === 'consultation') {
+    consults.push({
+      id: row.id,
+      doctor: typeof d.doctor === 'string' ? d.doctor : '',
+      specialty: typeof d.specialty === 'string' ? d.specialty : '',
+      date: typeof d.date === 'string' ? d.date : '',
+      note: typeof d.note === 'string' ? d.note : '',
+    });
+    continue;
+  }
+
+  if (row.type === 'medication') {
+    meds.push({
+      id: row.id,
+      name: typeof d.name === 'string' ? d.name : '',
+      dosage: typeof d.dosage === 'string' ? d.dosage : '',
+      frequency: typeof d.frequency === 'string' ? d.frequency : '',
+      startDate: typeof d.start_date === 'string' ? d.start_date : '',
+      note: typeof d.note === 'string' ? d.note : '',
+      active: d.active !== false,
+    });
+    continue;
+  }
+}
 
       setSavedNotes(notes); setGrowthHistory(growth); setSymptomHistory(symptoms);
       setConsultations(consults); setMedications(meds);
@@ -929,9 +981,15 @@ setAppliedVaccineDates(appliedDates);
     try {
       const now = new Date();
       const { data, error } = await supabase.from('health_logs').insert({
-        child_id: activeChild.id, author_id: user.id, type: 'note', occurred_at: now.toISOString(),
-        details: { note: quickNote.trim(), source: 'report' },
-      }).select('id').single();
+       child_id: activeChild.id,
+       author_id: user.id,
+       type: 'medical_note',
+       occurred_at: now.toISOString(),
+  details: {
+       note: quickNote.trim(),
+       source: 'report',
+  },
+}).select('id').single();
       if (error) throw error;
       setSavedNotes(prev => [{ id: data?.id, text: quickNote.trim(), date: now }, ...prev]);
       setQuickNote(''); setNoteSavedFeedback(true);
@@ -952,17 +1010,17 @@ setAppliedVaccineDates(appliedDates);
       : new Date();
 
     const { data, error } = await supabase.from('health_logs').insert({
-      child_id: activeChild.id,
-      author_id: user.id,
-      type: 'note',
-      occurred_at: measuredAt.toISOString(),
-      details: {
-        type: 'growth',
-        weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
-        height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
-        note: growthForm.note ?? null,
-      },
-    }).select('id').single();
+  child_id: activeChild.id,
+  author_id: user.id,
+  type: 'growth',
+  occurred_at: measuredAt.toISOString(),
+  details: {
+    type: 'growth',
+    weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
+    height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
+    note: growthForm.note ?? null,
+  },
+}).select('id').single();
 
     if (error) throw error;
 
@@ -1013,7 +1071,8 @@ setAppliedVaccineDates(appliedDates);
         },
       })
       .eq('id', entryId)
-      .eq('child_id', activeChild.id);
+      .eq('child_id', activeChild.id)
+      .eq('type', 'growth');
 
     if (error) throw error;
 
@@ -1047,9 +1106,16 @@ setAppliedVaccineDates(appliedDates);
     try {
       const now = new Date();
       const { data, error } = await supabase.from('health_logs').insert({
-        child_id: activeChild.id, author_id: user.id, type: 'note', occurred_at: now.toISOString(),
-        details: { type: 'symptom', symptoms: loggedSymptoms, note: symptomNote.trim() || null },
-      }).select('id').single();
+  child_id: activeChild.id,
+  author_id: user.id,
+  type: 'symptom',
+  occurred_at: now.toISOString(),
+  details: {
+    type: 'symptom',
+    symptoms: loggedSymptoms,
+    note: symptomNote.trim() || null,
+  },
+}).select('id').single();
       if (error) throw error;
       setSymptomHistory(prev => [{ id: data?.id ?? '', symptoms: [...loggedSymptoms], note: symptomNote.trim() || undefined, date: now }, ...prev]);
       setLoggedSymptoms([]); setSymptomNote('');

@@ -218,21 +218,21 @@ export default function SettingsPage() {
               icon={<UserCircleIcon className="w-5 h-5" />}
               title="Seu perfil"
               subtitle={user?.email ?? 'Conta conectada'}
-              onClick={() => navigate('/profile/account')}
+              onClick={() => navigate('/settings/account')}
             />
 
             <SettingsRow
               icon={<LanguageIcon className="w-5 h-5" />}
               title="Idioma"
               subtitle="Português do Brasil"
-              onClick={() => navigate('/profile/language')}
+              onClick={() => navigate('/settings/language')}
             />
 
             <SettingsRow
               icon={<ScaleIcon className="w-5 h-5" />}
               title="Unidades de medida"
               subtitle="Peso, altura e preferências de exibição"
-              onClick={() => navigate('/profile/units')}
+              onClick={() => navigate('/settings/units')}
             />
           </div>
         </div>
@@ -258,14 +258,14 @@ export default function SettingsPage() {
               icon={<ArrowDownTrayIcon className="w-5 h-5" />}
               title="Exportar dados"
               subtitle="Baixe os registros da criança e da rotina"
-              onClick={() => navigate('/profile/export')}
+              onClick={() => navigate('/settings/export')}
             />
 
             <SettingsRow
               icon={<ArrowUpTrayIcon className="w-5 h-5" />}
               title="Importar dados"
               subtitle="Importe histórico de outros apps via CSV"
-              onClick={() => navigate('/profile/import')}
+              onClick={() => navigate('/settings/import')}
             />
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function SettingsPage() {
               icon={<CreditCardIcon className="w-5 h-5" />}
               title="Plano e recursos premium"
               subtitle="Veja seu plano atual e recursos disponíveis"
-              onClick={() => navigate('/profile/plan')}
+              onClick={() => navigate('/settings/plan')}
               rightSlot={
                 <span
                   className="text-[10px] font-bold font-nunito px-2 py-1 rounded-full"
@@ -299,7 +299,7 @@ export default function SettingsPage() {
               icon={<QuestionMarkCircleIcon className="w-5 h-5" />}
               title="Ajuda e suporte"
               subtitle="Dúvidas, privacidade, termos e suporte"
-              onClick={() => navigate('/profile/help')}
+              onClick={() => navigate('/settings/help')}
             />
 
             <SettingsRow

@@ -16,7 +16,7 @@ import { ActiveChildProvider } from '@/contexts/ActiveChildContext';
 import HomePage from '@/pages/HomePage';
 import RotinaPage from '@/pages/RotinaPage';
 import SaudePage from '@/pages/SaudePage';
-import ProfilePage from '@/pages/ProfilePage';
+import SettingsPage from '@/pages/SettingsPage';
 import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';
@@ -79,7 +79,7 @@ function AuthedRoutes() {
               <Route path="/crescer"     element={<Navigate to="/development" replace />} />
               <Route path="/family"      element={<FamiliaPage />} />
               <Route path="/familia"     element={<Navigate to="/family" replace />} />
-              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="*"            element={<NotFound />} />
            
             </Routes>

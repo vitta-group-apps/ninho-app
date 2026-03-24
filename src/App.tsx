@@ -17,6 +17,13 @@ import HomePage from '@/pages/HomePage';
 import RotinaPage from '@/pages/RotinaPage';
 import SaudePage from '@/pages/SaudePage';
 import SettingsPage from '@/pages/SettingsPage';
+import SettingsAccountPage from './pages/SettingsAccountPage';
+import SettingsLanguagePage from './pages/SettingsLanguagePage';
+import SettingsUnitsPage from './pages/SettingsUnitsPage';
+import SettingsExportPage from './pages/SettingsExportPage';
+import SettingsImportPage from './pages/SettingsImportPage';
+import SettingsPlanPage from './pages/SettingsPlanPage';
+import SettingsHelpPage from './pages/SettingsHelpPage';
 import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';
@@ -79,6 +86,14 @@ function AuthedRoutes() {
               <Route path="/crescer"     element={<Navigate to="/development" replace />} />
               <Route path="/family"      element={<FamiliaPage />} />
               <Route path="/familia"     element={<Navigate to="/family" replace />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/account" element={<SettingsAccountPage />} />
+              <Route path="/settings/language" element={<SettingsLanguagePage />} />
+              <Route path="/settings/units" element={<SettingsUnitsPage />} />
+              <Route path="/settings/export" element={<SettingsExportPage />} />
+              <Route path="/settings/import" element={<SettingsImportPage />} />
+              <Route path="/settings/plan" element={<SettingsPlanPage />} />
+              <Route path="/settings/help" element={<SettingsHelpPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*"            element={<NotFound />} />
            

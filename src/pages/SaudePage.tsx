@@ -1,4 +1,15 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+/**
+ * SaudePage — Ninho Health Care Hub v5
+ *
+ * Ajustes aplicados:
+ * - Corrigido cálculo e exibição de peso: agora tudo é tratado em kg
+ * - Corrigido delta de peso no histórico e no resumo
+ * - Removida lógica que interpretava valores >= 1000 como gramas
+ * - Corrigida organização final do componente (sem duplicação / corrupção)
+ * - Consultas ordenadas corretamente entre próximas e histórico
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDownIcon,
@@ -25,26 +36,7 @@ import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PaywallGate } from '@/components/PaywallGate';
 
-/**
- * SaudePage — Ninho Health Care Hub v5
- *
- * Architecture: vertical expandable care modules — zero horizontal tab dependency.
- * Growth rebuilt as a longitudinal dashboard with charts and delta tracking.
- *
- * Structure:
- *   1. Header: child context + age phase
- *   2. Health overview: 4 status stats (growth shows actual weight/height)
- *   3. Attention / priority layer
- *   4. Vertical expandable sections:
- *      - Vacinas (SUS + complementares + manuais)
- *      - Consultas
- *      - Sintomas
- *      - Medicamentos
- *      - Crescimento (longitudinal dashboard with charts + delta)
- *      - Relatório médico
- */
-
-// ── Cores fixas do design system — sem color-mix, sem hsl(var()) ──
+// ── Cores fixas do design system ──────────────────────────────────────────────
 const SAGE = '#789687';
 const AMBER = '#C8894A';
 const AMBER_BG = '#FDF3E9';
@@ -70,13 +62,15 @@ const COMPLEMENTARY_VACCINES: {
 }[] = [
   {
     name: 'Meningocócica B (MenB)',
-    description: 'Proteção adicional contra meningite B. Não disponível no SUS — rede particular.',
+    description:
+      'Proteção adicional contra meningite B. Não disponível no SUS — rede particular.',
     ageHint: 'A partir de 2 meses',
     requiresPediatricGuidance: true,
   },
   {
     name: 'Pneumocócica 13-valente (Prevenar 13)',
-    description: 'Cobertura mais ampla que a Pneumo 10 do SUS. Indicação pediátrica.',
+    description:
+      'Cobertura mais ampla que a Pneumo 10 do SUS. Indicação pediátrica.',
     ageHint: 'A partir de 2 meses',
     requiresPediatricGuidance: true,
   },
@@ -94,7 +88,8 @@ const COMPLEMENTARY_VACCINES: {
   },
   {
     name: 'Influenza anual (particular)',
-    description: 'Disponível no SUS em campanha. Rede particular disponível fora do período.',
+    description:
+      'Disponível no SUS em campanha. Rede particular disponível fora do período.',
     ageHint: 'Anual, a partir de 6 meses',
     requiresPediatricGuidance: false,
   },
@@ -106,7 +101,10 @@ const COMPLEMENTARY_VACCINES: {
   },
 ];
 
-function computeVaccineState(ageMonths: number, appliedVaccineIds: Set<string>) {
+function computeVaccineState(
+  ageMonths: number,
+  appliedVaccineIds: Set<string>
+) {
   const due = vaccineSchedule.filter(v => {
     const vm = v.ageMonths ?? 0;
     return vm <= ageMonths && !appliedVaccineIds.has(v.id);
@@ -141,54 +139,6 @@ const SYMPTOM_CHIPS = [
   { emoji: '😰', label: 'Dificuldade respiratória' },
   { emoji: '🤲', label: 'Erupção cutânea' },
 ];
-
-interface GrowthEntry {
-  id: string;
-  weight?: number;
-  height?: number;
-  note?: string;
-  date: Date;
-  edited?: boolean;
-}
-
-interface SymptomEntry {
-  id: string;
-  symptoms: string[];
-  note?: string;
-  date: Date;
-}
-
-interface NoteEntry {
-  id?: string;
-  text: string;
-  date: Date;
-}
-
-interface ConsultationEntry {
-  id: string;
-  doctor: string;
-  specialty: string;
-  date: string;
-  note: string;
-}
-
-interface MedicationEntry {
-  id: string;
-  name: string;
-  dosage: string;
-  frequency: string;
-  startDate: string;
-  note: string;
-  active: boolean;
-}
-
-function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
-  return [...entries].sort((a, b) => {
-    const diff = b.date.getTime() - a.date.getTime();
-    if (diff !== 0) return diff;
-    return b.id.localeCompare(a.id);
-  });
-}
 
 function OverviewStat({
   emoji,
@@ -227,11 +177,17 @@ function OverviewStat({
         </p>
       </div>
 
-      <p className="text-[22px] font-bold font-quicksand leading-none" style={{ color }}>
+      <p
+        className="text-[22px] font-bold font-quicksand leading-none"
+        style={{ color }}
+      >
         {value}
       </p>
 
-      <p className="text-[10px] font-nunito mt-1 leading-tight" style={{ color: TXT_MUTED }}>
+      <p
+        className="text-[10px] font-nunito mt-1 leading-tight"
+        style={{ color: TXT_MUTED }}
+      >
         {sub}
       </p>
     </button>
@@ -257,12 +213,17 @@ function PriorityCard({
       style={{ backgroundColor: AMBER_BG, border: `1px solid ${AMBER_BORDER}` }}
     >
       <span className="text-[18px] mt-0.5 flex-shrink-0">{emoji}</span>
-
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold font-quicksand leading-snug" style={{ color: TXT }}>
+        <p
+          className="text-[13px] font-bold font-quicksand leading-snug"
+          style={{ color: TXT }}
+        >
           {title}
         </p>
-        <p className="text-[12px] font-nunito mt-0.5 leading-snug" style={{ color: TXT_MUTED }}>
+        <p
+          className="text-[12px] font-nunito mt-0.5 leading-snug"
+          style={{ color: TXT_MUTED }}
+        >
           {body}
         </p>
       </div>
@@ -293,11 +254,11 @@ function ExpandableSection({
   id: string;
   emoji: string;
   title: string;
-  statusPill?: ReactNode;
+  statusPill?: React.ReactNode;
   summary?: string;
   open: boolean;
   onToggle: () => void;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <div
@@ -318,14 +279,20 @@ function ExpandableSection({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+            <p
+              className="text-[14px] font-bold font-quicksand"
+              style={{ color: TXT }}
+            >
               {title}
             </p>
             {statusPill}
           </div>
 
           {summary && (
-            <p className="text-[11px] font-nunito mt-0.5 line-clamp-1" style={{ color: TXT_MUTED }}>
+            <p
+              className="text-[11px] font-nunito mt-0.5 line-clamp-1"
+              style={{ color: TXT_MUTED }}
+            >
               {summary}
             </p>
           )}
@@ -419,7 +386,6 @@ function VaccineConfirmModal({
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -428,8 +394,10 @@ function VaccineConfirmModal({
         className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
         style={{ backgroundColor: CARD_BG }}
       >
-        <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-4" style={{ backgroundColor: CARD_BORDER }} />
-
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
         <div className="px-5 pb-8 space-y-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -531,7 +499,9 @@ function VaccineRow({
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${state === 'future' ? 'opacity-55' : ''}`}
+      className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${
+        state === 'future' ? 'opacity-55' : ''
+      }`}
       style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
     >
       <div
@@ -657,12 +627,11 @@ function ConsultationModal({
     width: '100%',
     padding: '12px 16px',
     outline: 'none',
-  };
+  } as const;
 
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -671,8 +640,10 @@ function ConsultationModal({
         className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
         style={{ backgroundColor: CARD_BG }}
       >
-        <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-4" style={{ backgroundColor: CARD_BORDER }} />
-
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
@@ -785,7 +756,7 @@ function MedicationModal({
     width: '100%',
     padding: '12px 16px',
     outline: 'none',
-  };
+  } as const;
 
   async function save() {
     if (!form.name.trim()) {
@@ -841,7 +812,6 @@ function MedicationModal({
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -850,8 +820,10 @@ function MedicationModal({
         className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
         style={{ backgroundColor: CARD_BG }}
       >
-        <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-4" style={{ backgroundColor: CARD_BORDER }} />
-
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
@@ -972,6 +944,7 @@ function GrowthEditModal({
       .toISOString()
       .split('T')[0],
   });
+
   const [saving, setSaving] = useState(false);
 
   const initialWeight = entry.weight != null ? String(entry.weight) : '';
@@ -1000,7 +973,7 @@ function GrowthEditModal({
     width: '100%',
     padding: '12px 16px',
     outline: 'none',
-  };
+  } as const;
 
   async function handleSave() {
     if (!canSave) return;
@@ -1021,7 +994,6 @@ function GrowthEditModal({
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -1030,7 +1002,10 @@ function GrowthEditModal({
         className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
         style={{ backgroundColor: CARD_BG }}
       >
-        <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-4" style={{ backgroundColor: CARD_BORDER }} />
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
 
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
@@ -1144,6 +1119,54 @@ function GrowthEditModal({
   );
 }
 
+interface GrowthEntry {
+  id: string;
+  weight?: number;
+  height?: number;
+  note?: string;
+  date: Date;
+  edited?: boolean;
+}
+
+interface SymptomEntry {
+  id: string;
+  symptoms: string[];
+  note?: string;
+  date: Date;
+}
+
+interface NoteEntry {
+  id?: string;
+  text: string;
+  date: Date;
+}
+
+interface ConsultationEntry {
+  id: string;
+  doctor: string;
+  specialty: string;
+  date: string;
+  note: string;
+}
+
+interface MedicationEntry {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  note: string;
+  active: boolean;
+}
+
+function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
+  return [...entries].sort((a, b) => {
+    const diff = b.date.getTime() - a.date.getTime();
+    if (diff !== 0) return diff;
+    return b.id.localeCompare(a.id);
+  });
+}
+
 export default function SaudePage() {
   const { user } = useAuth();
   const { activeChild } = useActiveChild();
@@ -1165,21 +1188,20 @@ export default function SaudePage() {
   function openAndScroll(id: string) {
     setOpenSection(id);
     setTimeout(() => {
-      document.getElementById(`section-${id}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
+      document
+        .getElementById(`section-${id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
   }
 
+  // PESO AGORA É SEMPRE EM KG
   function fmtWeight(w: number): string {
-    if (w >= 1000) return `${(w / 1000).toFixed(2)} kg`;
-    return `${w} kg`;
+    return `${w.toFixed(w % 1 === 0 ? 0 : 2)} kg`;
   }
 
-  function fmtWeightDelta(d: number, asG: boolean): string {
-    if (asG) return `${Math.abs(d / 1000).toFixed(2)} kg`;
-    return `${Math.abs(d)} kg`;
+  function fmtWeightDelta(d: number): string {
+    const abs = Math.abs(d);
+    return `${abs.toFixed(abs % 1 === 0 ? 0 : 2)} kg`;
   }
 
   const [showAllDue, setShowAllDue] = useState(false);
@@ -1247,8 +1269,8 @@ export default function SaudePage() {
               typeof d.note === 'string'
                 ? d.note
                 : typeof d.text === 'string'
-                  ? d.text
-                  : '',
+                ? d.text
+                : '',
             date: new Date(row.occurred_at),
           });
           continue;
@@ -1297,12 +1319,11 @@ export default function SaudePage() {
               typeof d.start_date === 'string'
                 ? d.start_date
                 : typeof d.startDate === 'string'
-                  ? d.startDate
-                  : '',
+                ? d.startDate
+                : '',
             note: typeof d.note === 'string' ? d.note : '',
             active: d.active !== false,
           });
-          continue;
         }
       }
 
@@ -1359,6 +1380,7 @@ export default function SaudePage() {
 
     try {
       const now = new Date();
+
       const { data, error } = await supabase
         .from('health_logs')
         .insert({
@@ -1379,6 +1401,7 @@ export default function SaudePage() {
       setQuickNote('');
       setNoteSavedFeedback(true);
       setTimeout(() => setNoteSavedFeedback(false), 2500);
+
       toast({ title: '📋 Nota salva no relatório' });
     } catch {
       toast({ title: 'Erro ao salvar nota', variant: 'destructive' });
@@ -1527,6 +1550,7 @@ export default function SaudePage() {
 
       setLoggedSymptoms([]);
       setSymptomNote('');
+
       toast({ title: '🌡️ Sintomas registrados' });
     } catch {
       toast({ title: 'Erro ao salvar sintomas', variant: 'destructive' });
@@ -1604,10 +1628,11 @@ export default function SaudePage() {
     width: '100%',
     padding: '12px 16px',
     outline: 'none',
-  };
+  } as const;
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: PAGE_BG }}>
+      {/* HEADER */}
       <div
         className="px-5 pb-5 flex-shrink-0"
         style={{
@@ -1619,13 +1644,17 @@ export default function SaudePage() {
         <h1 className="text-[22px] font-bold font-quicksand" style={{ color: 'white' }}>
           Saúde
         </h1>
-        <p className="text-[13px] mt-0.5 font-nunito" style={{ color: 'rgba(255,255,255,0.65)' }}>
+        <p
+          className="text-[13px] mt-0.5 font-nunito"
+          style={{ color: 'rgba(255,255,255,0.65)' }}
+        >
           {activeChild ? activeChild.name : 'Acompanhamento'}
           {ageCtx && <span style={{ opacity: 0.75 }}> · {ageCtx.phaseHint}</span>}
         </p>
       </div>
 
       <div className="px-4 pt-5 space-y-5">
+        {/* HEALTH OVERVIEW */}
         <div>
           <p
             className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
@@ -1649,17 +1678,21 @@ export default function SaudePage() {
                   vaccineState.due.length > 0
                     ? `${vaccineState.due.length}`
                     : vaccineState.applied.length > 0
-                      ? `${vaccineState.applied.length}`
-                      : '—'
+                    ? `${vaccineState.applied.length}`
+                    : '—'
                 }
                 sub={
                   vaccineState.due.length > 0
                     ? `${vaccineState.due.length} a confirmar`
                     : vaccineState.upcoming.length > 0
-                      ? `${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`
-                      : vaccineState.applied.length > 0
-                        ? `${vaccineState.applied.length} confirmada${vaccineState.applied.length > 1 ? 's' : ''}`
-                        : 'Nenhuma confirmada ainda'
+                    ? `${vaccineState.upcoming.length} próxima${
+                        vaccineState.upcoming.length > 1 ? 's' : ''
+                      }`
+                    : vaccineState.applied.length > 0
+                    ? `${vaccineState.applied.length} confirmada${
+                        vaccineState.applied.length > 1 ? 's' : ''
+                      }`
+                    : 'Nenhuma confirmada ainda'
                 }
                 color={vaccineState.due.length > 0 ? AMBER : SAGE}
                 urgent={vaccineState.due.length > 0}
@@ -1672,16 +1705,17 @@ export default function SaudePage() {
                 value={consultations.length > 0 ? `${consultations.length}` : '—'}
                 sub={
                   upcomingConsults.length > 0
-                    ? `Próxima: ${new Date(upcomingConsults[0].date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                    ? `Próxima: ${new Date(
+                        upcomingConsults[0].date + 'T12:00:00'
+                      ).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',
                       })}`
                     : consultations.length > 0
-                      ? `${consultations.length} no histórico`
-                      : 'Nenhuma registrada'
+                    ? `${consultations.length} no histórico`
+                    : 'Nenhuma registrada'
                 }
                 color={upcomingConsults.length > 0 ? SAGE : MAUVE}
-                urgent={false}
                 onTap={() => openAndScroll('appointments')}
               />
 
@@ -1698,7 +1732,6 @@ export default function SaudePage() {
                     : 'Nenhum registrado'
                 }
                 color={symptomHistory.length > 0 ? AMBER : SAGE}
-                urgent={false}
                 onTap={() => openAndScroll('symptoms')}
               />
 
@@ -1706,28 +1739,30 @@ export default function SaudePage() {
                 emoji="📏"
                 label="Crescimento"
                 value={
-                  growthHistory.length > 0 && growthHistory[0].weight
+                  growthHistory.length > 0 && growthHistory[0].weight != null
                     ? fmtWeight(growthHistory[0].weight)
-                    : growthHistory.length > 0 && growthHistory[0].height
-                      ? `${growthHistory[0].height}cm`
-                      : '—'
+                    : growthHistory.length > 0 && growthHistory[0].height != null
+                    ? `${growthHistory[0].height}cm`
+                    : '—'
                 }
                 sub={
                   growthHistory.length > 0
-                    ? `${growthHistory[0].height ? `${growthHistory[0].height}cm · ` : ''}${growthHistory[0].date.toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                      })}`
+                    ? `${growthHistory[0].height ? `${growthHistory[0].height}cm · ` : ''}${
+                        growthHistory[0].date.toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                        })
+                      }`
                     : 'Nenhuma medição'
                 }
                 color={growthHistory.length > 0 ? SAGE : MAUVE}
-                urgent={false}
                 onTap={() => openAndScroll('growth')}
               />
             </div>
           )}
         </div>
 
+        {/* ATTENTION */}
         {!dbLoading && priorityItems.length > 0 && (
           <div>
             <p
@@ -1767,6 +1802,7 @@ export default function SaudePage() {
           </div>
         )}
 
+        {/* VACINAS */}
         <div id="section-vaccines">
           <ExpandableSection
             id="vaccines"
@@ -1781,15 +1817,23 @@ export default function SaudePage() {
                 />
               ) : vaccineState.applied.length > 0 ? (
                 <InlineStatusPill
-                  label={`${vaccineState.applied.length} confirmada${vaccineState.applied.length > 1 ? 's' : ''}`}
+                  label={`${vaccineState.applied.length} confirmada${
+                    vaccineState.applied.length > 1 ? 's' : ''
+                  }`}
                   variant="active"
                   color={SAGE}
                 />
               ) : (
-                <InlineStatusPill label="Nenhuma confirmada" variant="paused" color={MAUVE} />
+                <InlineStatusPill
+                  label="Nenhuma confirmada"
+                  variant="paused"
+                  color={MAUVE}
+                />
               )
             }
-            summary={`Calendário SUS · ${vaccineState.applied.length} confirmada${vaccineState.applied.length !== 1 ? 's' : ''}`}
+            summary={`Calendário SUS · ${vaccineState.applied.length} confirmada${
+              vaccineState.applied.length !== 1 ? 's' : ''
+            }`}
             open={openSection === 'vaccines'}
             onToggle={() => toggle('vaccines')}
           >
@@ -1800,7 +1844,10 @@ export default function SaudePage() {
                 { value: vaccineState.upcoming.length, label: 'Próximas', color: MAUVE },
               ].map((stat, i) => (
                 <div key={i} className="flex-1 text-center">
-                  <p className="text-[22px] font-bold font-quicksand" style={{ color: stat.color }}>
+                  <p
+                    className="text-[22px] font-bold font-quicksand"
+                    style={{ color: stat.color }}
+                  >
                     {stat.value}
                   </p>
                   <p
@@ -1813,7 +1860,10 @@ export default function SaudePage() {
               ))}
             </div>
 
-            <div className="rounded-xl px-3 py-2.5 flex items-start gap-2" style={{ backgroundColor: MUTED_BG }}>
+            <div
+              className="rounded-xl px-3 py-2.5 flex items-start gap-2"
+              style={{ backgroundColor: MUTED_BG }}
+            >
               <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
               <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
                 Nenhuma vacina é marcada automaticamente. Toque em <strong>Confirmar</strong> para
@@ -1889,7 +1939,10 @@ export default function SaudePage() {
                   style={{ backgroundColor: MUTED_BG }}
                 >
                   <span className="text-[13px] flex-shrink-0">📅</span>
-                  <p className="text-[11px] font-nunito leading-snug flex-1" style={{ color: TXT_MUTED }}>
+                  <p
+                    className="text-[11px] font-nunito leading-snug flex-1"
+                    style={{ color: TXT_MUTED }}
+                  >
                     As vacinas aparecerão aqui conforme {childName} for crescendo.
                   </p>
                 </div>
@@ -1925,7 +1978,10 @@ export default function SaudePage() {
                   <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
                     Vacinas complementares / opcionais
                   </p>
-                  <p className="text-[11px] font-nunito mt-0.5 leading-relaxed" style={{ color: TXT_MUTED }}>
+                  <p
+                    className="text-[11px] font-nunito mt-0.5 leading-relaxed"
+                    style={{ color: TXT_MUTED }}
+                  >
                     Não fazem parte do calendário SUS. Disponíveis na rede particular.
                   </p>
                 </div>
@@ -1949,7 +2005,10 @@ export default function SaudePage() {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-2 flex-wrap">
-                          <p className="text-[12px] font-bold font-quicksand" style={{ color: TXT }}>
+                          <p
+                            className="text-[12px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
                             {v.name}
                           </p>
 
@@ -1967,11 +2026,17 @@ export default function SaudePage() {
                           )}
                         </div>
 
-                        <p className="text-[11px] font-nunito mt-0.5 leading-snug" style={{ color: TXT_MUTED }}>
+                        <p
+                          className="text-[11px] font-nunito mt-0.5 leading-snug"
+                          style={{ color: TXT_MUTED }}
+                        >
                           {v.description}
                         </p>
 
-                        <p className="text-[10px] font-bold font-nunito mt-1" style={{ color: MAUVE }}>
+                        <p
+                          className="text-[10px] font-bold font-nunito mt-1"
+                          style={{ color: MAUVE }}
+                        >
                           {v.ageHint}
                         </p>
                       </div>
@@ -1983,6 +2048,7 @@ export default function SaudePage() {
           </ExpandableSection>
         </div>
 
+        {/* CONSULTAS */}
         <div id="section-appointments">
           <ExpandableSection
             id="appointments"
@@ -1991,7 +2057,9 @@ export default function SaudePage() {
             statusPill={
               upcomingConsults.length > 0 ? (
                 <InlineStatusPill
-                  label={`${upcomingConsults.length} próxima${upcomingConsults.length > 1 ? 's' : ''}`}
+                  label={`${upcomingConsults.length} próxima${
+                    upcomingConsults.length > 1 ? 's' : ''
+                  }`}
                   variant="active"
                   color={SAGE}
                 />
@@ -2002,7 +2070,11 @@ export default function SaudePage() {
                   color={SAGE}
                 />
               ) : (
-                <InlineStatusPill label="Nenhuma registrada" variant="paused" color={MAUVE} />
+                <InlineStatusPill
+                  label="Nenhuma registrada"
+                  variant="paused"
+                  color={MAUVE}
+                />
               )
             }
             summary="Registre e acompanhe as consultas"
@@ -2029,18 +2101,27 @@ export default function SaudePage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                          <p
+                            className="text-[13px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
                             {c.doctor || 'Consulta'}
                             {c.specialty ? ` · ${c.specialty}` : ''}
                           </p>
                           {c.note && (
-                            <p className="text-[11px] font-nunito mt-0.5 leading-snug" style={{ color: TXT_MUTED }}>
+                            <p
+                              className="text-[11px] font-nunito mt-0.5 leading-snug"
+                              style={{ color: TXT_MUTED }}
+                            >
                               {c.note}
                             </p>
                           )}
                         </div>
 
-                        <p className="text-[11px] font-bold font-nunito flex-shrink-0" style={{ color: SAGE }}>
+                        <p
+                          className="text-[11px] font-bold font-nunito flex-shrink-0"
+                          style={{ color: SAGE }}
+                        >
                           {new Date(c.date + 'T12:00:00').toLocaleDateString('pt-BR', {
                             day: '2-digit',
                             month: '2-digit',
@@ -2065,18 +2146,27 @@ export default function SaudePage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                          <p
+                            className="text-[13px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
                             {c.doctor || 'Consulta'}
                             {c.specialty ? ` · ${c.specialty}` : ''}
                           </p>
                           {c.note && (
-                            <p className="text-[11px] font-nunito mt-0.5 leading-snug" style={{ color: TXT_MUTED }}>
+                            <p
+                              className="text-[11px] font-nunito mt-0.5 leading-snug"
+                              style={{ color: TXT_MUTED }}
+                            >
                               {c.note}
                             </p>
                           )}
                         </div>
 
-                        <p className="text-[11px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>
+                        <p
+                          className="text-[11px] font-nunito flex-shrink-0"
+                          style={{ color: TXT_MUTED }}
+                        >
                           {new Date(c.date + 'T12:00:00').toLocaleDateString('pt-BR', {
                             day: '2-digit',
                             month: '2-digit',
@@ -2102,13 +2192,15 @@ export default function SaudePage() {
                   className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
                   style={{ color: TXT_MUTED }}
                 >
-                  Registrar as consultas facilita o histórico e prepara melhor as conversas com o pediatra.
+                  Registrar as consultas facilita o histórico e prepara melhor as conversas com o
+                  pediatra.
                 </p>
               </div>
             )}
           </ExpandableSection>
         </div>
 
+        {/* SINTOMAS */}
         <div id="section-symptoms">
           <ExpandableSection
             id="symptoms"
@@ -2117,7 +2209,9 @@ export default function SaudePage() {
             statusPill={
               loggedSymptoms.length > 0 ? (
                 <InlineStatusPill
-                  label={`${loggedSymptoms.length} selecionado${loggedSymptoms.length > 1 ? 's' : ''}`}
+                  label={`${loggedSymptoms.length} selecionado${
+                    loggedSymptoms.length > 1 ? 's' : ''
+                  }`}
                   variant="paused"
                   color={AMBER}
                 />
@@ -2237,7 +2331,10 @@ export default function SaudePage() {
                       </div>
 
                       {entry.note && (
-                        <p className="text-[12px] font-nunito leading-snug mb-1" style={{ color: TXT }}>
+                        <p
+                          className="text-[12px] font-nunito leading-snug mb-1"
+                          style={{ color: TXT }}
+                        >
                           {entry.note}
                         </p>
                       )}
@@ -2258,6 +2355,7 @@ export default function SaudePage() {
           </ExpandableSection>
         </div>
 
+        {/* MEDICAMENTOS */}
         <ExpandableSection
           id="medications"
           emoji="💊"
@@ -2314,7 +2412,10 @@ export default function SaudePage() {
                         )}
 
                         {m.note && (
-                          <p className="text-[11px] font-nunito mt-0.5 italic" style={{ color: TXT_MUTED }}>
+                          <p
+                            className="text-[11px] font-nunito mt-0.5 italic"
+                            style={{ color: TXT_MUTED }}
+                          >
                             {m.note}
                           </p>
                         )}
@@ -2375,6 +2476,7 @@ export default function SaudePage() {
           )}
         </ExpandableSection>
 
+        {/* CRESCIMENTO */}
         <div id="section-growth">
           <ExpandableSection
             id="growth"
@@ -2384,7 +2486,7 @@ export default function SaudePage() {
               growthHistory.length > 0 ? (
                 <InlineStatusPill
                   label={
-                    growthHistory[0].weight
+                    growthHistory[0].weight != null
                       ? fmtWeight(growthHistory[0].weight)
                       : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`
                   }
@@ -2412,12 +2514,12 @@ export default function SaudePage() {
                 const prev = growthHistory[1];
 
                 const deltaW =
-                  latest.weight && prev?.weight
+                  latest.weight != null && prev?.weight != null
                     ? +(latest.weight - prev.weight).toFixed(2)
                     : null;
 
                 const deltaH =
-                  latest.height && prev?.height
+                  latest.height != null && prev?.height != null
                     ? +(latest.height - prev.height).toFixed(1)
                     : null;
 
@@ -2447,20 +2549,23 @@ export default function SaudePage() {
                           >
                             {fmtWeight(latest.weight)}
                           </p>
+
                           {deltaW != null && (
                             <p
                               className="text-[11px] font-semibold font-nunito mt-1"
                               style={{ color: deltaW >= 0 ? SAGE : AMBER }}
                             >
-                              {deltaW >= 0 ? '▲' : '▼'}{' '}
-                              {fmtWeightDelta(deltaW, latest.weight >= 1000)} vs anterior
+                              {deltaW >= 0 ? '▲' : '▼'} {fmtWeightDelta(deltaW)} vs anterior
                             </p>
                           )}
                         </div>
                       )}
 
                       {latest.weight != null && latest.height != null && (
-                        <div className="w-px h-10 self-center" style={{ backgroundColor: CARD_BORDER }} />
+                        <div
+                          className="w-px h-10 self-center"
+                          style={{ backgroundColor: CARD_BORDER }}
+                        />
                       )}
 
                       {latest.height != null && (
@@ -2472,6 +2577,7 @@ export default function SaudePage() {
                             {latest.height}
                             <span className="text-[14px] font-semibold ml-0.5">cm</span>
                           </p>
+
                           {deltaH != null && (
                             <p
                               className="text-[11px] font-semibold font-nunito mt-1"
@@ -2485,7 +2591,10 @@ export default function SaudePage() {
                     </div>
 
                     {latest.note && (
-                      <p className="text-[11px] font-nunito italic leading-snug" style={{ color: TXT_MUTED }}>
+                      <p
+                        className="text-[11px] font-nunito italic leading-snug"
+                        style={{ color: TXT_MUTED }}
+                      >
                         {latest.note}
                       </p>
                     )}
@@ -2503,10 +2612,7 @@ export default function SaudePage() {
                       day: '2-digit',
                       month: '2-digit',
                     }),
-                    peso:
-                      e.weight != null && e.weight >= 1000
-                        ? +(e.weight / 1000).toFixed(2)
-                        : e.weight,
+                    peso: e.weight,
                   }));
 
                 return (
@@ -2626,6 +2732,7 @@ export default function SaudePage() {
                 >
                   Data da medição
                 </p>
+
                 <input
                   type="date"
                   value={growthForm.date ?? ''}
@@ -2694,10 +2801,12 @@ export default function SaudePage() {
                 <div className="space-y-2">
                   {growthHistory.map((entry, idx) => {
                     const prevEntry = growthHistory[idx + 1];
+
                     const deltaW =
                       entry.weight != null && prevEntry?.weight != null
                         ? +(entry.weight - prevEntry.weight).toFixed(2)
                         : null;
+
                     const deltaH =
                       entry.height != null && prevEntry?.height != null
                         ? +(entry.height - prevEntry.height).toFixed(1)
@@ -2724,7 +2833,7 @@ export default function SaudePage() {
                                       style={{ color: deltaW >= 0 ? SAGE : AMBER }}
                                     >
                                       {deltaW >= 0 ? '▲' : '▼'}
-                                      {fmtWeightDelta(deltaW, entry.weight >= 1000)}
+                                      {fmtWeightDelta(deltaW)}
                                     </span>
                                   )}
                                 </span>
@@ -2759,7 +2868,10 @@ export default function SaudePage() {
                             </div>
 
                             {entry.note && (
-                              <p className="text-[11px] font-nunito mt-1 italic" style={{ color: TXT_MUTED }}>
+                              <p
+                                className="text-[11px] font-nunito mt-1 italic"
+                                style={{ color: TXT_MUTED }}
+                              >
                                 {entry.note}
                               </p>
                             )}
@@ -2818,6 +2930,7 @@ export default function SaudePage() {
           </ExpandableSection>
         </div>
 
+        {/* RELATÓRIO MÉDICO */}
         <PaywallGate feature="relatorio">
           <ExpandableSection
             id="report"
@@ -2847,6 +2960,7 @@ export default function SaudePage() {
                 rows={3}
                 style={{ ...inputStyle, resize: 'none' }}
               />
+
               <button
                 onClick={saveQuickNote}
                 disabled={savingNote || !quickNote.trim()}
@@ -2909,7 +3023,11 @@ export default function SaudePage() {
                     >
                       <div className="flex flex-wrap gap-1 flex-1 min-w-0">
                         {entry.symptoms.slice(0, 3).map(s => (
-                          <span key={s} className="text-[10px] font-bold font-nunito" style={{ color: AMBER }}>
+                          <span
+                            key={s}
+                            className="text-[10px] font-bold font-nunito"
+                            style={{ color: AMBER }}
+                          >
                             {s}
                           </span>
                         ))}
@@ -2920,7 +3038,10 @@ export default function SaudePage() {
                         )}
                       </div>
 
-                      <p className="text-[10px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>
+                      <p
+                        className="text-[10px] font-nunito flex-shrink-0"
+                        style={{ color: TXT_MUTED }}
+                      >
                         {entry.date.toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: '2-digit',
@@ -2976,9 +3097,7 @@ export default function SaudePage() {
             userId={user.id}
             onClose={() => setShowConsultModal(false)}
             onSaved={entry =>
-              setConsultations(prev =>
-                [...prev, entry].sort((a, b) => b.date.localeCompare(a.date))
-              )
+              setConsultations(prev => [...prev, entry].sort((a, b) => b.date.localeCompare(a.date)))
             }
           />
         )}

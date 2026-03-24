@@ -16,6 +16,7 @@ import { ActiveChildProvider } from '@/contexts/ActiveChildContext';
 import HomePage from '@/pages/HomePage';
 import RotinaPage from '@/pages/RotinaPage';
 import SaudePage from '@/pages/SaudePage';
+import ProfilePage from '@/pages/ProfilePage';
 import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';

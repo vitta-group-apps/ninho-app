@@ -16,7 +16,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { ExclamationCircleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -279,27 +279,49 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F8F5F0' }}>
 
-      {/* HEADER */}
-      <div
-        className="px-5 pb-6 flex-shrink-0"
-        style={{
-          paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
-          minHeight: 52,
-          backgroundColor: '#806e84',
-          borderRadius: '0 0 24px 24px',
-        }}
-      >
-        <p className="text-[13px] font-semibold font-nunito mb-2"
-          style={{ color: 'rgba(255,255,255,0.65)' }}>
-          {greeting}{firstName ? `, ${firstName}` : ''} 👋
-        </p>
-        <ChildSwitcher />
-        {ageCtx && (
-          <p className="text-[11px] font-nunito mt-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            {ageCtx.phaseHint}
-          </p>
-        )}
-      </div>
+     {/* HEADER */}
+<div
+  className="px-5 pb-6 flex-shrink-0"
+  style={{
+    paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
+    minHeight: 52,
+    backgroundColor: '#806e84',
+    borderRadius: '0 0 24px 24px',
+  }}
+>
+  <div className="flex items-start justify-between gap-3 mb-2">
+    <p
+      className="text-[13px] font-semibold font-nunito"
+      style={{ color: 'rgba(255,255,255,0.65)' }}
+    >
+      {greeting}{firstName ? `, ${firstName}` : ''} 👋
+    </p>
+
+    <button
+      onClick={() => navigate('/settings')}
+      className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
+      style={{
+        backgroundColor: 'rgba(255,255,255,0.14)',
+        border: '1px solid rgba(255,255,255,0.18)',
+        cursor: 'pointer',
+      }}
+      aria-label="Abrir configurações"
+    >
+      <Cog6ToothIcon className="w-5 h-5" style={{ color: 'white' }} />
+    </button>
+  </div>
+
+  <ChildSwitcher />
+
+  {ageCtx && (
+    <p
+      className="text-[11px] font-nunito mt-1.5"
+      style={{ color: 'rgba(255,255,255,0.45)' }}
+    >
+      {ageCtx.phaseHint}
+    </p>
+  )}
+</div>
 
       {childError && (
         <div className="mx-4 mt-4 px-4 py-3 rounded-2xl flex items-center gap-2"

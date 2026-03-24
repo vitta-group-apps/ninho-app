@@ -869,8 +869,12 @@ export default function SaudePage() {
     setDbLoading(true);
     try {
       const { data: healthData } = await supabase
-        .from('health_logs').select('*').eq('child_id', activeChild.id)
-        .order('occurred_at', { ascending: false }).limit(100);
+  .from('health_logs')
+  .select('*')
+  .eq('child_id', activeChild.id)
+  .in('type', ['consultation', 'growth', 'symptom', 'medical_note', 'medication', 'milestone'])
+  .order('occurred_at', { ascending: false })
+  .limit(200);
 
       const notes: NoteEntry[] = [], growth: GrowthEntry[] = [], symptoms: SymptomEntry[] = [];
       const consults: ConsultationEntry[] = [], meds: MedicationEntry[] = [];
@@ -878,14 +882,19 @@ export default function SaudePage() {
       for (const row of (healthData ?? [])) {
   const d = (row.details ?? {}) as Record<string, unknown>;
 
-  if (row.type === 'medical_note' && typeof d.note === 'string') {
-    notes.push({
-      id: row.id,
-      text: d.note,
-      date: new Date(row.occurred_at),
-    });
-    continue;
-  }
+  if (row.type === 'medical_note') {
+  notes.push({
+    id: row.id,
+    text:
+      typeof d.note === 'string'
+        ? d.note
+        : typeof d.text === 'string'
+        ? d.text
+        : '',
+    date: new Date(row.occurred_at),
+  });
+  continue;
+}
 
   if (row.type === 'growth') {
     growth.push({
@@ -926,7 +935,7 @@ export default function SaudePage() {
       name: typeof d.name === 'string' ? d.name : '',
       dosage: typeof d.dosage === 'string' ? d.dosage : '',
       frequency: typeof d.frequency === 'string' ? d.frequency : '',
-      startDate: typeof d.start_date === 'string' ? d.start_date : '',
+    startDate: typeof d.start_date === 'string'  ? d.start_date : typeof d.startDate === 'string' ? d.startDate : '',
       note: typeof d.note === 'string' ? d.note : '',
       active: d.active !== false,
     });

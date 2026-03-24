@@ -514,71 +514,39 @@ function ConsultationModal({
   );
 }
 
-function GrowthEditModal({
-  entry,
-  onClose,
-  onSave,
+function MedicationModal({
+  childId, userId, onClose, onSaved,
 }: {
-  entry: GrowthEntry;
-  onClose: () => void;
-  onSave: (payload: {
-    weight?: number;
-    height?: number;
-    note?: string;
-    date: string;
-  }) => Promise<void>;
+  childId: string; userId: string; onClose: () => void;
+  onSaved: (entry: MedicationEntry) => void;
 }) {
-  const [form, setForm] = useState({
-    weight: entry.weight != null ? String(entry.weight) : '',
-    height: entry.height != null ? String(entry.height) : '',
-    note: entry.note ?? '',
-    date: new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
-      .toISOString()
-      .split('T')[0],
-  });
+  const [form, setForm] = useState({ name: '', dosage: '', frequency: '', startDate: '', note: '' });
   const [saving, setSaving] = useState(false);
-
-  const initialWeight = entry.weight != null ? String(entry.weight) : '';
-  const initialHeight = entry.height != null ? String(entry.height) : '';
-  const initialNote = entry.note ?? '';
-  const initialDate = new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .split('T')[0];
-
-  const hasChanges =
-    form.weight !== initialWeight ||
-    form.height !== initialHeight ||
-    form.note !== initialNote ||
-    form.date !== initialDate;
-
-  const canSave =
-    hasChanges &&
-    (form.weight.trim() !== '' || form.height.trim() !== '') &&
-    !!form.date;
 
   const inputStyle = {
     backgroundColor: MUTED_BG,
     border: `1.5px solid ${CARD_BORDER}`,
-    borderRadius: 12,
-    color: TXT,
+    borderRadius: 12, color: TXT,
     fontFamily: 'Nunito, sans-serif',
-    fontSize: 13,
-    width: '100%',
-    padding: '12px 16px',
-    outline: 'none',
+    fontSize: 13, width: '100%',
+    padding: '12px 16px', outline: 'none',
   };
 
-  async function handleSave() {
-    if (!canSave) return;
-
+  async function save() {
+    if (!form.name.trim()) { toast({ title: 'Informe o nome do medicamento', variant: 'destructive' }); return; }
     setSaving(true);
     try {
-      await onSave({
-        weight: form.weight.trim() ? parseFloat(form.weight) : undefined,
-        height: form.height.trim() ? parseFloat(form.height) : undefined,
-        note: form.note.trim() || undefined,
-        date: form.date,
-      });
+      const { data, error } = await supabase.from('health_logs').insert({
+        child_id: childId, author_id: userId, type: 'medication',
+        occurred_at: form.startDate ? new Date(form.startDate + 'T00:00:00').toISOString() : new Date().toISOString(),
+        details: { type: 'medication', name: form.name.trim(), dosage: form.dosage.trim() || null, frequency: form.frequency.trim() || null, note: form.note.trim() || null, active: true, startDate: form.startDate || null },
+      }).select('id').single();
+      if (error) throw error;
+      onSaved({ id: data.id, name: form.name.trim(), dosage: form.dosage.trim(), frequency: form.frequency.trim(), startDate: form.startDate, note: form.note.trim(), active: true });
+      toast({ title: '💊 Medicamento registrado' });
+      onClose();
+    } catch {
+      toast({ title: 'Erro ao salvar medicamento', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -588,102 +556,47 @@ function GrowthEditModal({
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
         className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
         style={{ backgroundColor: CARD_BG }}
       >
         <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-4" style={{ backgroundColor: CARD_BORDER }} />
-
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
-                Editar medição
-              </p>
-              <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
-                Ajuste os dados salvos
-              </p>
-            </div>
-
-            <button onClick={onClose} style={{ color: TXT_MUTED }}>
-              <XMarkIcon className="w-5 h-5" />
-            </button>
+            <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>Registrar medicamento</p>
+            <button onClick={onClose} style={{ color: TXT_MUTED }}><XMarkIcon className="w-5 h-5" /></button>
           </div>
-
+          {[
+            { label: 'Nome do medicamento *', key: 'name', type: 'text', placeholder: 'Ex: Paracetamol' },
+            { label: 'Posologia (opcional)', key: 'dosage', type: 'text', placeholder: 'Ex: 5ml' },
+            { label: 'Frequência (opcional)', key: 'frequency', type: 'text', placeholder: 'Ex: 8 em 8 horas' },
+            { label: 'Data de início (opcional)', key: 'startDate', type: 'date', placeholder: '' },
+          ].map(f => (
+            <div key={f.key}>
+              <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>{f.label}</p>
+              <input type={f.type} placeholder={f.placeholder}
+                value={(form as Record<string, string>)[f.key]}
+                onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                style={inputStyle} />
+            </div>
+          ))}
           <div>
-            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
-              Data da medição
-            </p>
-            <input
-              type="date"
-              value={form.date}
-              onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
-              style={inputStyle}
-            />
+            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>Observações (opcional)</p>
+            <textarea rows={2} placeholder="Ex: dar com alimento..."
+              value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+              style={{ ...inputStyle, resize: 'none' }} />
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
-                Peso (kg)
-              </p>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Ex: 5.2"
-                value={form.weight}
-                onChange={e => setForm(prev => ({ ...prev, weight: e.target.value }))}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
-                Altura (cm)
-              </p>
-              <input
-                type="number"
-                step="0.1"
-                placeholder="Ex: 58.5"
-                value={form.height}
-                onChange={e => setForm(prev => ({ ...prev, height: e.target.value }))}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
-              Observação
-            </p>
-            <input
-              type="text"
-              placeholder="Observação (opcional)"
-              value={form.note}
-              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
-              style={inputStyle}
-            />
-          </div>
-
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
+            <button onClick={onClose}
               className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
-              style={{ backgroundColor: MUTED_BG, color: TXT_MUTED, border: 'none', cursor: 'pointer' }}
-            >
+              style={{ backgroundColor: MUTED_BG, color: TXT_MUTED, border: 'none', cursor: 'pointer' }}>
               Cancelar
             </button>
-
-            <button
-              onClick={handleSave}
-              disabled={saving || !canSave}
+            <button onClick={save} disabled={saving || !form.name.trim()}
               className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
-            >
-              {saving ? 'Salvando…' : 'Salvar alterações'}
+              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}>
+              {saving ? 'Salvando…' : 'Registrar medicamento'}
             </button>
           </div>
         </div>

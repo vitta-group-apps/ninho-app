@@ -422,48 +422,92 @@ function handleManualDurationChange(value: string) {
     } finally { setSaving(false); }
   }
 
-  async function handleSaveManual() {
-    if (!user || !activeChildId) return;
-    setSaving(true);
-    try {
-      const durationSec = manualDurationMin ? Number(manualDurationMin) * 60 : 0;
-      const now = new Date();
-      const [hours, minutes] = manualStartTime.split(':').map(Number);
-      const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
-      const endDate   = durationSec > 0 ? new Date(startDate.getTime() + durationSec * 1000) : now;
-      const sideMap: Record<'L' | 'R' | 'both', { left: number; right: number }> = {
-        L:    { left: durationSec, right: 0 },
-        R:    { left: 0, right: durationSec },
-        both: { left: Math.floor(durationSec / 2), right: Math.ceil(durationSec / 2) },
-      };
-      const { left, right } = sideMap[manualSide];
-      const payload: Record<string, unknown> = {
-        session_type:  'breastfeed',
-        total_seconds: durationSec,
-        left_seconds:  left,
-        right_seconds: right,
-        switches:      0,
-        last_side:     manualSide === 'R' ? 'R' : 'L',
-        manual_entry:  true,
-      };
-      if (obsTags.length > 0) payload.tags = obsTags.join(',');
-      if (includeInReport)    payload.include_in_report = true;
+ async function handleSaveManual() {
+  if (!user || !activeChildId) return;
 
-      const { error } = await supabase.from('routine_logs').insert({
-        child_id:   activeChildId,
-        author_id:  user.id,
-        type:       'feed',
-        start_time: startDate.toISOString(),
-        end_time:   endDate.toISOString(),
-        notes:      makePayloadNotes(payload, notes),
-      });
-      if (error) throw error;
-      toast({ title: '🤱 Amamentação registrada' });
-      navigate(-1);
-    } catch (e: unknown) {
-      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally { setSaving(false); }
+  setSaving(true);
+
+  try {
+    const now = new Date();
+
+    const [startHours, startMinutes] = manualStartTime.split(':').map(Number);
+    const [endHours, endMinutes] = manualEndTime.split(':').map(Number);
+
+    const startDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      startHours,
+      startMinutes,
+      0
+    );
+
+    let endDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      endHours,
+      endMinutes,
+      0
+    );
+
+    if (endDate < startDate) {
+      endDate.setDate(endDate.getDate() + 1);
+    }
+
+    const totalSeconds = Math.floor((endDate.getTime() - startDate.getTime()) / 1000);
+
+    if (totalSeconds <= 0) {
+      throw new Error('O horário de fim precisa ser maior que o de início.');
+    }
+
+    const sideMap: Record<'L' | 'R' | 'both', { left: number; right: number }> = {
+      L: { left: totalSeconds, right: 0 },
+      R: { left: 0, right: totalSeconds },
+      both: {
+        left: Math.floor(totalSeconds / 2),
+        right: Math.ceil(totalSeconds / 2),
+      },
+    };
+
+    const { left, right } = sideMap[manualSide];
+
+    const payload: Record<string, unknown> = {
+      session_type: 'breastfeed',
+      total_seconds: totalSeconds,
+      left_seconds: left,
+      right_seconds: right,
+      switches: 0,
+      last_side: manualSide === 'R' ? 'R' : 'L',
+      manual_entry: true,
+    };
+
+    if (obsTags.length > 0) payload.tags = obsTags.join(',');
+    if (includeInReport) payload.include_in_report = true;
+
+    const { error } = await supabase.from('routine_logs').insert({
+      child_id: activeChildId,
+      author_id: user.id,
+      type: 'feed',
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString(),
+      notes: makePayloadNotes(payload, notes),
+    });
+
+    if (error) throw error;
+
+    toast({ title: '🤱 Amamentação registrada' });
+    navigate(-1);
+  } catch (e: unknown) {
+    toast({
+      title: 'Erro ao salvar',
+      description: e instanceof Error ? e.message : 'Tente novamente',
+      variant: 'destructive',
+    });
+  } finally {
+    setSaving(false);
   }
+}
 
   function handleBack() {
     if (phase === 'ended' || phase === 'manual') {
@@ -815,15 +859,16 @@ function handleManualDurationChange(value: string) {
         />
       )}
       {phase === 'manual' && (
-        <StickyFooterCTA
-          primaryLabel="Salvar registro"
-          onPrimary={handleSaveManual}
-          primaryLoading={saving}
-          primaryColor={FEED_COLOR}
-          tertiaryLabel="Cancelar"
-          onTertiary={() => setPhase('suggest')}
-        />
-      )}
+  <StickyFooterCTA
+    primaryLabel="Salvar registro"
+    onPrimary={handleSaveManual}
+    primaryLoading={saving}
+    primaryColor={FEED_COLOR}
+    primaryDisabled={!manualStartTime || !manualEndTime || !manualDurationMin}
+    tertiaryLabel="Cancelar"
+    onTertiary={() => setPhase('suggest')}
+  />
+)}
       {phase === 'ended' && (
         <StickyFooterCTA
           primaryLabel="Salvar registro"

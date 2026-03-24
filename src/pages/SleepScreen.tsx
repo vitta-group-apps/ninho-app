@@ -188,26 +188,26 @@ function SleepQualityForm({
       <div>
         <SectionLabel>Tipo de sono</SectionLabel>
         <ChipGroup options={SLEEP_TYPE_OPTIONS} value={sleepType}
-          onToggle={v => setSleepType(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+          onToggle={v => setSleepType(sleepType === v ? '' : v)} accentColor={SLEEP_COLOR} />
       </div>
 
       <div>
         <SectionLabel>Onde dormiu?</SectionLabel>
         <ChipGroup options={SLEEP_LOCATION_OPTIONS} value={location}
-          onToggle={v => setLocation(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+          onToggle={v => setLocation(location === v ? '' : v)} accentColor={SLEEP_COLOR} />
       </div>
 
       <div>
         <SectionLabel>Como adormeceu?</SectionLabel>
         <ChipGroup options={SLEEP_HOW_OPTIONS} value={howFellAsleep}
-          onToggle={v => setHowFellAsleep(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+          onToggle={v => setHowFellAsleep(howFellAsleep === v ? '' : v)} accentColor={SLEEP_COLOR} />
       </div>
 
       {/* Posição — relevante para AAP / pediatra */}
       <div>
         <SectionLabel>Posição de sono</SectionLabel>
         <ChipGroup options={SLEEP_POSITION_OPTIONS} value={sleepPosition}
-          onToggle={v => setSleepPosition(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+          onToggle={v => setSleepPosition(sleepPosition === v ? '' : v)} accentColor={SLEEP_COLOR} />
         {sleepPosition && sleepPosition !== 'costas' && (
           <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl"
             style={{ backgroundColor: '#FDF3E9', border: '1px solid #f0d5b0' }}>
@@ -223,13 +223,13 @@ function SleepQualityForm({
       <div>
         <SectionLabel>Como foi o sono?</SectionLabel>
         <ChipGroup options={SLEEP_QUALITY_OPTIONS} value={sleepQuality}
-          onToggle={v => setSleepQuality(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+          onToggle={v => setSleepQuality(sleepQuality === v ? '' : v)} accentColor={SLEEP_COLOR} />
       </div>
 
       <div>
         <SectionLabel>Acordou durante o sono?</SectionLabel>
         <ChipGroup options={AWAKENINGS_OPTIONS} value={awakenings}
-          onToggle={v => setAwakenings(p => p === v ? '' : v)} accentColor={SLEEP_COLOR} />
+          onToggle={v => setAwakenings(awakenings === v ? '' : v)} accentColor={SLEEP_COLOR} />
       </div>
 
       {/* Chupeta — AAP recomenda como proteção SIDS */}

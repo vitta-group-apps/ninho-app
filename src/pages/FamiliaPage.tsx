@@ -176,7 +176,7 @@ if (userIds.length > 0) {
     .in('user_id', userIds);
 
   profilesMap = Object.fromEntries(
-    ((profilesData ?? []) as Profile[]).map((p) => [p.user_id, p])
+    ((profilesData ?? []) as unknown as Profile[]).map((p) => [p.user_id, p])
   );
 }
 

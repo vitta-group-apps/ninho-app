@@ -641,11 +641,193 @@ function MedicationModal({
   );
 }
 
-interface GrowthEntry { id: string; weight?: number; height?: number; note?: string; date: Date; }
+function GrowthEditModal({
+  entry,
+  onClose,
+  onSave,
+}: {
+  entry: GrowthEntry;
+  onClose: () => void;
+  onSave: (payload: {
+    weight?: number;
+    height?: number;
+    note?: string;
+    date: string;
+  }) => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    weight: entry.weight != null ? String(entry.weight) : '',
+    height: entry.height != null ? String(entry.height) : '',
+    note: entry.note ?? '',
+    date: new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0],
+  });
+  const [saving, setSaving] = useState(false);
+
+  const initialWeight = entry.weight != null ? String(entry.weight) : '';
+  const initialHeight = entry.height != null ? String(entry.height) : '';
+  const initialNote = entry.note ?? '';
+  const initialDate = new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split('T')[0];
+
+  const hasChanges =
+    form.weight !== initialWeight ||
+    form.height !== initialHeight ||
+    form.note !== initialNote ||
+    form.date !== initialDate;
+
+  const canSave =
+    hasChanges &&
+    (form.weight.trim() !== '' || form.height.trim() !== '') &&
+    !!form.date;
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  async function handleSave() {
+    if (!canSave) return;
+
+    setSaving(true);
+    try {
+      await onSave({
+        weight: form.weight.trim() ? parseFloat(form.weight) : undefined,
+        height: form.height.trim() ? parseFloat(form.height) : undefined,
+        note: form.note.trim() || undefined,
+        date: form.date,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: CARD_BG }}
+      >
+        <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-4" style={{ backgroundColor: CARD_BORDER }} />
+
+        <div className="px-5 pb-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
+                Editar medição
+              </p>
+              <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                Ajuste os dados salvos
+              </p>
+            </div>
+
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+              Data da medição
+            </p>
+            <input
+              type="date"
+              value={form.date}
+              onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+                Peso (kg)
+              </p>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Ex: 5.2"
+                value={form.weight}
+                onChange={e => setForm(prev => ({ ...prev, weight: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+                Altura (cm)
+              </p>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Ex: 58.5"
+                value={form.height}
+                onChange={e => setForm(prev => ({ ...prev, height: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
+              Observação
+            </p>
+            <input
+              type="text"
+              placeholder="Observação (opcional)"
+              value={form.note}
+              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{ backgroundColor: MUTED_BG, color: TXT_MUTED, border: 'none', cursor: 'pointer' }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !canSave}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+            >
+              {saving ? 'Salvando…' : 'Salvar alterações'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+interface GrowthEntry { id: string; weight?: number; height?: number; note?: string;  date: Date;edited?: boolean;}
 interface SymptomEntry { id: string; symptoms: string[]; note?: string; date: Date; }
 interface NoteEntry { id?: string; text: string; date: Date; }
 interface ConsultationEntry { id: string; doctor: string; specialty: string; date: string; note: string; }
 interface MedicationEntry { id: string; name: string; dosage: string; frequency: string; startDate: string; note: string; active: boolean; }
+
+function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
+  return [...entries].sort((a, b) => b.date.getTime() - a.date.getTime());
+}
 
 export default function SaudePage() {
   const { user } = useAuth();
@@ -682,6 +864,7 @@ export default function SaudePage() {
   const [confirmVaccine, setConfirmVaccine]   = useState<VaccineEntry | null>(null);
   const [showConsultModal, setShowConsultModal] = useState(false);
   const [showMedModal, setShowMedModal]       = useState(false);
+  const [editingGrowthEntry, setEditingGrowthEntry] = useState<GrowthEntry | null>(null);
 
   const [growthHistory, setGrowthHistory]     = useState<GrowthEntry[]>([]);
   const [symptomHistory, setSymptomHistory]   = useState<SymptomEntry[]>([]);
@@ -715,7 +898,7 @@ export default function SaudePage() {
         if (d.source === 'report' && typeof d.note === 'string') {
           notes.push({ id: row.id, text: d.note, date: new Date(row.occurred_at) });
         } else if (d.type === 'growth') {
-          growth.push({ id: row.id, weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined, height: typeof d.height_cm === 'number' ? d.height_cm : undefined, note: typeof d.note === 'string' ? d.note : undefined, date: new Date(row.occurred_at) });
+          growth.push({  id: row.id, weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined, height: typeof d.height_cm === 'number' ? d.height_cm : undefined, note: typeof d.note === 'string' ? d.note : undefined, date: new Date(row.occurred_at),edited: false, });       
         } else if (d.type === 'symptom' && Array.isArray(d.symptoms)) {
           symptoms.push({ id: row.id, symptoms: d.symptoms as string[], note: typeof d.note === 'string' ? d.note : undefined, date: new Date(row.occurred_at) });
         } else if (d.type === 'consultation') {
@@ -775,12 +958,62 @@ export default function SaudePage() {
         details: { type: 'growth', weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null, height_cm: growthForm.height ? parseFloat(growthForm.height) : null, note: growthForm.note ?? null },
       }).select('id').single();
       if (error) throw error;
-      setGrowthHistory(prev => [{ id: data?.id ?? '', weight: growthForm.weight ? parseFloat(growthForm.weight) : undefined, height: growthForm.height ? parseFloat(growthForm.height) : undefined, note: growthForm.note, date: now }, ...prev]);
+setGrowthHistory(prev => sortGrowthHistoryDesc([ { id: data?.id ?? '', weight: growthForm.weight ? parseFloat(growthForm.weight) : undefined, height: growthForm.height ? parseFloat(growthForm.height) : undefined, note: growthForm.note, date: now, edited: false, }, ...prev,])
+  );      
       setGrowthForm({});
       toast({ title: '📏 Medição salva' });
     } catch { toast({ title: 'Erro ao salvar medição', variant: 'destructive' }); }
     finally { setGrowthSaving(false); }
   }
+
+  async function updateGrowthMeasurement(
+  entryId: string,
+  payload: { weight?: number; height?: number; note?: string; date: string }
+) {
+  if (!activeChild || !user) return;
+
+  try {
+    const updatedDate = new Date(payload.date + 'T12:00:00');
+
+    const { error } = await supabase
+      .from('health_logs')
+      .update({
+        occurred_at: updatedDate.toISOString(),
+        details: {
+          type: 'growth',
+          weight_kg: payload.weight ?? null,
+          height_cm: payload.height ?? null,
+          note: payload.note ?? null,
+        },
+      })
+      .eq('id', entryId)
+      .eq('child_id', activeChild.id);
+
+    if (error) throw error;
+
+    setGrowthHistory(prev =>
+      sortGrowthHistoryDesc(
+        prev.map(entry =>
+          entry.id === entryId
+            ? {
+                ...entry,
+                weight: payload.weight,
+                height: payload.height,
+                note: payload.note,
+                date: updatedDate,
+                edited: true,
+              }
+            : entry
+        )
+      )
+    );
+
+    setEditingGrowthEntry(null);
+    toast({ title: '📏 Medição atualizada' });
+  } catch {
+    toast({ title: 'Erro ao atualizar medição', variant: 'destructive' });
+  }
+}
 
   async function saveSymptoms() {
     if (!activeChild || !user || loggedSymptoms.length === 0) return;
@@ -1372,27 +1605,78 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
                     return (
                       <div key={entry.id} className="rounded-2xl px-4 py-3" style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              {entry.weight != null && (
-                                <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
-                                  {fmtWeight(entry.weight)}
-                                  {deltaW != null && <span className="text-[10px] font-semibold ml-1" style={{ color: deltaW >= 0 ? SAGE : AMBER }}>{deltaW >= 0 ? '▲' : '▼'}{fmtWeightDelta(deltaW, entry.weight >= 1000)}</span>}
-                                </span>
-                              )}
-                              {entry.height != null && (
-                                <span className="text-[15px] font-bold font-quicksand" style={{ color: MAUVE }}>
-                                  {entry.height} cm
-                                  {deltaH != null && <span className="text-[10px] font-semibold ml-1" style={{ color: deltaH >= 0 ? MAUVE : AMBER }}>{deltaH >= 0 ? '▲' : '▼'}{Math.abs(deltaH)}</span>}
-                                </span>
-                              )}
-                            </div>
-                            {entry.note && <p className="text-[11px] font-nunito mt-1 italic" style={{ color: TXT_MUTED }}>{entry.note}</p>}
-                          </div>
-                          <p className="text-[10px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>
-                            {entry.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                          </p>
-                        </div>
+  <div className="flex-1 min-w-0">
+    <div className="flex items-center gap-3 flex-wrap">
+      {entry.weight != null && (
+        <span className="text-[15px] font-bold font-quicksand" style={{ color: SAGE }}>
+          {fmtWeight(entry.weight)}
+          {deltaW != null && (
+            <span
+              className="text-[10px] font-semibold ml-1"
+              style={{ color: deltaW >= 0 ? SAGE : AMBER }}
+            >
+              {deltaW >= 0 ? '▲' : '▼'}
+              {fmtWeightDelta(deltaW, entry.weight >= 1000)}
+            </span>
+          )}
+        </span>
+      )}
+
+      {entry.height != null && (
+        <span className="text-[15px] font-bold font-quicksand" style={{ color: MAUVE }}>
+          {entry.height} cm
+          {deltaH != null && (
+            <span
+              className="text-[10px] font-semibold ml-1"
+              style={{ color: deltaH >= 0 ? MAUVE : AMBER }}
+            >
+              {deltaH >= 0 ? '▲' : '▼'}
+              {Math.abs(deltaH)}
+            </span>
+          )}
+        </span>
+      )}
+
+      {entry.edited && (
+        <span
+          className="text-[9px] font-bold font-nunito px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: MAUVE_BG, color: MAUVE, border: `1px solid ${MAUVE_BORDER}` }}
+        >
+          Editado
+        </span>
+      )}
+    </div>
+
+    {entry.note && (
+      <p className="text-[11px] font-nunito mt-1 italic" style={{ color: TXT_MUTED }}>
+        {entry.note}
+      </p>
+    )}
+
+    <div className="flex items-center gap-2 mt-2 flex-wrap">
+      <p className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>
+        {entry.date.toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit',
+        })}
+      </p>
+
+      <button
+        onClick={() => setEditingGrowthEntry(entry)}
+        className="px-2.5 py-1 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
+        style={{
+          backgroundColor: MAUVE_BG,
+          color: MAUVE,
+          border: `1px solid ${MAUVE_BORDER}`,
+          cursor: 'pointer',
+        }}
+      >
+        Editar
+      </button>
+    </div>
+  </div>
+</div>
                       </div>
                     );
                   })}
@@ -1522,6 +1806,16 @@ const pastConsults = consultations.filter(c => c.date && c.date < today);
           />
         )}
       </AnimatePresence>
+      <AnimatePresence>
+  {editingGrowthEntry && (
+    <GrowthEditModal
+      entry={editingGrowthEntry}
+      onClose={() => setEditingGrowthEntry(null)}
+      onSave={(payload) => updateGrowthMeasurement(editingGrowthEntry.id, payload)}
+    />
+  )}
+</AnimatePresence>
     </div>
   );
 }
+

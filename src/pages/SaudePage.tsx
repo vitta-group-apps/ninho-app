@@ -1182,22 +1182,6 @@ function MedicationModal({
   />
 </div>
 
-          <div>
-            <p
-              className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
-              style={{ color: TXT_MUTED }}
-            >
-              Observações (opcional)
-            </p>
-
-            <textarea
-              rows={2}
-              placeholder="Ex: usar para dor"
-              value={form.note}
-              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
-              style={{ ...inputStyle, resize: 'none' }}
-            />
-          </div>
 
           <ToggleRow
             label="Medicamento em uso"

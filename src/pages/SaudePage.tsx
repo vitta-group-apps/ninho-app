@@ -2,13 +2,13 @@
  * SaudePage — Ninho Health Care Hub v6
  *
  * Ajustes aplicados:
- * - Medicamentos agora usam child_medications como fonte de verdade
- * - health_logs permanece como trilha de eventos/histórico
- * - Padronização: start_date + is_active
- * - Compatibilidade com legado startDate/start_date em health_logs
- * - Ordenação correta de consultas futuras/passadas
- * - Histórico de crescimento com delta consistente
- * - Ajustes para reduzir risco de quebra de build no Lovable
+ * - child_medications como fonte canônica de medicamentos
+ * - health_logs deixa de ser fonte principal para medication
+ * - edição de medicamento com modal próprio
+ * - toggle de ativo/inativo no modal de edição
+ * - carregamento robusto com try/catch por bloco para não quebrar a tela
+ * - ordenação correta de consultas, medicamentos e crescimento
+ * - compatibilidade defensiva para leitura de campos opcionais
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -140,7 +140,9 @@ interface MedicationEntry {
   frequency: string;
   startDate: string;
   note: string;
-  isActive: boolean;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 function computeVaccineState(ageMonths: number, appliedVaccineIds: Set<string>) {
@@ -187,11 +189,30 @@ function formatDateBR(date?: string | null) {
   });
 }
 
+function formatDateTimeBR(date: Date) {
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function sortByIsoDateDesc<T extends { startDate?: string; date?: string }>(items: T[]) {
   return [...items].sort((a, b) => {
     const aDate = a.startDate ?? a.date ?? '';
     const bDate = b.startDate ?? b.date ?? '';
     return bDate.localeCompare(aDate);
+  });
+}
+
+function sortMedications(entries: MedicationEntry[]) {
+  return [...entries].sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    const byDate = (b.startDate || '').localeCompare(a.startDate || '');
+    if (byDate !== 0) return byDate;
+    return b.id.localeCompare(a.id);
   });
 }
 
@@ -409,7 +430,6 @@ function VaccineConfirmModal({
 }: {
   vaccine: VaccineEntry;
   childId: string;
-  userId: string;
   onClose: () => void;
   onConfirmed: (vaccineId: string, date: string) => void;
 }) {
@@ -626,7 +646,7 @@ function VaccineRow({
         <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
           {state === 'applied' && appliedDate
             ? `Aplicada em ${new Date(
-                appliedDate + 'T12:00:00'
+                `${appliedDate}T12:00:00`
               ).toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit',
@@ -670,13 +690,7 @@ function ConsultationModal({
   childId: string;
   userId: string;
   onClose: () => void;
-  onSaved: (entry: {
-    id: string;
-    doctor: string;
-    specialty: string;
-    date: string;
-    note: string;
-  }) => void;
+  onSaved: (entry: ConsultationEntry) => void;
 }) {
   const [form, setForm] = useState({
     doctor: '',
@@ -701,7 +715,7 @@ function ConsultationModal({
           child_id: childId,
           author_id: userId,
           type: 'consultation',
-          occurred_at: new Date(form.date + 'T00:00:00').toISOString(),
+          occurred_at: new Date(`${form.date}T00:00:00`).toISOString(),
           details: {
             doctor: form.doctor.trim() || null,
             specialty: form.specialty.trim() || null,
@@ -714,10 +728,18 @@ function ConsultationModal({
 
       if (error) throw error;
 
-      onSaved({ id: data.id, ...form });
+      onSaved({
+        id: data.id,
+        doctor: form.doctor,
+        specialty: form.specialty,
+        date: form.date,
+        note: form.note,
+      });
+
       toast({ title: '🩺 Consulta registrada' });
       onClose();
-    } catch {
+    } catch (e) {
+      console.error('[consultation save]', e);
       toast({ title: 'Erro ao salvar consulta', variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -860,12 +882,10 @@ function ConsultationModal({
 
 function MedicationModal({
   childId,
-  userId,
   onClose,
   onSaved,
 }: {
   childId: string;
-  userId: string;
   onClose: () => void;
   onSaved: (entry: MedicationEntry) => void;
 }) {
@@ -899,62 +919,41 @@ function MedicationModal({
     setSaving(true);
 
     try {
-      const medicationPayload = {
+      const payload = {
         child_id: childId,
         name: form.name.trim(),
         dosage: form.dosage.trim() || null,
         frequency: form.frequency.trim() || null,
         start_date: form.startDate || null,
         note: form.note.trim() || null,
-        is_active: true,
-        created_by: userId,
+        active: true,
       };
 
-      const { data: medicationData, error: medicationError } = await supabase
+      const { data, error } = await supabase
         .from('child_medications')
-        .insert(medicationPayload)
-        .select('id, name, dosage, frequency, start_date, note, is_active')
+        .insert(payload)
+        .select('*')
         .single();
 
-      if (medicationError) throw medicationError;
+      if (error) throw error;
 
-      const occurredAt = form.startDate
-        ? new Date(`${form.startDate}T12:00:00`).toISOString()
-        : new Date().toISOString();
+      const savedEntry: MedicationEntry = {
+        id: data.id,
+        name: data.name ?? form.name.trim(),
+        dosage: data.dosage ?? '',
+        frequency: data.frequency ?? '',
+        startDate: data.start_date ?? '',
+        note: data.note ?? '',
+        active: data.active !== false,
+        createdAt: data.created_at ?? undefined,
+        updatedAt: data.updated_at ?? undefined,
+      };
 
-      const { error: logError } = await supabase.from('health_logs').insert({
-        child_id: childId,
-        author_id: userId,
-        type: 'medication',
-        occurred_at: occurredAt,
-        details: {
-          action: 'started',
-          medication_id: medicationData.id,
-          name: form.name.trim(),
-          dosage: form.dosage.trim() || null,
-          frequency: form.frequency.trim() || null,
-          start_date: form.startDate || null,
-          note: form.note.trim() || null,
-          is_active: true,
-        },
-      });
-
-      if (logError) throw logError;
-
-      onSaved({
-        id: medicationData.id,
-        name: medicationData.name ?? form.name.trim(),
-        dosage: medicationData.dosage ?? '',
-        frequency: medicationData.frequency ?? '',
-        startDate: medicationData.start_date ?? '',
-        note: medicationData.note ?? '',
-        isActive: medicationData.is_active === true,
-      });
-
+      onSaved(savedEntry);
       toast({ title: '💊 Medicamento registrado' });
       onClose();
-    } catch (error) {
-      console.error('[medication save]', error);
+    } catch (e) {
+      console.error('[medication save]', e);
       toast({ title: 'Erro ao salvar medicamento', variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -1005,7 +1004,7 @@ function MedicationModal({
               label: 'Posologia (opcional)',
               key: 'dosage',
               type: 'text',
-              placeholder: 'Ex: 5ml',
+              placeholder: 'Ex: 5 ml',
             },
             {
               label: 'Frequência (opcional)',
@@ -1090,6 +1089,231 @@ function MedicationModal({
   );
 }
 
+function MedicationEditModal({
+  entry,
+  onClose,
+  onSave,
+}: {
+  entry: MedicationEntry;
+  onClose: () => void;
+  onSave: (payload: {
+    name: string;
+    dosage?: string;
+    frequency?: string;
+    startDate?: string;
+    note?: string;
+    active: boolean;
+  }) => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    name: entry.name,
+    dosage: entry.dosage ?? '',
+    frequency: entry.frequency ?? '',
+    startDate: entry.startDate ?? '',
+    note: entry.note ?? '',
+    active: entry.active,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const hasChanges =
+    form.name !== entry.name ||
+    form.dosage !== (entry.dosage ?? '') ||
+    form.frequency !== (entry.frequency ?? '') ||
+    form.startDate !== (entry.startDate ?? '') ||
+    form.note !== (entry.note ?? '') ||
+    form.active !== entry.active;
+
+  const canSave = hasChanges && !!form.name.trim();
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  async function handleSave() {
+    if (!canSave) return;
+
+    setSaving(true);
+    try {
+      await onSave({
+        name: form.name.trim(),
+        dosage: form.dosage.trim() || undefined,
+        frequency: form.frequency.trim() || undefined,
+        startDate: form.startDate || undefined,
+        note: form.note.trim() || undefined,
+        active: form.active,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: CARD_BG }}
+      >
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
+
+        <div className="px-5 pb-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
+                Editar medicamento
+              </p>
+              <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                Atualize os dados salvos
+              </p>
+            </div>
+
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
+              Nome do medicamento *
+            </p>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
+                Posologia
+              </p>
+              <input
+                type="text"
+                value={form.dosage}
+                onChange={e => setForm(prev => ({ ...prev, dosage: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
+                Frequência
+              </p>
+              <input
+                type="text"
+                value={form.frequency}
+                onChange={e => setForm(prev => ({ ...prev, frequency: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
+              Data de início
+            </p>
+            <input
+              type="date"
+              value={form.startDate}
+              onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5" style={{ color: TXT_MUTED }}>
+              Observações
+            </p>
+            <textarea
+              rows={2}
+              value={form.note}
+              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+              style={{ ...inputStyle, resize: 'none' }}
+            />
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-2" style={{ color: TXT_MUTED }}>
+              Status
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setForm(prev => ({ ...prev, active: true }))}
+                className="py-3 rounded-2xl text-[12px] font-bold font-nunito transition-all active:scale-95"
+                style={{
+                  backgroundColor: form.active ? SAGE_BG : MUTED_BG,
+                  color: form.active ? SAGE : TXT_MUTED,
+                  border: `1px solid ${form.active ? SAGE_BORDER : CARD_BORDER}`,
+                }}
+              >
+                Em uso
+              </button>
+
+              <button
+                onClick={() => setForm(prev => ({ ...prev, active: false }))}
+                className="py-3 rounded-2xl text-[12px] font-bold font-nunito transition-all active:scale-95"
+                style={{
+                  backgroundColor: !form.active ? MAUVE_BG : MUTED_BG,
+                  color: !form.active ? MAUVE : TXT_MUTED,
+                  border: `1px solid ${!form.active ? MAUVE_BORDER : CARD_BORDER}`,
+                }}
+              >
+                Encerrado
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: MUTED_BG,
+                color: TXT_MUTED,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !canSave}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Salvando…' : 'Salvar alterações'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
 function GrowthEditModal({
   entry,
   onClose,
@@ -1162,10 +1386,7 @@ function GrowthEditModal({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       <motion.div
         initial={{ y: '100%' }}
@@ -1183,16 +1404,10 @@ function GrowthEditModal({
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p
-                className="text-[16px] font-bold font-quicksand"
-                style={{ color: TXT }}
-              >
+              <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
                 Editar medição
               </p>
-              <p
-                className="text-[12px] font-nunito mt-0.5"
-                style={{ color: TXT_MUTED }}
-              >
+              <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
                 Ajuste os dados salvos
               </p>
             </div>
@@ -1203,13 +1418,9 @@ function GrowthEditModal({
           </div>
 
           <div>
-            <p
-              className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
-              style={{ color: TXT_MUTED }}
-            >
+            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
               Data da medição
             </p>
-
             <input
               type="date"
               value={form.date}
@@ -1220,54 +1431,38 @@ function GrowthEditModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p
-                className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
-                style={{ color: TXT_MUTED }}
-              >
+              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
                 Peso (kg)
               </p>
-
               <input
                 type="number"
                 step="0.01"
                 placeholder="Ex: 5.2"
                 value={form.weight}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, weight: e.target.value }))
-                }
+                onChange={e => setForm(prev => ({ ...prev, weight: e.target.value }))}
                 style={inputStyle}
               />
             </div>
 
             <div>
-              <p
-                className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
-                style={{ color: TXT_MUTED }}
-              >
+              <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
                 Altura (cm)
               </p>
-
               <input
                 type="number"
                 step="0.1"
                 placeholder="Ex: 58.5"
                 value={form.height}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, height: e.target.value }))
-                }
+                onChange={e => setForm(prev => ({ ...prev, height: e.target.value }))}
                 style={inputStyle}
               />
             </div>
           </div>
 
           <div>
-            <p
-              className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
-              style={{ color: TXT_MUTED }}
-            >
+            <p className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5" style={{ color: TXT_MUTED }}>
               Observação
             </p>
-
             <input
               type="text"
               placeholder="Observação (opcional)"
@@ -1324,34 +1519,15 @@ export default function SaudePage() {
 
   const [openSection, setOpenSection] = useState<string | null>(null);
 
-  function toggle(id: string) {
-    setOpenSection(prev => (prev === id ? null : id));
-  }
-
-  function openAndScroll(id: string) {
-    setOpenSection(id);
-    setTimeout(() => {
-      document
-        .getElementById(`section-${id}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
-  }
-
-  function fmtWeight(w: number): string {
-    return `${w.toFixed(2)} kg`;
-  }
-
-  function fmtWeightDelta(d: number): string {
-    return `${Math.abs(d).toFixed(2)} kg`;
-  }
-
   const [showAllDue, setShowAllDue] = useState(false);
   const [showFuture, setShowFuture] = useState(false);
   const [showComplementary, setShowComplementary] = useState(false);
+
   const [confirmVaccine, setConfirmVaccine] = useState<VaccineEntry | null>(null);
   const [showConsultModal, setShowConsultModal] = useState(false);
   const [showMedModal, setShowMedModal] = useState(false);
   const [editingGrowthEntry, setEditingGrowthEntry] = useState<GrowthEntry | null>(null);
+  const [editingMedicationEntry, setEditingMedicationEntry] = useState<MedicationEntry | null>(null);
 
   const [growthHistory, setGrowthHistory] = useState<GrowthEntry[]>([]);
   const [symptomHistory, setSymptomHistory] = useState<SymptomEntry[]>([]);
@@ -1377,6 +1553,27 @@ export default function SaudePage() {
   const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
   const [dbLoading, setDbLoading] = useState(true);
 
+  function toggle(id: string) {
+    setOpenSection(prev => (prev === id ? null : id));
+  }
+
+  function openAndScroll(id: string) {
+    setOpenSection(id);
+    setTimeout(() => {
+      document
+        .getElementById(`section-${id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
+
+  function fmtWeight(w: number): string {
+    return `${w.toFixed(2)} kg`;
+  }
+
+  function fmtWeightDelta(d: number): string {
+    return `${Math.abs(d).toFixed(2)} kg`;
+  }
+
   const loadData = useCallback(async () => {
     if (!activeChild) {
       setDbLoading(false);
@@ -1386,138 +1583,159 @@ export default function SaudePage() {
     setDbLoading(true);
 
     try {
-      const { data: healthData } = await supabase
-        .from('health_logs')
-        .select('*')
-        .eq('child_id', activeChild.id)
-        .in('type', [
-          'consultation',
-          'growth',
-          'symptom',
-          'medical_note',
-          'medication',
-          'milestone',
-        ])
-        .order('occurred_at', { ascending: false })
-        .limit(200);
+      // health_logs: consultas, crescimento, sintomas, notas
+      try {
+        const { data: healthData, error } = await supabase
+          .from('health_logs')
+          .select('*')
+          .eq('child_id', activeChild.id)
+          .in('type', ['consultation', 'growth', 'symptom', 'medical_note', 'milestone'])
+          .order('occurred_at', { ascending: false })
+          .limit(200);
 
-      const notes: NoteEntry[] = [];
-      const growth: GrowthEntry[] = [];
-      const symptoms: SymptomEntry[] = [];
-      const consults: ConsultationEntry[] = [];
+        if (error) throw error;
 
-      for (const row of healthData ?? []) {
-        const d = (row.details ?? {}) as Record<string, unknown>;
+        const notes: NoteEntry[] = [];
+        const growth: GrowthEntry[] = [];
+        const symptoms: SymptomEntry[] = [];
+        const consults: ConsultationEntry[] = [];
 
-        if (row.type === 'medical_note') {
-          notes.push({
-            id: row.id,
-            text:
-              typeof d.note === 'string'
-                ? d.note
-                : typeof d.text === 'string'
-                ? d.text
-                : '',
-            date: new Date(row.occurred_at),
-          });
-          continue;
-        }
+        for (const row of healthData ?? []) {
+          const d = (row.details ?? {}) as Record<string, unknown>;
 
-        if (row.type === 'growth') {
-          growth.push({
-            id: row.id,
-            weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined,
-            height: typeof d.height_cm === 'number' ? d.height_cm : undefined,
-            note: typeof d.note === 'string' ? d.note : undefined,
-            date: new Date(row.occurred_at),
-            edited: false,
-          });
-          continue;
-        }
+          if (row.type === 'medical_note') {
+            notes.push({
+              id: row.id,
+              text:
+                typeof d.note === 'string'
+                  ? d.note
+                  : typeof d.text === 'string'
+                  ? d.text
+                  : '',
+              date: new Date(row.occurred_at),
+            });
+            continue;
+          }
 
-        if (row.type === 'symptom') {
-          symptoms.push({
-            id: row.id,
-            symptoms: Array.isArray(d.symptoms) ? (d.symptoms as string[]) : [],
-            note: typeof d.note === 'string' ? d.note : undefined,
-            date: new Date(row.occurred_at),
-          });
-          continue;
-        }
+          if (row.type === 'growth') {
+            growth.push({
+              id: row.id,
+              weight: typeof d.weight_kg === 'number' ? d.weight_kg : undefined,
+              height: typeof d.height_cm === 'number' ? d.height_cm : undefined,
+              note: typeof d.note === 'string' ? d.note : undefined,
+              date: new Date(row.occurred_at),
+              edited: false,
+            });
+            continue;
+          }
 
-        if (row.type === 'consultation') {
-          consults.push({
-            id: row.id,
-            doctor: typeof d.doctor === 'string' ? d.doctor : '',
-            specialty: typeof d.specialty === 'string' ? d.specialty : '',
-            date: typeof d.date === 'string' ? d.date : '',
-            note: typeof d.note === 'string' ? d.note : '',
-          });
-          continue;
-        }
-      }
+          if (row.type === 'symptom') {
+            symptoms.push({
+              id: row.id,
+              symptoms: Array.isArray(d.symptoms) ? (d.symptoms as string[]) : [],
+              note: typeof d.note === 'string' ? d.note : undefined,
+              date: new Date(row.occurred_at),
+            });
+            continue;
+          }
 
-      const { data: medicationRows, error: medicationError } = await supabase
-        .from('child_medications')
-        .select('id, name, dosage, frequency, start_date, note, is_active')
-        .eq('child_id', activeChild.id)
-        .order('start_date', { ascending: false });
-
-      if (medicationError) throw medicationError;
-
-      const meds: MedicationEntry[] = (medicationRows ?? []).map(row => ({
-        id: row.id,
-        name: row.name ?? '',
-        dosage: row.dosage ?? '',
-        frequency: row.frequency ?? '',
-        startDate: row.start_date ?? '',
-        note: row.note ?? '',
-        isActive: row.is_active === true,
-      }));
-
-      setSavedNotes(notes);
-      setGrowthHistory(sortGrowthHistoryDesc(growth));
-      setSymptomHistory(symptoms);
-      setConsultations(sortByIsoDateDesc(consults));
-      setMedications(sortByIsoDateDesc(meds));
-
-      const { data: vaccineRows } = await supabase
-        .from('child_vaccines')
-        .select(`
-          id,
-          child_id,
-          vaccine_code,
-          vaccine_name,
-          dose_label,
-          status,
-          applied_date,
-          scheduled_age_months,
-          scheduled_date,
-          source,
-          notes
-        `)
-        .eq('child_id', activeChild.id);
-
-      const appliedIds = new Set<string>();
-      const appliedDates: Record<string, string> = {};
-
-      for (const row of vaccineRows ?? []) {
-        if (row.status === 'applied' && row.vaccine_code) {
-          appliedIds.add(row.vaccine_code);
-          if (row.applied_date) {
-            appliedDates[row.vaccine_code] = row.applied_date;
+          if (row.type === 'consultation') {
+            consults.push({
+              id: row.id,
+              doctor: typeof d.doctor === 'string' ? d.doctor : '',
+              specialty: typeof d.specialty === 'string' ? d.specialty : '',
+              date: typeof d.date === 'string' ? d.date : '',
+              note: typeof d.note === 'string' ? d.note : '',
+            });
+            continue;
           }
         }
+
+        setSavedNotes(notes);
+        setGrowthHistory(sortGrowthHistoryDesc(growth));
+        setSymptomHistory(symptoms);
+        setConsultations(sortByIsoDateDesc(consults));
+      } catch (e) {
+        console.error('[health load]', e);
+        setSavedNotes([]);
+        setGrowthHistory([]);
+        setSymptomHistory([]);
+        setConsultations([]);
       }
 
-      setAppliedVaccineIds(appliedIds);
-      setAppliedVaccineDates(appliedDates);
-    } catch (error) {
-      console.error('[health loadData]', error);
-      toast({
-        title: 'Erro ao carregar dados de saúde',
-        variant: 'destructive',
-      });
+      // medicamentos: tabela canônica
+      try {
+        const { data: medicationRows, error } = await supabase
+          .from('child_medications')
+          .select('*')
+          .eq('child_id', activeChild.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const meds: MedicationEntry[] = (medicationRows ?? []).map((row: any) => ({
+          id: row.id,
+          name: typeof row.name === 'string' ? row.name : '',
+          dosage: typeof row.dosage === 'string' ? row.dosage : '',
+          frequency: typeof row.frequency === 'string' ? row.frequency : '',
+          startDate: typeof row.start_date === 'string' ? row.start_date : '',
+          note:
+            typeof row.note === 'string'
+              ? row.note
+              : typeof row.notes === 'string'
+              ? row.notes
+              : '',
+          active: row.active !== false,
+          createdAt: typeof row.created_at === 'string' ? row.created_at : undefined,
+          updatedAt: typeof row.updated_at === 'string' ? row.updated_at : undefined,
+        }));
+
+        setMedications(sortMedications(meds));
+      } catch (e) {
+        console.error('[medications load]', e);
+        setMedications([]);
+      }
+
+      // vacinas
+      try {
+        const { data: vaccineRows, error } = await supabase
+          .from('child_vaccines')
+          .select(`
+            id,
+            child_id,
+            vaccine_code,
+            vaccine_name,
+            dose_label,
+            status,
+            applied_date,
+            scheduled_age_months,
+            scheduled_date,
+            source,
+            notes
+          `)
+          .eq('child_id', activeChild.id);
+
+        if (error) throw error;
+
+        const appliedIds = new Set<string>();
+        const appliedDates: Record<string, string> = {};
+
+        for (const row of vaccineRows ?? []) {
+          if (row.status === 'applied' && row.vaccine_code) {
+            appliedIds.add(row.vaccine_code);
+            if (row.applied_date) {
+              appliedDates[row.vaccine_code] = row.applied_date;
+            }
+          }
+        }
+
+        setAppliedVaccineIds(appliedIds);
+        setAppliedVaccineDates(appliedDates);
+      } catch (e) {
+        console.error('[vaccines load]', e);
+        setAppliedVaccineIds(new Set());
+        setAppliedVaccineDates({});
+      }
     } finally {
       setDbLoading(false);
     }
@@ -1561,7 +1779,8 @@ export default function SaudePage() {
       setTimeout(() => setNoteSavedFeedback(false), 2500);
 
       toast({ title: '📋 Nota salva no relatório' });
-    } catch {
+    } catch (e) {
+      console.error('[note save]', e);
       toast({ title: 'Erro ao salvar nota', variant: 'destructive' });
     } finally {
       setSavingNote(false);
@@ -1575,7 +1794,7 @@ export default function SaudePage() {
 
     try {
       const measuredAt = growthForm.date
-        ? new Date(growthForm.date + 'T12:00:00')
+        ? new Date(`${growthForm.date}T12:00:00`)
         : new Date();
 
       const { data, error } = await supabase
@@ -1615,7 +1834,8 @@ export default function SaudePage() {
       });
 
       toast({ title: '📏 Medição salva' });
-    } catch {
+    } catch (e) {
+      console.error('[growth save]', e);
       toast({ title: 'Erro ao salvar medição', variant: 'destructive' });
     } finally {
       setGrowthSaving(false);
@@ -1629,7 +1849,7 @@ export default function SaudePage() {
     if (!activeChild || !user) return;
 
     try {
-      const updatedDate = new Date(payload.date + 'T23:59:59');
+      const updatedDate = new Date(`${payload.date}T23:59:59`);
 
       const { error } = await supabase
         .from('health_logs')
@@ -1666,8 +1886,72 @@ export default function SaudePage() {
 
       setEditingGrowthEntry(null);
       toast({ title: '📏 Medição atualizada' });
-    } catch {
+    } catch (e) {
+      console.error('[growth update]', e);
       toast({ title: 'Erro ao atualizar medição', variant: 'destructive' });
+    }
+  }
+
+  async function updateMedication(
+    medicationId: string,
+    payload: {
+      name: string;
+      dosage?: string;
+      frequency?: string;
+      startDate?: string;
+      note?: string;
+      active: boolean;
+    }
+  ) {
+    if (!activeChild) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('child_medications')
+        .update({
+          name: payload.name,
+          dosage: payload.dosage ?? null,
+          frequency: payload.frequency ?? null,
+          start_date: payload.startDate ?? null,
+          note: payload.note ?? null,
+          active: payload.active,
+        })
+        .eq('id', medicationId)
+        .eq('child_id', activeChild.id)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      setMedications(prev =>
+        sortMedications(
+          prev.map(item =>
+            item.id === medicationId
+              ? {
+                  ...item,
+                  name: data.name ?? payload.name,
+                  dosage: data.dosage ?? '',
+                  frequency: data.frequency ?? '',
+                  startDate: data.start_date ?? '',
+                  note:
+                    typeof data.note === 'string'
+                      ? data.note
+                      : typeof data.notes === 'string'
+                      ? data.notes
+                      : '',
+                  active: data.active !== false,
+                  updatedAt: data.updated_at ?? item.updatedAt,
+                }
+              : item
+          )
+        )
+      );
+
+      setEditingMedicationEntry(null);
+      toast({ title: '💊 Medicamento atualizado' });
+    } catch (e) {
+      console.error('[medication update]', e);
+      toast({ title: 'Erro ao atualizar medicamento', variant: 'destructive' });
     }
   }
 
@@ -1709,7 +1993,8 @@ export default function SaudePage() {
       setLoggedSymptoms([]);
       setSymptomNote('');
       toast({ title: '🌡️ Sintomas registrados' });
-    } catch {
+    } catch (e) {
+      console.error('[symptom save]', e);
       toast({ title: 'Erro ao salvar sintomas', variant: 'destructive' });
     } finally {
       setSymptomSaving(false);
@@ -1766,8 +2051,9 @@ export default function SaudePage() {
     });
   }
 
-  const activeMeds = medications.filter(m => m.isActive);
-  const inactiveMeds = medications.filter(m => !m.isActive);
+  const activeMeds = medications.filter(m => m.active);
+  const inactiveMeds = medications.filter(m => !m.active);
+
   const today = new Date().toISOString().split('T')[0];
 
   const upcomingConsults = [...consultations]
@@ -2543,164 +2829,216 @@ export default function SaudePage() {
           </ExpandableSection>
         </div>
 
-        <ExpandableSection
-          id="medications"
-          emoji="💊"
-          title="Medicamentos"
-          statusPill={
-            activeMeds.length > 0 ? (
-              <InlineStatusPill
-                label={`${activeMeds.length} ativo${activeMeds.length > 1 ? 's' : ''}`}
-                variant="paused"
-                color={AMBER}
-              />
-            ) : medications.length > 0 ? (
-              <InlineStatusPill
-                label={`${medications.length} no histórico`}
-                variant="active"
-                color={SAGE}
-              />
-            ) : (
-              <InlineStatusPill label="Nenhum ativo" variant="active" color={SAGE} />
-            )
-          }
-          summary="Medicamentos em uso e histórico"
-          open={openSection === 'medications'}
-          onToggle={() => toggle('medications')}
-        >
-          <button
-            onClick={() => setShowMedModal(true)}
-            className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
-            style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+        <div id="section-medications">
+          <ExpandableSection
+            id="medications"
+            emoji="💊"
+            title="Medicamentos"
+            statusPill={
+              activeMeds.length > 0 ? (
+                <InlineStatusPill
+                  label={`${activeMeds.length} ativo${activeMeds.length > 1 ? 's' : ''}`}
+                  variant="paused"
+                  color={AMBER}
+                />
+              ) : medications.length > 0 ? (
+                <InlineStatusPill
+                  label={`${medications.length} no histórico`}
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : (
+                <InlineStatusPill label="Nenhum ativo" variant="active" color={SAGE} />
+              )
+            }
+            summary="Medicamentos em uso e histórico"
+            open={openSection === 'medications'}
+            onToggle={() => toggle('medications')}
           >
-            Adicionar medicamento
-          </button>
-
-          {activeMeds.length > 0 && (
-            <div>
-              <SectionLabel>Em uso</SectionLabel>
-              <div className="space-y-2">
-                {activeMeds.map(m => (
-                  <div
-                    key={m.id}
-                    className="rounded-2xl px-4 py-3"
-                    style={{
-                      backgroundColor: CARD_BG,
-                      border: `1px solid ${CARD_BORDER}`,
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="text-[13px] font-bold font-quicksand"
-                          style={{ color: TXT }}
-                        >
-                          {m.name}
-                        </p>
-
-                        {(m.dosage || m.frequency) && (
-                          <p
-                            className="text-[11px] font-nunito mt-0.5"
-                            style={{ color: TXT_MUTED }}
-                          >
-                            {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
-                          </p>
-                        )}
-
-                        {m.startDate && (
-                          <p
-                            className="text-[11px] font-nunito mt-0.5"
-                            style={{ color: TXT_MUTED }}
-                          >
-                            Início: {formatDateBR(m.startDate)}
-                          </p>
-                        )}
-
-                        {m.note && (
-                          <p
-                            className="text-[11px] font-nunito mt-0.5 italic"
-                            style={{ color: TXT_MUTED }}
-                          >
-                            {m.note}
-                          </p>
-                        )}
-                      </div>
-
-                      <InlineStatusPill label="Ativo" variant="active" color={SAGE} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {inactiveMeds.length > 0 && (
-            <div>
-              <SectionLabel>Histórico</SectionLabel>
-              <div className="space-y-2">
-                {inactiveMeds.slice(0, 3).map(m => (
-                  <div
-                    key={m.id}
-                    className="rounded-2xl px-4 py-3 opacity-60"
-                    style={{
-                      backgroundColor: CARD_BG,
-                      border: `1px solid ${CARD_BORDER}`,
-                    }}
-                  >
-                    <p
-                      className="text-[13px] font-bold font-quicksand"
-                      style={{ color: TXT }}
-                    >
-                      {m.name}
-                    </p>
-
-                    {(m.dosage || m.frequency) && (
-                      <p
-                        className="text-[11px] font-nunito mt-0.5"
-                        style={{ color: TXT_MUTED }}
-                      >
-                        {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
-                      </p>
-                    )}
-
-                    {m.startDate && (
-                      <p
-                        className="text-[11px] font-nunito mt-0.5"
-                        style={{ color: TXT_MUTED }}
-                      >
-                        Início: {formatDateBR(m.startDate)}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {medications.length === 0 && (
-            <div
-              className="rounded-2xl px-5 py-8 text-center"
-              style={{
-                backgroundColor: CARD_BG,
-                border: `1px solid ${CARD_BORDER}`,
-              }}
+            <button
+              onClick={() => setShowMedModal(true)}
+              className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
+              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
             >
-              <p className="text-3xl mb-2">💊</p>
-              <p
-                className="text-[14px] font-bold font-quicksand"
-                style={{ color: TXT }}
+              Adicionar medicamento
+            </button>
+
+            {activeMeds.length > 0 && (
+              <div>
+                <SectionLabel>Em uso</SectionLabel>
+                <div className="space-y-2">
+                  {activeMeds.map(m => (
+                    <div
+                      key={m.id}
+                      className="rounded-2xl px-4 py-3"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex items-stretch justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p
+                              className="text-[13px] font-bold font-quicksand"
+                              style={{ color: TXT }}
+                            >
+                              {m.name}
+                            </p>
+                            <InlineStatusPill label="Ativo" variant="active" color={SAGE} />
+                          </div>
+
+                          {(m.dosage || m.frequency) && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+
+                          {m.startDate && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              Início: {formatDateBR(m.startDate)}
+                            </p>
+                          )}
+
+                          {m.note && (
+                            <p
+                              className="text-[11px] font-nunito mt-1 italic"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {m.note}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center flex-shrink-0">
+                          <button
+                            onClick={() => setEditingMedicationEntry(m)}
+                            className="px-3 py-1.5 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
+                            style={{
+                              backgroundColor: MAUVE_BG,
+                              color: MAUVE,
+                              border: `1px solid ${MAUVE_BORDER}`,
+                              cursor: 'pointer',
+                              minWidth: 88,
+                            }}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {inactiveMeds.length > 0 && (
+              <div>
+                <SectionLabel>Histórico</SectionLabel>
+                <div className="space-y-2">
+                  {inactiveMeds.slice(0, 5).map(m => (
+                    <div
+                      key={m.id}
+                      className="rounded-2xl px-4 py-3 opacity-75"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex items-stretch justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p
+                              className="text-[13px] font-bold font-quicksand"
+                              style={{ color: TXT }}
+                            >
+                              {m.name}
+                            </p>
+                            <InlineStatusPill label="Encerrado" variant="paused" color={MAUVE} />
+                          </div>
+
+                          {(m.dosage || m.frequency) && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+
+                          {m.startDate && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              Início: {formatDateBR(m.startDate)}
+                            </p>
+                          )}
+
+                          {m.note && (
+                            <p
+                              className="text-[11px] font-nunito mt-1 italic"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {m.note}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center flex-shrink-0">
+                          <button
+                            onClick={() => setEditingMedicationEntry(m)}
+                            className="px-3 py-1.5 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
+                            style={{
+                              backgroundColor: MAUVE_BG,
+                              color: MAUVE,
+                              border: `1px solid ${MAUVE_BORDER}`,
+                              cursor: 'pointer',
+                              minWidth: 88,
+                            }}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {medications.length === 0 && (
+              <div
+                className="rounded-2xl px-5 py-8 text-center"
+                style={{
+                  backgroundColor: CARD_BG,
+                  border: `1px solid ${CARD_BORDER}`,
+                }}
               >
-                Nenhum medicamento ativo
-              </p>
-              <p
-                className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[200px] mx-auto"
-                style={{ color: TXT_MUTED }}
-              >
-                Registre medicamentos em uso para acompanhar horários e posologias.
-              </p>
-            </div>
-          )}
-        </ExpandableSection>
+                <p className="text-3xl mb-2">💊</p>
+                <p
+                  className="text-[14px] font-bold font-quicksand"
+                  style={{ color: TXT }}
+                >
+                  Nenhum medicamento registrado
+                </p>
+                <p
+                  className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
+                  style={{ color: TXT_MUTED }}
+                >
+                  Registre medicamentos em uso para acompanhar histórico, posologias e
+                  contexto clínico.
+                </p>
+              </div>
+            )}
+          </ExpandableSection>
+        </div>
 
         <div id="section-growth">
           <ExpandableSection
@@ -3286,13 +3624,7 @@ export default function SaudePage() {
                         className="text-[10px] font-nunito mt-1.5"
                         style={{ color: TXT_MUTED }}
                       >
-                        {n.date.toLocaleString('pt-BR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {formatDateTimeBR(n.date)}
                       </p>
                     </div>
                   ))}
@@ -3371,11 +3703,10 @@ export default function SaudePage() {
       </div>
 
       <AnimatePresence>
-        {confirmVaccine && activeChild && user && (
+        {confirmVaccine && activeChild && (
           <VaccineConfirmModal
             vaccine={confirmVaccine}
             childId={activeChild.id}
-            userId={user.id}
             onClose={() => setConfirmVaccine(null)}
             onConfirmed={(vaccineId, date) => {
               setAppliedVaccineIds(prev => new Set([...prev, vaccineId]));
@@ -3400,14 +3731,23 @@ export default function SaudePage() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {showMedModal && activeChild && user && (
+        {showMedModal && activeChild && (
           <MedicationModal
             childId={activeChild.id}
-            userId={user.id}
             onClose={() => setShowMedModal(false)}
             onSaved={entry =>
-              setMedications(prev => sortByIsoDateDesc([entry, ...prev]))
+              setMedications(prev => sortMedications([entry, ...prev]))
             }
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingMedicationEntry && (
+          <MedicationEditModal
+            entry={editingMedicationEntry}
+            onClose={() => setEditingMedicationEntry(null)}
+            onSave={payload => updateMedication(editingMedicationEntry.id, payload)}
           />
         )}
       </AnimatePresence>

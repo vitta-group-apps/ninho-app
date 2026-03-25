@@ -139,7 +139,6 @@ interface MedicationEntry {
   name: string;
   dosage: string;
   frequency: string;
-  instructions: string;
   startDate: string;
   endDate: string;
   note: string;
@@ -153,7 +152,6 @@ interface MedicationFormState {
   name: string;
   dosage: string;
   frequency: string;
-  instructions: string;
   startDate: string;
   endDate: string;
   note: string;
@@ -223,7 +221,6 @@ function toMedicationEntry(row: Record<string, unknown>): MedicationEntry {
     name: typeof row.name === 'string' ? row.name : '',
     dosage: typeof row.dosage === 'string' ? row.dosage : '',
     frequency: typeof row.frequency === 'string' ? row.frequency : '',
-    instructions: typeof row.instructions === 'string' ? row.instructions : '',
     startDate: typeof row.start_date === 'string' ? row.start_date : '',
     endDate: typeof row.end_date === 'string' ? row.end_date : '',
     note: typeof row.notes === 'string' ? row.notes : '',
@@ -239,7 +236,6 @@ function medicationToFormState(entry: MedicationEntry): MedicationFormState {
     name: entry.name ?? '',
     dosage: entry.dosage ?? '',
     frequency: entry.frequency ?? '',
-    instructions: entry.instructions ?? '',
     startDate: entry.startDate ?? '',
     endDate: entry.endDate ?? '',
     note: entry.note ?? '',
@@ -965,15 +961,14 @@ function MedicationModal({
   onSaved: (entry: MedicationEntry) => void;
 }) {
   const [form, setForm] = useState<MedicationFormState>({
-    name: '',
-    dosage: '',
-    frequency: '',
-    instructions: '',
-    startDate: '',
-    endDate: '',
-    note: '',
-    active: true,
-  });
+  name: '',
+  dosage: '',
+  frequency: '',
+  startDate: '',
+  endDate: '',
+  note: '',
+  active: true,
+});
   const [saving, setSaving] = useState(false);
 
   const inputStyle = {
@@ -1006,17 +1001,16 @@ function MedicationModal({
 
     try {
       const payload = {
-        child_id: childId,
-        author_id: userId,
-        name: form.name.trim(),
-        dosage: form.dosage.trim() || null,
-        frequency: form.frequency.trim() || null,
-        instructions: form.instructions.trim() || null,
-        start_date: form.startDate || null,
-        end_date: form.endDate || null,
-        is_active: form.active,
-        notes: form.note.trim() || null,
-      };
+  child_id: childId,
+  author_id: userId,
+  name: form.name.trim(),
+  dosage: form.dosage.trim() || null,
+  frequency: form.frequency.trim() || null,
+  start_date: form.startDate || null,
+  end_date: form.endDate || null,
+  is_active: form.active,
+  notes: form.note.trim() || null,
+};
 
       console.error('[child_medications insert payload]', payload);
 
@@ -1084,63 +1078,109 @@ function MedicationModal({
             </button>
           </div>
 
-          {[
-            {
-              label: 'Nome do medicamento *',
-              key: 'name',
-              type: 'text',
-              placeholder: 'Ex: Paracetamol',
-            },
-            {
-              label: 'Posologia (opcional)',
-              key: 'dosage',
-              type: 'text',
-              placeholder: 'Ex: 5ml',
-            },
-            {
-              label: 'Frequência (opcional)',
-              key: 'frequency',
-              type: 'text',
-              placeholder: 'Ex: 8 em 8 horas',
-            },
-            {
-              label: 'Instruções (opcional)',
-              key: 'instructions',
-              type: 'text',
-              placeholder: 'Ex: administrar após mamada',
-            },
-            {
-              label: 'Data de início (opcional)',
-              key: 'startDate',
-              type: 'date',
-              placeholder: '',
-            },
-            {
-              label: 'Data de término (opcional)',
-              key: 'endDate',
-              type: 'date',
-              placeholder: '',
-            },
-          ].map(f => (
-            <div key={f.key}>
-              <p
-                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
-                style={{ color: TXT_MUTED }}
-              >
-                {f.label}
-              </p>
+          <div>
+  <p
+    className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+    style={{ color: TXT_MUTED }}
+  >
+    Nome do medicamento *
+  </p>
 
-              <input
-                type={f.type}
-                placeholder={f.placeholder}
-                value={(form as Record<string, string | boolean>)[f.key] as string}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, [f.key]: e.target.value }))
-                }
-                style={inputStyle}
-              />
-            </div>
-          ))}
+  <input
+    type="text"
+    placeholder="Ex: Paracetamol"
+    value={form.name}
+    onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+    style={inputStyle}
+  />
+</div>
+
+<div className="grid grid-cols-2 gap-3">
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Posologia (opcional)
+    </p>
+
+    <input
+      type="text"
+      placeholder="Ex: 5ml"
+      value={form.dosage}
+      onChange={e => setForm(prev => ({ ...prev, dosage: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Frequência (opcional)
+    </p>
+
+    <input
+      type="text"
+      placeholder="Ex: 8 em 8 horas"
+      value={form.frequency}
+      onChange={e => setForm(prev => ({ ...prev, frequency: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+</div>
+
+<div className="grid grid-cols-2 gap-3">
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Data de início (opcional)
+    </p>
+
+    <input
+      type="date"
+      value={form.startDate}
+      onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Data de término (opcional)
+    </p>
+
+    <input
+      type="date"
+      value={form.endDate}
+      onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+</div>
+
+<div>
+  <p
+    className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+    style={{ color: TXT_MUTED }}
+  >
+    Observações (opcional)
+  </p>
+
+  <textarea
+    rows={2}
+    placeholder="Ex: usar para dor"
+    value={form.note}
+    onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+    style={{ ...inputStyle, resize: 'none' }}
+  />
+</div>
 
           <div>
             <p
@@ -1213,14 +1253,13 @@ function MedicationEditModal({
   const initial = medicationToFormState(entry);
 
   const hasChanges =
-    form.name !== initial.name ||
-    form.dosage !== initial.dosage ||
-    form.frequency !== initial.frequency ||
-    form.instructions !== initial.instructions ||
-    form.startDate !== initial.startDate ||
-    form.endDate !== initial.endDate ||
-    form.note !== initial.note ||
-    form.active !== initial.active;
+  form.name !== initial.name ||
+  form.dosage !== initial.dosage ||
+  form.frequency !== initial.frequency ||
+  form.startDate !== initial.startDate ||
+  form.endDate !== initial.endDate ||
+  form.note !== initial.note ||
+  form.active !== initial.active;
 
   const inputStyle = {
     backgroundColor: MUTED_BG,
@@ -1251,15 +1290,14 @@ function MedicationEditModal({
     setSaving(true);
     try {
       await onSave({
-        name: form.name.trim(),
-        dosage: form.dosage,
-        frequency: form.frequency,
-        instructions: form.instructions,
-        startDate: form.startDate,
-        endDate: form.endDate,
-        note: form.note,
-        active: form.active,
-      });
+  name: form.name.trim(),
+  dosage: form.dosage,
+  frequency: form.frequency,
+  startDate: form.startDate,
+  endDate: form.endDate,
+  note: form.note,
+  active: form.active,
+});
     } finally {
       setSaving(false);
     }
@@ -1307,63 +1345,109 @@ function MedicationEditModal({
             </button>
           </div>
 
-          {[
-            {
-              label: 'Nome do medicamento *',
-              key: 'name',
-              type: 'text',
-              placeholder: 'Ex: Paracetamol',
-            },
-            {
-              label: 'Posologia (opcional)',
-              key: 'dosage',
-              type: 'text',
-              placeholder: 'Ex: 5ml',
-            },
-            {
-              label: 'Frequência (opcional)',
-              key: 'frequency',
-              type: 'text',
-              placeholder: 'Ex: 8 em 8 horas',
-            },
-            {
-              label: 'Instruções (opcional)',
-              key: 'instructions',
-              type: 'text',
-              placeholder: 'Ex: administrar após mamada',
-            },
-            {
-              label: 'Data de início (opcional)',
-              key: 'startDate',
-              type: 'date',
-              placeholder: '',
-            },
-            {
-              label: 'Data de término (opcional)',
-              key: 'endDate',
-              type: 'date',
-              placeholder: '',
-            },
-          ].map(f => (
-            <div key={f.key}>
-              <p
-                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
-                style={{ color: TXT_MUTED }}
-              >
-                {f.label}
-              </p>
+          <div>
+  <p
+    className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+    style={{ color: TXT_MUTED }}
+  >
+    Nome do medicamento *
+  </p>
 
-              <input
-                type={f.type}
-                placeholder={f.placeholder}
-                value={(form as Record<string, string | boolean>)[f.key] as string}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, [f.key]: e.target.value }))
-                }
-                style={inputStyle}
-              />
-            </div>
-          ))}
+  <input
+    type="text"
+    placeholder="Ex: Paracetamol"
+    value={form.name}
+    onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+    style={inputStyle}
+  />
+</div>
+
+<div className="grid grid-cols-2 gap-3">
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Posologia (opcional)
+    </p>
+
+    <input
+      type="text"
+      placeholder="Ex: 5ml"
+      value={form.dosage}
+      onChange={e => setForm(prev => ({ ...prev, dosage: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Frequência (opcional)
+    </p>
+
+    <input
+      type="text"
+      placeholder="Ex: 8 em 8 horas"
+      value={form.frequency}
+      onChange={e => setForm(prev => ({ ...prev, frequency: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+</div>
+
+<div className="grid grid-cols-2 gap-3">
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Data de início (opcional)
+    </p>
+
+    <input
+      type="date"
+      value={form.startDate}
+      onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+
+  <div>
+    <p
+      className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+      style={{ color: TXT_MUTED }}
+    >
+      Data de término (opcional)
+    </p>
+
+    <input
+      type="date"
+      value={form.endDate}
+      onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+      style={inputStyle}
+    />
+  </div>
+</div>
+
+<div>
+  <p
+    className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+    style={{ color: TXT_MUTED }}
+  >
+    Observações (opcional)
+  </p>
+
+  <textarea
+    rows={2}
+    placeholder="Ex: usar para dor"
+    value={form.note}
+    onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+    style={{ ...inputStyle, resize: 'none' }}
+  />
+</div>
 
           <div>
             <p
@@ -1923,9 +2007,7 @@ export default function SaudePage() {
     setGrowthSaving(true);
 
     try {
-      const measuredAt = growthForm.date
-        ? new Date(`${growthForm.date}T12:00:00`)
-        : new Date();
+      const updatedDate = new Date(`${payload.date}T23:59:59`);
 
       const { data, error } = await supabase
         .from('health_logs')
@@ -1978,7 +2060,7 @@ export default function SaudePage() {
     if (!activeChild || !user) return;
 
     try {
-      const updatedDate = new Date(`${payload.date}T23:59:59`);
+     const updatedDate = new Date(`${payload.date}T12:00:00`);
 
       const { error } = await supabase
         .from('health_logs')
@@ -2025,15 +2107,14 @@ export default function SaudePage() {
 
     try {
       const updatePayload = {
-        name: payload.name.trim(),
-        dosage: payload.dosage.trim() || null,
-        frequency: payload.frequency.trim() || null,
-        instructions: payload.instructions.trim() || null,
-        start_date: payload.startDate || null,
-        end_date: payload.endDate || null,
-        is_active: payload.active,
-        notes: payload.note.trim() || null,
-      };
+  name: payload.name.trim(),
+  dosage: payload.dosage.trim() || null,
+  frequency: payload.frequency.trim() || null,
+  start_date: payload.startDate || null,
+  end_date: payload.endDate || null,
+  is_active: payload.active,
+  notes: payload.note.trim() || null,
+};
 
       console.error('[child_medications update payload]', { entryId, updatePayload });
 
@@ -3006,15 +3087,6 @@ export default function SaudePage() {
                             </p>
                           )}
 
-                          {m.instructions && (
-                            <p
-                              className="text-[11px] font-nunito mt-0.5"
-                              style={{ color: TXT_MUTED }}
-                            >
-                              {m.instructions}
-                            </p>
-                          )}
-
                           {(m.startDate || m.endDate) && (
                             <p
                               className="text-[11px] font-nunito mt-0.5"
@@ -3092,14 +3164,7 @@ export default function SaudePage() {
                             </p>
                           )}
 
-                          {m.instructions && (
-                            <p
-                              className="text-[11px] font-nunito mt-0.5"
-                              style={{ color: TXT_MUTED }}
-                            >
-                              {m.instructions}
-                            </p>
-                          )}
+              
 
                           {(m.startDate || m.endDate) && (
                             <p
@@ -3277,7 +3342,7 @@ export default function SaudePage() {
                               className="text-[11px] font-semibold font-nunito mt-1"
                               style={{ color: deltaH >= 0 ? SAGE : AMBER }}
                             >
-                              {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH)} cm vs anterior
+                             {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH).toFixed(1)} cm vs anterior
                             </p>
                           )}
                         </div>
@@ -3585,8 +3650,7 @@ export default function SaudePage() {
                                       className="text-[10px] font-semibold ml-1"
                                       style={{ color: deltaH >= 0 ? MAUVE : AMBER }}
                                     >
-                                      {deltaH >= 0 ? '▲' : '▼'}
-                                      {Math.abs(deltaH)}
+                                      {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH).toFixed(1)}
                                     </span>
                                   )}
                                 </span>

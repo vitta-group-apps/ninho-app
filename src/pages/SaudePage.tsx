@@ -1,12 +1,14 @@
 /**
- * SaudePage — Ninho Health Care Hub v5
+ * SaudePage — Ninho Health Care Hub v6
  *
  * Ajustes aplicados:
- * - Medicamentos padronizados com start_date no banco
- * - Compatibilidade de leitura com legado startDate
+ * - Medicamentos agora usam child_medications como fonte de verdade
+ * - health_logs permanece como trilha de eventos/histórico
+ * - Padronização: start_date + is_active
+ * - Compatibilidade com legado startDate/start_date em health_logs
  * - Ordenação correta de consultas futuras/passadas
- * - Ordenação correta de medicamentos por data de início
  * - Histórico de crescimento com delta consistente
+ * - Ajustes para reduzir risco de quebra de build no Lovable
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -138,7 +140,7 @@ interface MedicationEntry {
   frequency: string;
   startDate: string;
   note: string;
-  active: boolean;
+  isActive: boolean;
 }
 
 function computeVaccineState(ageMonths: number, appliedVaccineIds: Set<string>) {
@@ -172,13 +174,13 @@ function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
 
 function parseIsoDateSafe(date?: string | null) {
   if (!date) return null;
-  return new Date(date + 'T12:00:00');
+  const parsed = new Date(`${date}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function formatDateBR(date?: string | null) {
-  if (!date) return '';
   const parsed = parseIsoDateSafe(date);
-  if (!parsed || Number.isNaN(parsed.getTime())) return '';
+  if (!parsed) return '';
   return parsed.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -897,42 +899,62 @@ function MedicationModal({
     setSaving(true);
 
     try {
-      const { data, error } = await supabase
-        .from('health_logs')
-        .insert({
-          child_id: childId,
-          author_id: userId,
-          type: 'medication',
-          occurred_at: form.startDate
-            ? new Date(form.startDate + 'T00:00:00').toISOString()
-            : new Date().toISOString(),
-          details: {
-            name: form.name.trim(),
-            dosage: form.dosage.trim() || null,
-            frequency: form.frequency.trim() || null,
-            note: form.note.trim() || null,
-            active: true,
-            start_date: form.startDate || null,
-          },
-        })
-        .select('id')
+      const medicationPayload = {
+        child_id: childId,
+        name: form.name.trim(),
+        dosage: form.dosage.trim() || null,
+        frequency: form.frequency.trim() || null,
+        start_date: form.startDate || null,
+        note: form.note.trim() || null,
+        is_active: true,
+        created_by: userId,
+      };
+
+      const { data: medicationData, error: medicationError } = await supabase
+        .from('child_medications')
+        .insert(medicationPayload)
+        .select('id, name, dosage, frequency, start_date, note, is_active')
         .single();
 
-      if (error) throw error;
+      if (medicationError) throw medicationError;
+
+      const occurredAt = form.startDate
+        ? new Date(`${form.startDate}T12:00:00`).toISOString()
+        : new Date().toISOString();
+
+      const { error: logError } = await supabase.from('health_logs').insert({
+        child_id: childId,
+        author_id: userId,
+        type: 'medication',
+        occurred_at: occurredAt,
+        details: {
+          action: 'started',
+          medication_id: medicationData.id,
+          name: form.name.trim(),
+          dosage: form.dosage.trim() || null,
+          frequency: form.frequency.trim() || null,
+          start_date: form.startDate || null,
+          note: form.note.trim() || null,
+          is_active: true,
+        },
+      });
+
+      if (logError) throw logError;
 
       onSaved({
-        id: data.id,
-        name: form.name.trim(),
-        dosage: form.dosage.trim(),
-        frequency: form.frequency.trim(),
-        startDate: form.startDate,
-        note: form.note.trim(),
-        active: true,
+        id: medicationData.id,
+        name: medicationData.name ?? form.name.trim(),
+        dosage: medicationData.dosage ?? '',
+        frequency: medicationData.frequency ?? '',
+        startDate: medicationData.start_date ?? '',
+        note: medicationData.note ?? '',
+        isActive: medicationData.is_active === true,
       });
 
       toast({ title: '💊 Medicamento registrado' });
       onClose();
-    } catch {
+    } catch (error) {
+      console.error('[medication save]', error);
       toast({ title: 'Erro ao salvar medicamento', variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -1383,7 +1405,6 @@ export default function SaudePage() {
       const growth: GrowthEntry[] = [];
       const symptoms: SymptomEntry[] = [];
       const consults: ConsultationEntry[] = [];
-      const meds: MedicationEntry[] = [];
 
       for (const row of healthData ?? []) {
         const d = (row.details ?? {}) as Record<string, unknown>;
@@ -1434,24 +1455,25 @@ export default function SaudePage() {
           });
           continue;
         }
-
-        if (row.type === 'medication') {
-          meds.push({
-            id: row.id,
-            name: typeof d.name === 'string' ? d.name : '',
-            dosage: typeof d.dosage === 'string' ? d.dosage : '',
-            frequency: typeof d.frequency === 'string' ? d.frequency : '',
-            startDate:
-              typeof d.start_date === 'string'
-                ? d.start_date
-                : typeof d.startDate === 'string'
-                ? d.startDate
-                : '',
-            note: typeof d.note === 'string' ? d.note : '',
-            active: d.active !== false,
-          });
-        }
       }
+
+      const { data: medicationRows, error: medicationError } = await supabase
+        .from('child_medications')
+        .select('id, name, dosage, frequency, start_date, note, is_active')
+        .eq('child_id', activeChild.id)
+        .order('start_date', { ascending: false });
+
+      if (medicationError) throw medicationError;
+
+      const meds: MedicationEntry[] = (medicationRows ?? []).map(row => ({
+        id: row.id,
+        name: row.name ?? '',
+        dosage: row.dosage ?? '',
+        frequency: row.frequency ?? '',
+        startDate: row.start_date ?? '',
+        note: row.note ?? '',
+        isActive: row.is_active === true,
+      }));
 
       setSavedNotes(notes);
       setGrowthHistory(sortGrowthHistoryDesc(growth));
@@ -1490,6 +1512,12 @@ export default function SaudePage() {
 
       setAppliedVaccineIds(appliedIds);
       setAppliedVaccineDates(appliedDates);
+    } catch (error) {
+      console.error('[health loadData]', error);
+      toast({
+        title: 'Erro ao carregar dados de saúde',
+        variant: 'destructive',
+      });
     } finally {
       setDbLoading(false);
     }
@@ -1738,7 +1766,8 @@ export default function SaudePage() {
     });
   }
 
-  const activeMeds = medications.filter(m => m.active);
+  const activeMeds = medications.filter(m => m.isActive);
+  const inactiveMeds = medications.filter(m => !m.isActive);
   const today = new Date().toISOString().split('T')[0];
 
   const upcomingConsults = [...consultations]
@@ -2605,48 +2634,45 @@ export default function SaudePage() {
             </div>
           )}
 
-          {medications.filter(m => !m.active).length > 0 && (
+          {inactiveMeds.length > 0 && (
             <div>
               <SectionLabel>Histórico</SectionLabel>
               <div className="space-y-2">
-                {medications
-                  .filter(m => !m.active)
-                  .slice(0, 3)
-                  .map(m => (
-                    <div
-                      key={m.id}
-                      className="rounded-2xl px-4 py-3 opacity-60"
-                      style={{
-                        backgroundColor: CARD_BG,
-                        border: `1px solid ${CARD_BORDER}`,
-                      }}
+                {inactiveMeds.slice(0, 3).map(m => (
+                  <div
+                    key={m.id}
+                    className="rounded-2xl px-4 py-3 opacity-60"
+                    style={{
+                      backgroundColor: CARD_BG,
+                      border: `1px solid ${CARD_BORDER}`,
+                    }}
+                  >
+                    <p
+                      className="text-[13px] font-bold font-quicksand"
+                      style={{ color: TXT }}
                     >
+                      {m.name}
+                    </p>
+
+                    {(m.dosage || m.frequency) && (
                       <p
-                        className="text-[13px] font-bold font-quicksand"
-                        style={{ color: TXT }}
+                        className="text-[11px] font-nunito mt-0.5"
+                        style={{ color: TXT_MUTED }}
                       >
-                        {m.name}
+                        {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
                       </p>
+                    )}
 
-                      {(m.dosage || m.frequency) && (
-                        <p
-                          className="text-[11px] font-nunito mt-0.5"
-                          style={{ color: TXT_MUTED }}
-                        >
-                          {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
-                        </p>
-                      )}
-
-                      {m.startDate && (
-                        <p
-                          className="text-[11px] font-nunito mt-0.5"
-                          style={{ color: TXT_MUTED }}
-                        >
-                          Início: {formatDateBR(m.startDate)}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    {m.startDate && (
+                      <p
+                        className="text-[11px] font-nunito mt-0.5"
+                        style={{ color: TXT_MUTED }}
+                      >
+                        Início: {formatDateBR(m.startDate)}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

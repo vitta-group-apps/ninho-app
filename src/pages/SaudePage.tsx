@@ -1,23 +1,13 @@
 /**
  * SaudePage — Ninho Health Care Hub v5
  *
- * Architecture: vertical expandable care modules — zero horizontal tab dependency.
- * Growth rebuilt as a longitudinal dashboard with charts and delta tracking.
- *
- * Structure:
- *   1. Header: child context + age phase
- *   2. Health overview: 4 status stats (growth shows actual weight/height)
- *   3. Attention / priority layer
- *   4. Vertical expandable sections:
- *      - Vacinas (SUS + complementares + manuais)
- *      - Consultas
- *      - Sintomas
- *      - Medicamentos
- *      - Crescimento (longitudinal dashboard with charts + delta)
- *      - Relatório médico
+ * Ajustes aplicados:
+ * - normalização de peso (kg vs g) para exibição e delta
+ * - delta de peso corrigido no card de resumo e no histórico
+ * - ordenação de consultas e medicamentos mantida
  */
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDownIcon,
@@ -70,13 +60,15 @@ const COMPLEMENTARY_VACCINES: {
 }[] = [
   {
     name: 'Meningocócica B (MenB)',
-    description: 'Proteção adicional contra meningite B. Não disponível no SUS — rede particular.',
+    description:
+      'Proteção adicional contra meningite B. Não disponível no SUS — rede particular.',
     ageHint: 'A partir de 2 meses',
     requiresPediatricGuidance: true,
   },
   {
     name: 'Pneumocócica 13-valente (Prevenar 13)',
-    description: 'Cobertura mais ampla que a Pneumo 10 do SUS. Indicação pediátrica.',
+    description:
+      'Cobertura mais ampla que a Pneumo 10 do SUS. Indicação pediátrica.',
     ageHint: 'A partir de 2 meses',
     requiresPediatricGuidance: true,
   },
@@ -88,19 +80,22 @@ const COMPLEMENTARY_VACCINES: {
   },
   {
     name: 'Hepatite A 2ª dose',
-    description: 'Complementar ao calendário SUS, conforme indicação pediátrica.',
+    description:
+      'Complementar ao calendário SUS, conforme indicação pediátrica.',
     ageHint: '18–24 meses',
     requiresPediatricGuidance: false,
   },
   {
     name: 'Influenza anual (particular)',
-    description: 'Disponível no SUS em campanha. Rede particular disponível fora do período.',
+    description:
+      'Disponível no SUS em campanha. Rede particular disponível fora do período.',
     ageHint: 'Anual, a partir de 6 meses',
     requiresPediatricGuidance: false,
   },
   {
     name: 'Rotavírus pentavalente (RotaTeq)',
-    description: 'Alternativa com cobertura mais ampla de cepas. Rede particular.',
+    description:
+      'Alternativa com cobertura mais ampla de cepas. Rede particular.',
     ageHint: 'A partir de 6 semanas',
     requiresPediatricGuidance: true,
   },
@@ -142,6 +137,27 @@ const SYMPTOM_CHIPS = [
   { emoji: '🤲', label: 'Erupção cutânea' },
 ];
 
+function normalizeWeightKg(w?: number | null): number | undefined {
+  if (w == null || Number.isNaN(w)) return undefined;
+
+  // legado em gramas
+  if (w >= 1000) return +(w / 1000).toFixed(2);
+
+  // já salvo em kg
+  return +w.toFixed(2);
+}
+
+function formatWeightValue(w?: number | null): string {
+  const normalized = normalizeWeightKg(w);
+  if (normalized == null) return '—';
+  return `${normalized.toFixed(normalized % 1 === 0 ? 0 : 2)} kg`;
+}
+
+function formatWeightDelta(d?: number | null): string {
+  if (d == null || Number.isNaN(d)) return '—';
+  return `${Math.abs(d).toFixed(2)} kg`;
+}
+
 function OverviewStat({
   emoji,
   label,
@@ -178,12 +194,16 @@ function OverviewStat({
           {label}
         </p>
       </div>
-
-      <p className="text-[22px] font-bold font-quicksand leading-none" style={{ color }}>
+      <p
+        className="text-[22px] font-bold font-quicksand leading-none"
+        style={{ color }}
+      >
         {value}
       </p>
-
-      <p className="text-[10px] font-nunito mt-1 leading-tight" style={{ color: TXT_MUTED }}>
+      <p
+        className="text-[10px] font-nunito mt-1 leading-tight"
+        style={{ color: TXT_MUTED }}
+      >
         {sub}
       </p>
     </button>
@@ -209,16 +229,20 @@ function PriorityCard({
       style={{ backgroundColor: AMBER_BG, border: `1px solid ${AMBER_BORDER}` }}
     >
       <span className="text-[18px] mt-0.5 flex-shrink-0">{emoji}</span>
-
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold font-quicksand leading-snug" style={{ color: TXT }}>
+        <p
+          className="text-[13px] font-bold font-quicksand leading-snug"
+          style={{ color: TXT }}
+        >
           {title}
         </p>
-        <p className="text-[12px] font-nunito mt-0.5 leading-snug" style={{ color: TXT_MUTED }}>
+        <p
+          className="text-[12px] font-nunito mt-0.5 leading-snug"
+          style={{ color: TXT_MUTED }}
+        >
           {body}
         </p>
       </div>
-
       {ctaLabel && onCta && (
         <button
           onClick={onCta}
@@ -245,11 +269,11 @@ function ExpandableSection({
   id: string;
   emoji: string;
   title: string;
-  statusPill?: ReactNode;
+  statusPill?: React.ReactNode;
   summary?: string;
   open: boolean;
   onToggle: () => void;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <div
@@ -267,22 +291,25 @@ function ExpandableSection({
         >
           {emoji}
         </div>
-
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+            <p
+              className="text-[14px] font-bold font-quicksand"
+              style={{ color: TXT }}
+            >
               {title}
             </p>
             {statusPill}
           </div>
-
           {summary && (
-            <p className="text-[11px] font-nunito mt-0.5 line-clamp-1" style={{ color: TXT_MUTED }}>
+            <p
+              className="text-[11px] font-nunito mt-0.5 line-clamp-1"
+              style={{ color: TXT_MUTED }}
+            >
               {summary}
             </p>
           )}
         </div>
-
         <div className="flex-shrink-0" style={{ color: TXT_MUTED }}>
           {open ? (
             <ChevronDownIcon className="w-4 h-4" />
@@ -370,8 +397,10 @@ function VaccineConfirmModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -384,29 +413,42 @@ function VaccineConfirmModal({
           className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
           style={{ backgroundColor: CARD_BORDER }}
         />
-
         <div className="px-5 pb-8 space-y-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
+              <p
+                className="text-[16px] font-bold font-quicksand"
+                style={{ color: TXT }}
+              >
                 Confirmar aplicação
               </p>
-              <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+              <p
+                className="text-[12px] font-nunito mt-0.5"
+                style={{ color: TXT_MUTED }}
+              >
                 {vaccine.shortName}
                 {vaccine.doses ? ` · ${vaccine.doses}` : ''}
               </p>
             </div>
-
             <button onClick={onClose} style={{ color: TXT_MUTED }}>
               <XMarkIcon className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: MUTED_BG }}>
-            <p className="text-[12px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
+          <div
+            className="rounded-2xl px-4 py-3"
+            style={{ backgroundColor: MUTED_BG }}
+          >
+            <p
+              className="text-[12px] font-nunito leading-snug"
+              style={{ color: TXT_MUTED }}
+            >
               {vaccine.diseases}
             </p>
-            <p className="text-[11px] font-bold font-nunito mt-1.5" style={{ color: SAGE }}>
+            <p
+              className="text-[11px] font-bold font-nunito mt-1.5"
+              style={{ color: SAGE }}
+            >
               Prevista: {vaccine.ageLabel}
             </p>
           </div>
@@ -418,7 +460,6 @@ function VaccineConfirmModal({
             >
               Data de aplicação
             </p>
-
             <input
               type="date"
               value={appliedDate}
@@ -433,9 +474,12 @@ function VaccineConfirmModal({
             />
           </div>
 
-          <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
-            Ao confirmar, esta vacina será registrada no histórico de {vaccine.shortName} desta
-            criança.
+          <p
+            className="text-[11px] font-nunito leading-snug"
+            style={{ color: TXT_MUTED }}
+          >
+            Ao confirmar, esta vacina será registrada no histórico de{' '}
+            {vaccine.shortName} desta criança.
           </p>
 
           <div className="flex gap-3">
@@ -451,12 +495,15 @@ function VaccineConfirmModal({
             >
               Cancelar
             </button>
-
             <button
               onClick={confirm}
               disabled={saving || !appliedDate}
               className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
             >
               {saving ? 'Salvando…' : 'Confirmar vacina'}
             </button>
@@ -487,9 +534,7 @@ function VaccineRow({
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${
-        state === 'future' ? 'opacity-55' : ''
-      }`}
+      className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${state === 'future' ? 'opacity-55' : ''}`}
       style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
     >
       <div
@@ -498,9 +543,11 @@ function VaccineRow({
       >
         {state === 'applied' ? '✓' : '💉'}
       </div>
-
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold font-quicksand leading-tight" style={{ color: TXT }}>
+        <p
+          className="text-[13px] font-bold font-quicksand leading-tight"
+          style={{ color: TXT }}
+        >
           {vaccine.shortName}
           {vaccine.doses && (
             <span className="font-normal" style={{ color: TXT_MUTED }}>
@@ -509,10 +556,11 @@ function VaccineRow({
             </span>
           )}
         </p>
-
         <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
           {state === 'applied' && appliedDate
-            ? `Aplicada em ${new Date(appliedDate + 'T12:00:00').toLocaleDateString('pt-BR', {
+            ? `Aplicada em ${new Date(
+                appliedDate + 'T12:00:00'
+              ).toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit',
                 year: '2-digit',
@@ -520,19 +568,21 @@ function VaccineRow({
             : vaccine.ageLabel}
         </p>
       </div>
-
       <div className="flex items-center gap-2 flex-shrink-0">
         <InlineStatusPill
           label={stateConfig.label}
           variant={state === 'applied' ? 'active' : 'paused'}
           color={stateConfig.color}
         />
-
         {(state === 'due' || state === 'upcoming') && onConfirm && (
           <button
             onClick={() => onConfirm(vaccine)}
             className="text-[10px] font-bold font-nunito px-2 py-1 rounded-xl text-white transition-all active:scale-95"
-            style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+            style={{
+              backgroundColor: SAGE,
+              border: 'none',
+              cursor: 'pointer',
+            }}
           >
             Confirmar
           </button>
@@ -559,7 +609,12 @@ function ConsultationModal({
     note: string;
   }) => void;
 }) {
-  const [form, setForm] = useState({ doctor: '', specialty: '', date: '', note: '' });
+  const [form, setForm] = useState({
+    doctor: '',
+    specialty: '',
+    date: '',
+    note: '',
+  });
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -614,8 +669,10 @@ function ConsultationModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -628,10 +685,12 @@ function ConsultationModal({
           className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
           style={{ backgroundColor: CARD_BORDER }}
         />
-
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
+            <p
+              className="text-[16px] font-bold font-quicksand"
+              style={{ color: TXT }}
+            >
               Registrar consulta
             </p>
             <button onClick={onClose} style={{ color: TXT_MUTED }}>
@@ -640,8 +699,18 @@ function ConsultationModal({
           </div>
 
           {[
-            { label: 'Data da consulta *', key: 'date', type: 'date', placeholder: '' },
-            { label: 'Médico (opcional)', key: 'doctor', type: 'text', placeholder: 'Nome do médico' },
+            {
+              label: 'Data da consulta *',
+              key: 'date',
+              type: 'date',
+              placeholder: '',
+            },
+            {
+              label: 'Médico (opcional)',
+              key: 'doctor',
+              type: 'text',
+              placeholder: 'Nome do médico',
+            },
             {
               label: 'Especialidade (opcional)',
               key: 'specialty',
@@ -660,7 +729,9 @@ function ConsultationModal({
                 type={f.type}
                 placeholder={f.placeholder}
                 value={(form as Record<string, string>)[f.key]}
-                onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, [f.key]: e.target.value }))
+                }
                 style={inputStyle}
               />
             </div>
@@ -695,12 +766,15 @@ function ConsultationModal({
             >
               Cancelar
             </button>
-
             <button
               onClick={save}
               disabled={saving || !form.date}
               className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
             >
               {saving ? 'Salvando…' : 'Registrar consulta'}
             </button>
@@ -796,8 +870,10 @@ function MedicationModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -810,10 +886,12 @@ function MedicationModal({
           className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
           style={{ backgroundColor: CARD_BORDER }}
         />
-
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
+            <p
+              className="text-[16px] font-bold font-quicksand"
+              style={{ color: TXT }}
+            >
               Registrar medicamento
             </p>
             <button onClick={onClose} style={{ color: TXT_MUTED }}>
@@ -858,7 +936,9 @@ function MedicationModal({
                 type={f.type}
                 placeholder={f.placeholder}
                 value={(form as Record<string, string>)[f.key]}
-                onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, [f.key]: e.target.value }))
+                }
                 style={inputStyle}
               />
             </div>
@@ -893,12 +973,15 @@ function MedicationModal({
             >
               Cancelar
             </button>
-
             <button
               onClick={save}
               disabled={saving || !form.name.trim()}
               className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
             >
               {saving ? 'Salvando…' : 'Registrar medicamento'}
             </button>
@@ -924,7 +1007,8 @@ function GrowthEditModal({
   }) => Promise<void>;
 }) {
   const [form, setForm] = useState({
-    weight: entry.weight != null ? String(entry.weight) : '',
+    weight:
+      entry.weight != null ? String(normalizeWeightKg(entry.weight) ?? '') : '',
     height: entry.height != null ? String(entry.height) : '',
     note: entry.note ?? '',
     date: new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
@@ -933,10 +1017,13 @@ function GrowthEditModal({
   });
   const [saving, setSaving] = useState(false);
 
-  const initialWeight = entry.weight != null ? String(entry.weight) : '';
+  const initialWeight =
+    entry.weight != null ? String(normalizeWeightKg(entry.weight) ?? '') : '';
   const initialHeight = entry.height != null ? String(entry.height) : '';
   const initialNote = entry.note ?? '';
-  const initialDate = new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
+  const initialDate = new Date(
+    entry.date.getTime() - entry.date.getTimezoneOffset() * 60000
+  )
     .toISOString()
     .split('T')[0];
 
@@ -947,7 +1034,9 @@ function GrowthEditModal({
     form.date !== initialDate;
 
   const canSave =
-    hasChanges && (form.weight.trim() !== '' || form.height.trim() !== '') && !!form.date;
+    hasChanges &&
+    (form.weight.trim() !== '' || form.height.trim() !== '') &&
+    !!form.date;
 
   const inputStyle = {
     backgroundColor: MUTED_BG,
@@ -979,8 +1068,10 @@ function GrowthEditModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -997,10 +1088,16 @@ function GrowthEditModal({
         <div className="px-5 pb-8 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[16px] font-bold font-quicksand" style={{ color: TXT }}>
+              <p
+                className="text-[16px] font-bold font-quicksand"
+                style={{ color: TXT }}
+              >
                 Editar medição
               </p>
-              <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+              <p
+                className="text-[12px] font-nunito mt-0.5"
+                style={{ color: TXT_MUTED }}
+              >
                 Ajuste os dados salvos
               </p>
             </div>
@@ -1038,7 +1135,9 @@ function GrowthEditModal({
                 step="0.01"
                 placeholder="Ex: 5.2"
                 value={form.weight}
-                onChange={e => setForm(prev => ({ ...prev, weight: e.target.value }))}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, weight: e.target.value }))
+                }
                 style={inputStyle}
               />
             </div>
@@ -1055,7 +1154,9 @@ function GrowthEditModal({
                 step="0.1"
                 placeholder="Ex: 58.5"
                 value={form.height}
-                onChange={e => setForm(prev => ({ ...prev, height: e.target.value }))}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, height: e.target.value }))
+                }
                 style={inputStyle}
               />
             </div>
@@ -1095,7 +1196,11 @@ function GrowthEditModal({
               onClick={handleSave}
               disabled={saving || !canSave}
               className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
             >
               {saving ? 'Salvando…' : 'Salvar alterações'}
             </button>
@@ -1114,20 +1219,17 @@ interface GrowthEntry {
   date: Date;
   edited?: boolean;
 }
-
 interface SymptomEntry {
   id: string;
   symptoms: string[];
   note?: string;
   date: Date;
 }
-
 interface NoteEntry {
   id?: string;
   text: string;
   date: Date;
 }
-
 interface ConsultationEntry {
   id: string;
   doctor: string;
@@ -1135,7 +1237,6 @@ interface ConsultationEntry {
   date: string;
   note: string;
 }
-
 interface MedicationEntry {
   id: string;
   name: string;
@@ -1162,12 +1263,16 @@ export default function SaudePage() {
   const ageCtx = activeChild ? getAgeContext(activeChild.birth_date) : null;
   const ageMonths = ageCtx?.months ?? 0;
 
-  const [appliedVaccineIds, setAppliedVaccineIds] = useState<Set<string>>(new Set());
-  const [appliedVaccineDates, setAppliedVaccineDates] = useState<Record<string, string>>({});
+  const [appliedVaccineIds, setAppliedVaccineIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [appliedVaccineDates, setAppliedVaccineDates] = useState<
+    Record<string, string>
+  >({});
+
   const vaccineState = computeVaccineState(ageMonths, appliedVaccineIds);
 
   const [openSection, setOpenSection] = useState<string | null>(null);
-
   function toggle(id: string) {
     setOpenSection(prev => (prev === id ? null : id));
   }
@@ -1175,21 +1280,10 @@ export default function SaudePage() {
   function openAndScroll(id: string) {
     setOpenSection(id);
     setTimeout(() => {
-      document.getElementById(`section-${id}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
+      document
+        .getElementById(`section-${id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
-  }
-
-  function fmtWeight(w: number): string {
-    if (w >= 1000) return `${(w / 1000).toFixed(2)} kg`;
-    return `${w} kg`;
-  }
-
-  function fmtWeightDelta(d: number, asG: boolean): string {
-    if (asG) return `${Math.abs(d / 1000).toFixed(2)} kg`;
-    return `${Math.abs(d)} kg`;
   }
 
   const [showAllDue, setShowAllDue] = useState(false);
@@ -1198,7 +1292,8 @@ export default function SaudePage() {
   const [confirmVaccine, setConfirmVaccine] = useState<VaccineEntry | null>(null);
   const [showConsultModal, setShowConsultModal] = useState(false);
   const [showMedModal, setShowMedModal] = useState(false);
-  const [editingGrowthEntry, setEditingGrowthEntry] = useState<GrowthEntry | null>(null);
+  const [editingGrowthEntry, setEditingGrowthEntry] =
+    useState<GrowthEntry | null>(null);
 
   const [growthHistory, setGrowthHistory] = useState<GrowthEntry[]>([]);
   const [symptomHistory, setSymptomHistory] = useState<SymptomEntry[]>([]);
@@ -1237,7 +1332,14 @@ export default function SaudePage() {
         .from('health_logs')
         .select('*')
         .eq('child_id', activeChild.id)
-        .in('type', ['consultation', 'growth', 'symptom', 'medical_note', 'medication', 'milestone'])
+        .in('type', [
+          'consultation',
+          'growth',
+          'symptom',
+          'medical_note',
+          'medication',
+          'milestone',
+        ])
         .order('occurred_at', { ascending: false })
         .limit(200);
 
@@ -1257,8 +1359,8 @@ export default function SaudePage() {
               typeof d.note === 'string'
                 ? d.note
                 : typeof d.text === 'string'
-                ? d.text
-                : '',
+                  ? d.text
+                  : '',
             date: new Date(row.occurred_at),
           });
           continue;
@@ -1307,12 +1409,11 @@ export default function SaudePage() {
               typeof d.start_date === 'string'
                 ? d.start_date
                 : typeof d.startDate === 'string'
-                ? d.startDate
-                : '',
+                  ? d.startDate
+                  : '',
             note: typeof d.note === 'string' ? d.note : '',
             active: d.active !== false,
           });
-          continue;
         }
       }
 
@@ -1320,13 +1421,7 @@ export default function SaudePage() {
       setGrowthHistory(sortGrowthHistoryDesc(growth));
       setSymptomHistory(symptoms);
       setConsultations([...consults].sort((a, b) => b.date.localeCompare(a.date)));
-      setMedications(
-        [...meds].sort((a, b) => {
-          const aDate = a.startDate || '';
-          const bDate = b.startDate || '';
-          return bDate.localeCompare(aDate);
-        })
-      );
+      setMedications(meds);
 
       const { data: vaccineRows } = await supabase
         .from('child_vaccines')
@@ -1392,7 +1487,10 @@ export default function SaudePage() {
 
       if (error) throw error;
 
-      setSavedNotes(prev => [{ id: data?.id, text: quickNote.trim(), date: now }, ...prev]);
+      setSavedNotes(prev => [
+        { id: data?.id, text: quickNote.trim(), date: now },
+        ...prev,
+      ]);
       setQuickNote('');
       setNoteSavedFeedback(true);
       setTimeout(() => setNoteSavedFeedback(false), 2500);
@@ -1415,6 +1513,14 @@ export default function SaudePage() {
         ? new Date(growthForm.date + 'T12:00:00')
         : new Date();
 
+      const parsedWeight = growthForm.weight
+        ? parseFloat(growthForm.weight)
+        : null;
+
+      const parsedHeight = growthForm.height
+        ? parseFloat(growthForm.height)
+        : null;
+
       const { data, error } = await supabase
         .from('health_logs')
         .insert({
@@ -1423,8 +1529,8 @@ export default function SaudePage() {
           type: 'growth',
           occurred_at: measuredAt.toISOString(),
           details: {
-            weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
-            height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
+            weight_kg: parsedWeight,
+            height_cm: parsedHeight,
             note: growthForm.note ?? null,
           },
         })
@@ -1437,8 +1543,8 @@ export default function SaudePage() {
         sortGrowthHistoryDesc([
           {
             id: data?.id ?? '',
-            weight: growthForm.weight ? parseFloat(growthForm.weight) : undefined,
-            height: growthForm.height ? parseFloat(growthForm.height) : undefined,
+            weight: parsedWeight ?? undefined,
+            height: parsedHeight ?? undefined,
             note: growthForm.note,
             date: measuredAt,
             edited: false,
@@ -1602,6 +1708,7 @@ export default function SaudePage() {
   }
 
   const activeMeds = medications.filter(m => m.active);
+
   const today = new Date().toISOString().split('T')[0];
 
   const upcomingConsults = [...consultations]
@@ -1626,6 +1733,7 @@ export default function SaudePage() {
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: PAGE_BG }}>
+      {/* HEADER */}
       <div
         className="px-5 pb-5 flex-shrink-0"
         style={{
@@ -1634,16 +1742,23 @@ export default function SaudePage() {
           borderRadius: '0 0 24px 24px',
         }}
       >
-        <h1 className="text-[22px] font-bold font-quicksand" style={{ color: 'white' }}>
+        <h1
+          className="text-[22px] font-bold font-quicksand"
+          style={{ color: 'white' }}
+        >
           Saúde
         </h1>
-        <p className="text-[13px] mt-0.5 font-nunito" style={{ color: 'rgba(255,255,255,0.65)' }}>
+        <p
+          className="text-[13px] mt-0.5 font-nunito"
+          style={{ color: 'rgba(255,255,255,0.65)' }}
+        >
           {activeChild ? activeChild.name : 'Acompanhamento'}
           {ageCtx && <span style={{ opacity: 0.75 }}> · {ageCtx.phaseHint}</span>}
         </p>
       </div>
 
       <div className="px-4 pt-5 space-y-5">
+        {/* HEALTH OVERVIEW */}
         <div>
           <p
             className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
@@ -1667,17 +1782,17 @@ export default function SaudePage() {
                   vaccineState.due.length > 0
                     ? `${vaccineState.due.length}`
                     : vaccineState.applied.length > 0
-                    ? `${vaccineState.applied.length}`
-                    : '—'
+                      ? `${vaccineState.applied.length}`
+                      : '—'
                 }
                 sub={
                   vaccineState.due.length > 0
                     ? `${vaccineState.due.length} a confirmar`
                     : vaccineState.upcoming.length > 0
-                    ? `${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`
-                    : vaccineState.applied.length > 0
-                    ? `${vaccineState.applied.length} confirmada${vaccineState.applied.length > 1 ? 's' : ''}`
-                    : 'Nenhuma confirmada ainda'
+                      ? `${vaccineState.upcoming.length} próxima${vaccineState.upcoming.length > 1 ? 's' : ''}`
+                      : vaccineState.applied.length > 0
+                        ? `${vaccineState.applied.length} confirmada${vaccineState.applied.length > 1 ? 's' : ''}`
+                        : 'Nenhuma confirmada ainda'
                 }
                 color={vaccineState.due.length > 0 ? AMBER : SAGE}
                 urgent={vaccineState.due.length > 0}
@@ -1690,13 +1805,15 @@ export default function SaudePage() {
                 value={consultations.length > 0 ? `${consultations.length}` : '—'}
                 sub={
                   upcomingConsults.length > 0
-                    ? `Próxima: ${new Date(upcomingConsults[0].date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                    ? `Próxima: ${new Date(
+                        upcomingConsults[0].date + 'T12:00:00'
+                      ).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',
                       })}`
                     : consultations.length > 0
-                    ? `${consultations.length} no histórico`
-                    : 'Nenhuma registrada'
+                      ? `${consultations.length} no histórico`
+                      : 'Nenhuma registrada'
                 }
                 color={upcomingConsults.length > 0 ? SAGE : MAUVE}
                 urgent={false}
@@ -1724,18 +1841,18 @@ export default function SaudePage() {
                 emoji="📏"
                 label="Crescimento"
                 value={
-                  growthHistory.length > 0 && growthHistory[0].weight
-                    ? fmtWeight(growthHistory[0].weight)
+                  growthHistory.length > 0 && growthHistory[0].weight != null
+                    ? formatWeightValue(growthHistory[0].weight)
                     : growthHistory.length > 0 && growthHistory[0].height
-                    ? `${growthHistory[0].height}cm`
-                    : '—'
+                      ? `${growthHistory[0].height}cm`
+                      : '—'
                 }
                 sub={
                   growthHistory.length > 0
-                    ? `${growthHistory[0].height ? `${growthHistory[0].height}cm · ` : ''}${growthHistory[0].date.toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                      })}`
+                    ? `${growthHistory[0].height ? `${growthHistory[0].height}cm · ` : ''}${growthHistory[0].date.toLocaleDateString(
+                        'pt-BR',
+                        { day: '2-digit', month: '2-digit' }
+                      )}`
                     : 'Nenhuma medição'
                 }
                 color={growthHistory.length > 0 ? SAGE : MAUVE}
@@ -1746,6 +1863,7 @@ export default function SaudePage() {
           )}
         </div>
 
+        {/* ATTENTION */}
         {!dbLoading && priorityItems.length > 0 && (
           <div>
             <p
@@ -1754,7 +1872,6 @@ export default function SaudePage() {
             >
               Atenção
             </p>
-
             <div className="space-y-2">
               {priorityItems.slice(0, 3).map((item, i) => (
                 <PriorityCard
@@ -1785,6 +1902,7 @@ export default function SaudePage() {
           </div>
         )}
 
+        {/* VACINAS */}
         <div id="section-vaccines">
           <ExpandableSection
             id="vaccines"
@@ -1804,21 +1922,43 @@ export default function SaudePage() {
                   color={SAGE}
                 />
               ) : (
-                <InlineStatusPill label="Nenhuma confirmada" variant="paused" color={MAUVE} />
+                <InlineStatusPill
+                  label="Nenhuma confirmada"
+                  variant="paused"
+                  color={MAUVE}
+                />
               )
             }
             summary={`Calendário SUS · ${vaccineState.applied.length} confirmada${vaccineState.applied.length !== 1 ? 's' : ''}`}
             open={openSection === 'vaccines'}
             onToggle={() => toggle('vaccines')}
           >
-            <div className="flex gap-4 rounded-xl p-3" style={{ backgroundColor: MUTED_BG }}>
+            <div
+              className="flex gap-4 rounded-xl p-3"
+              style={{ backgroundColor: MUTED_BG }}
+            >
               {[
-                { value: vaccineState.applied.length, label: 'Confirmadas', color: SAGE },
-                { value: vaccineState.due.length, label: 'A confirmar', color: AMBER },
-                { value: vaccineState.upcoming.length, label: 'Próximas', color: MAUVE },
+                {
+                  value: vaccineState.applied.length,
+                  label: 'Confirmadas',
+                  color: SAGE,
+                },
+                {
+                  value: vaccineState.due.length,
+                  label: 'A confirmar',
+                  color: AMBER,
+                },
+                {
+                  value: vaccineState.upcoming.length,
+                  label: 'Próximas',
+                  color: MAUVE,
+                },
               ].map((stat, i) => (
                 <div key={i} className="flex-1 text-center">
-                  <p className="text-[22px] font-bold font-quicksand" style={{ color: stat.color }}>
+                  <p
+                    className="text-[22px] font-bold font-quicksand"
+                    style={{ color: stat.color }}
+                  >
                     {stat.value}
                   </p>
                   <p
@@ -1836,9 +1976,12 @@ export default function SaudePage() {
               style={{ backgroundColor: MUTED_BG }}
             >
               <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
-              <p className="text-[11px] font-nunito leading-snug" style={{ color: TXT_MUTED }}>
-                Nenhuma vacina é marcada automaticamente. Toque em <strong>Confirmar</strong> para
-                registrar a data de aplicação.
+              <p
+                className="text-[11px] font-nunito leading-snug"
+                style={{ color: TXT_MUTED }}
+              >
+                Nenhuma vacina é marcada automaticamente. Toque em{' '}
+                <strong>Confirmar</strong> para registrar a data de aplicação.
               </p>
             </div>
 
@@ -1860,7 +2003,9 @@ export default function SaudePage() {
 
             {vaccineState.due.length > 0 && (
               <div>
-                <SectionLabel>Previstas para esta fase — confirmar quando aplicadas</SectionLabel>
+                <SectionLabel>
+                  Previstas para esta fase — confirmar quando aplicadas
+                </SectionLabel>
                 <div className="space-y-2">
                   {vaccineState.due
                     .slice(0, showAllDue ? vaccineState.due.length : 5)
@@ -1942,21 +2087,27 @@ export default function SaudePage() {
 
             <div
               className="rounded-2xl p-4 space-y-3"
-              style={{ backgroundColor: MAUVE_BG, border: `1px solid ${MAUVE_BORDER}` }}
+              style={{
+                backgroundColor: MAUVE_BG,
+                border: `1px solid ${MAUVE_BORDER}`,
+              }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                  <p
+                    className="text-[13px] font-bold font-quicksand"
+                    style={{ color: TXT }}
+                  >
                     Vacinas complementares / opcionais
                   </p>
                   <p
                     className="text-[11px] font-nunito mt-0.5 leading-relaxed"
                     style={{ color: TXT_MUTED }}
                   >
-                    Não fazem parte do calendário SUS. Disponíveis na rede particular.
+                    Não fazem parte do calendário SUS. Disponíveis na rede
+                    particular.
                   </p>
                 </div>
-
                 <button
                   onClick={() => setShowComplementary(v => !v)}
                   className="text-[11px] font-bold font-nunito flex-shrink-0"
@@ -1976,10 +2127,12 @@ export default function SaudePage() {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-2 flex-wrap">
-                          <p className="text-[12px] font-bold font-quicksand" style={{ color: TXT }}>
+                          <p
+                            className="text-[12px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
                             {v.name}
                           </p>
-
                           {v.requiresPediatricGuidance && (
                             <span
                               className="text-[9px] font-bold font-nunito px-1.5 py-0.5 rounded-full flex-shrink-0"
@@ -1993,15 +2146,16 @@ export default function SaudePage() {
                             </span>
                           )}
                         </div>
-
                         <p
                           className="text-[11px] font-nunito mt-0.5 leading-snug"
                           style={{ color: TXT_MUTED }}
                         >
                           {v.description}
                         </p>
-
-                        <p className="text-[10px] font-bold font-nunito mt-1" style={{ color: MAUVE }}>
+                        <p
+                          className="text-[10px] font-bold font-nunito mt-1"
+                          style={{ color: MAUVE }}
+                        >
                           {v.ageHint}
                         </p>
                       </div>
@@ -2013,6 +2167,7 @@ export default function SaudePage() {
           </ExpandableSection>
         </div>
 
+        {/* CONSULTAS */}
         <div id="section-appointments">
           <ExpandableSection
             id="appointments"
@@ -2032,7 +2187,11 @@ export default function SaudePage() {
                   color={SAGE}
                 />
               ) : (
-                <InlineStatusPill label="Nenhuma registrada" variant="paused" color={MAUVE} />
+                <InlineStatusPill
+                  label="Nenhuma registrada"
+                  variant="paused"
+                  color={MAUVE}
+                />
               )
             }
             summary="Registre e acompanhe as consultas"
@@ -2042,7 +2201,11 @@ export default function SaudePage() {
             <button
               onClick={() => setShowConsultModal(true)}
               className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
-              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
             >
               Registrar consulta
             </button>
@@ -2055,11 +2218,17 @@ export default function SaudePage() {
                     <div
                       key={c.id}
                       className="rounded-2xl px-4 py-3"
-                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                          <p
+                            className="text-[13px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
                             {c.doctor || 'Consulta'}
                             {c.specialty ? ` · ${c.specialty}` : ''}
                           </p>
@@ -2072,15 +2241,17 @@ export default function SaudePage() {
                             </p>
                           )}
                         </div>
-
                         <p
                           className="text-[11px] font-bold font-nunito flex-shrink-0"
                           style={{ color: SAGE }}
                         >
-                          {new Date(c.date + 'T12:00:00').toLocaleDateString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                          })}
+                          {new Date(c.date + 'T12:00:00').toLocaleDateString(
+                            'pt-BR',
+                            {
+                              day: '2-digit',
+                              month: '2-digit',
+                            }
+                          )}
                         </p>
                       </div>
                     </div>
@@ -2097,11 +2268,17 @@ export default function SaudePage() {
                     <div
                       key={c.id}
                       className="rounded-2xl px-4 py-3 opacity-70"
-                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                          <p
+                            className="text-[13px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
                             {c.doctor || 'Consulta'}
                             {c.specialty ? ` · ${c.specialty}` : ''}
                           </p>
@@ -2114,12 +2291,17 @@ export default function SaudePage() {
                             </p>
                           )}
                         </div>
-
-                        <p className="text-[11px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>
-                          {new Date(c.date + 'T12:00:00').toLocaleDateString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                          })}
+                        <p
+                          className="text-[11px] font-nunito flex-shrink-0"
+                          style={{ color: TXT_MUTED }}
+                        >
+                          {new Date(c.date + 'T12:00:00').toLocaleDateString(
+                            'pt-BR',
+                            {
+                              day: '2-digit',
+                              month: '2-digit',
+                            }
+                          )}
                         </p>
                       </div>
                     </div>
@@ -2131,24 +2313,31 @@ export default function SaudePage() {
             {consultations.length === 0 && (
               <div
                 className="rounded-2xl px-5 py-8 text-center"
-                style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                style={{
+                  backgroundColor: CARD_BG,
+                  border: `1px solid ${CARD_BORDER}`,
+                }}
               >
                 <p className="text-3xl mb-2">🩺</p>
-                <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+                <p
+                  className="text-[14px] font-bold font-quicksand"
+                  style={{ color: TXT }}
+                >
                   Nenhuma consulta registrada
                 </p>
                 <p
                   className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
                   style={{ color: TXT_MUTED }}
                 >
-                  Registrar as consultas facilita o histórico e prepara melhor as conversas com o
-                  pediatra.
+                  Registrar as consultas facilita o histórico e prepara melhor as
+                  conversas com o pediatra.
                 </p>
               </div>
             )}
           </ExpandableSection>
         </div>
 
+        {/* SINTOMAS */}
         <div id="section-symptoms">
           <ExpandableSection
             id="symptoms"
@@ -2168,7 +2357,11 @@ export default function SaudePage() {
                   color={SAGE}
                 />
               ) : (
-                <InlineStatusPill label="Nenhum registrado" variant="active" color={SAGE} />
+                <InlineStatusPill
+                  label="Nenhum registrado"
+                  variant="active"
+                  color={SAGE}
+                />
               )
             }
             summary="Registre sintomas para facilitar a consulta"
@@ -2177,17 +2370,17 @@ export default function SaudePage() {
           >
             <div>
               <SectionLabel>Registrar sintoma</SectionLabel>
-
               <div className="flex flex-wrap gap-2">
                 {SYMPTOM_CHIPS.map(s => {
                   const isSelected = loggedSymptoms.includes(s.label);
-
                   return (
                     <button
                       key={s.label}
                       onClick={() =>
                         setLoggedSymptoms(prev =>
-                          isSelected ? prev.filter(l => l !== s.label) : [...prev, s.label]
+                          isSelected
+                            ? prev.filter(l => l !== s.label)
+                            : [...prev, s.label]
                         )
                       }
                       className="py-2 px-3.5 rounded-2xl text-[12px] font-bold font-nunito transition-all active:scale-95"
@@ -2214,7 +2407,6 @@ export default function SaudePage() {
                   rows={2}
                   style={{ ...inputStyle, resize: 'none' }}
                 />
-
                 <div className="flex flex-wrap gap-1.5 mb-1">
                   {loggedSymptoms.map(s => (
                     <span
@@ -2226,12 +2418,15 @@ export default function SaudePage() {
                     </span>
                   ))}
                 </div>
-
                 <button
                   onClick={saveSymptoms}
                   disabled={symptomSaving}
                   className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-                  style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+                  style={{
+                    backgroundColor: SAGE,
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
                 >
                   {symptomSaving ? 'Salvando…' : 'Salvar sintomas'}
                 </button>
@@ -2240,21 +2435,27 @@ export default function SaudePage() {
 
             <div>
               <SectionLabel>Histórico</SectionLabel>
-
               {symptomHistory.length === 0 ? (
                 <div
                   className="rounded-2xl px-5 py-8 text-center"
-                  style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                  style={{
+                    backgroundColor: CARD_BG,
+                    border: `1px solid ${CARD_BORDER}`,
+                  }}
                 >
                   <p className="text-3xl mb-2">🌡️</p>
-                  <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+                  <p
+                    className="text-[14px] font-bold font-quicksand"
+                    style={{ color: TXT }}
+                  >
                     Nenhum sintoma registrado
                   </p>
                   <p
                     className="text-[12px] mt-1 font-nunito leading-snug max-w-[200px] mx-auto"
                     style={{ color: TXT_MUTED }}
                   >
-                    Registrar sintomas cria um histórico útil para as conversas com o pediatra.
+                    Registrar sintomas cria um histórico útil para as conversas com o
+                    pediatra.
                   </p>
                 </div>
               ) : (
@@ -2263,7 +2464,10 @@ export default function SaudePage() {
                     <div
                       key={entry.id}
                       className="rounded-2xl px-4 py-3"
-                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
                       <div className="flex flex-wrap gap-1.5 mb-1.5">
                         {entry.symptoms.map(s => (
@@ -2276,14 +2480,18 @@ export default function SaudePage() {
                           </span>
                         ))}
                       </div>
-
                       {entry.note && (
-                        <p className="text-[12px] font-nunito leading-snug mb-1" style={{ color: TXT }}>
+                        <p
+                          className="text-[12px] font-nunito leading-snug mb-1"
+                          style={{ color: TXT }}
+                        >
                           {entry.note}
                         </p>
                       )}
-
-                      <p className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>
+                      <p
+                        className="text-[10px] font-nunito"
+                        style={{ color: TXT_MUTED }}
+                      >
                         {entry.date.toLocaleString('pt-BR', {
                           day: '2-digit',
                           month: '2-digit',
@@ -2299,6 +2507,7 @@ export default function SaudePage() {
           </ExpandableSection>
         </div>
 
+        {/* MEDICAMENTOS */}
         <ExpandableSection
           id="medications"
           emoji="💊"
@@ -2317,7 +2526,11 @@ export default function SaudePage() {
                 color={SAGE}
               />
             ) : (
-              <InlineStatusPill label="Nenhum ativo" variant="active" color={SAGE} />
+              <InlineStatusPill
+                label="Nenhum ativo"
+                variant="active"
+                color={SAGE}
+              />
             )
           }
           summary="Medicamentos em uso e histórico"
@@ -2327,7 +2540,11 @@ export default function SaudePage() {
           <button
             onClick={() => setShowMedModal(true)}
             className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
-            style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+            style={{
+              backgroundColor: SAGE,
+              border: 'none',
+              cursor: 'pointer',
+            }}
           >
             Adicionar medicamento
           </button>
@@ -2340,15 +2557,24 @@ export default function SaudePage() {
                   <div
                     key={m.id}
                     className="rounded-2xl px-4 py-3"
-                    style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                    style={{
+                      backgroundColor: CARD_BG,
+                      border: `1px solid ${CARD_BORDER}`,
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                        <p
+                          className="text-[13px] font-bold font-quicksand"
+                          style={{ color: TXT }}
+                        >
                           {m.name}
                         </p>
                         {(m.dosage || m.frequency) && (
-                          <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                          <p
+                            className="text-[11px] font-nunito mt-0.5"
+                            style={{ color: TXT_MUTED }}
+                          >
                             {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
                           </p>
                         )}
@@ -2361,7 +2587,6 @@ export default function SaudePage() {
                           </p>
                         )}
                       </div>
-
                       <InlineStatusPill label="Ativo" variant="active" color={SAGE} />
                     </div>
                   </div>
@@ -2381,13 +2606,22 @@ export default function SaudePage() {
                     <div
                       key={m.id}
                       className="rounded-2xl px-4 py-3 opacity-60"
-                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
-                      <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
+                      <p
+                        className="text-[13px] font-bold font-quicksand"
+                        style={{ color: TXT }}
+                      >
                         {m.name}
                       </p>
                       {(m.dosage || m.frequency) && (
-                        <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+                        <p
+                          className="text-[11px] font-nunito mt-0.5"
+                          style={{ color: TXT_MUTED }}
+                        >
                           {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
                         </p>
                       )}
@@ -2400,10 +2634,16 @@ export default function SaudePage() {
           {medications.length === 0 && (
             <div
               className="rounded-2xl px-5 py-8 text-center"
-              style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+              style={{
+                backgroundColor: CARD_BG,
+                border: `1px solid ${CARD_BORDER}`,
+              }}
             >
               <p className="text-3xl mb-2">💊</p>
-              <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+              <p
+                className="text-[14px] font-bold font-quicksand"
+                style={{ color: TXT }}
+              >
                 Nenhum medicamento ativo
               </p>
               <p
@@ -2416,6 +2656,7 @@ export default function SaudePage() {
           )}
         </ExpandableSection>
 
+        {/* CRESCIMENTO */}
         <div id="section-growth">
           <ExpandableSection
             id="growth"
@@ -2425,23 +2666,27 @@ export default function SaudePage() {
               growthHistory.length > 0 ? (
                 <InlineStatusPill
                   label={
-                    growthHistory[0].weight
-                      ? fmtWeight(growthHistory[0].weight)
+                    growthHistory[0].weight != null
+                      ? formatWeightValue(growthHistory[0].weight)
                       : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`
                   }
                   variant="active"
                   color={SAGE}
                 />
               ) : (
-                <InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />
+                <InlineStatusPill
+                  label="Sem medições"
+                  variant="paused"
+                  color={MAUVE}
+                />
               )
             }
             summary={
               growthHistory.length > 0
-                ? `Última medição em ${growthHistory[0].date.toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                  })}`
+                ? `Última medição em ${growthHistory[0].date.toLocaleDateString(
+                    'pt-BR',
+                    { day: '2-digit', month: '2-digit' }
+                  )}`
                 : `Registre peso e altura de ${childName}`
             }
             open={openSection === 'growth'}
@@ -2451,19 +2696,27 @@ export default function SaudePage() {
               (() => {
                 const latest = growthHistory[0];
                 const prev = growthHistory[1];
+
+                const latestWeightKg = normalizeWeightKg(latest.weight);
+                const prevWeightKg = normalizeWeightKg(prev?.weight);
+
                 const deltaW =
-                  latest.weight && prev?.weight
-                    ? +(latest.weight - prev.weight).toFixed(2)
+                  latestWeightKg != null && prevWeightKg != null
+                    ? +(latestWeightKg - prevWeightKg).toFixed(2)
                     : null;
+
                 const deltaH =
-                  latest.height && prev?.height
+                  latest.height != null && prev?.height != null
                     ? +(latest.height - prev.height).toFixed(1)
                     : null;
 
                 return (
                   <div
                     className="rounded-2xl px-4 py-4 space-y-3"
-                    style={{ backgroundColor: SAGE_LIGHT, border: `1px solid ${SAGE_BORDER}` }}
+                    style={{
+                      backgroundColor: SAGE_LIGHT,
+                      border: `1px solid ${SAGE_BORDER}`,
+                    }}
                   >
                     <p
                       className="text-[10px] font-bold uppercase tracking-[0.08em] font-nunito"
@@ -2478,28 +2731,31 @@ export default function SaudePage() {
                     </p>
 
                     <div className="flex items-end gap-5 flex-wrap">
-                      {latest.weight != null && (
+                      {latestWeightKg != null && (
                         <div>
                           <p
                             className="text-[28px] font-bold font-quicksand leading-none"
                             style={{ color: SAGE }}
                           >
-                            {fmtWeight(latest.weight)}
+                            {formatWeightValue(latestWeightKg)}
                           </p>
                           {deltaW != null && (
                             <p
                               className="text-[11px] font-semibold font-nunito mt-1"
                               style={{ color: deltaW >= 0 ? SAGE : AMBER }}
                             >
-                              {deltaW >= 0 ? '▲' : '▼'}{' '}
-                              {fmtWeightDelta(deltaW, latest.weight >= 1000)} vs anterior
+                              {deltaW >= 0 ? '▲' : '▼'} {formatWeightDelta(deltaW)} vs
+                              anterior
                             </p>
                           )}
                         </div>
                       )}
 
-                      {latest.weight != null && latest.height != null && (
-                        <div className="w-px h-10 self-center" style={{ backgroundColor: CARD_BORDER }} />
+                      {latestWeightKg != null && latest.height != null && (
+                        <div
+                          className="w-px h-10 self-center"
+                          style={{ backgroundColor: CARD_BORDER }}
+                        />
                       )}
 
                       {latest.height != null && (
@@ -2509,14 +2765,17 @@ export default function SaudePage() {
                             style={{ color: MAUVE }}
                           >
                             {latest.height}
-                            <span className="text-[14px] font-semibold ml-0.5">cm</span>
+                            <span className="text-[14px] font-semibold ml-0.5">
+                              cm
+                            </span>
                           </p>
                           {deltaH != null && (
                             <p
                               className="text-[11px] font-semibold font-nunito mt-1"
                               style={{ color: deltaH >= 0 ? SAGE : AMBER }}
                             >
-                              {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH)} cm vs anterior
+                              {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH)} cm vs
+                              anterior
                             </p>
                           )}
                         </div>
@@ -2524,7 +2783,10 @@ export default function SaudePage() {
                     </div>
 
                     {latest.note && (
-                      <p className="text-[11px] font-nunito italic leading-snug" style={{ color: TXT_MUTED }}>
+                      <p
+                        className="text-[11px] font-nunito italic leading-snug"
+                        style={{ color: TXT_MUTED }}
+                      >
                         {latest.note}
                       </p>
                     )}
@@ -2542,30 +2804,45 @@ export default function SaudePage() {
                       day: '2-digit',
                       month: '2-digit',
                     }),
-                    peso:
-                      e.weight != null && e.weight >= 1000
-                        ? +(e.weight / 1000).toFixed(2)
-                        : e.weight,
-                  }));
+                    peso: normalizeWeightKg(e.weight),
+                  }))
+                  .filter(e => e.peso != null);
 
                 return (
                   <div>
                     <SectionLabel>Evolução do peso (kg)</SectionLabel>
                     <div
                       className="rounded-2xl pt-3 pb-2 pr-2"
-                      style={{ backgroundColor: MUTED_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: MUTED_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
                       <ResponsiveContainer width="100%" height={140}>
-                        <LineChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={CARD_BORDER} />
+                        <LineChart
+                          data={chartData}
+                          margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke={CARD_BORDER}
+                          />
                           <XAxis
                             dataKey="date"
-                            tick={{ fontSize: 9, fontFamily: 'Nunito', fill: TXT_MUTED }}
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
                             axisLine={false}
                             tickLine={false}
                           />
                           <YAxis
-                            tick={{ fontSize: 9, fontFamily: 'Nunito', fill: TXT_MUTED }}
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
                             axisLine={false}
                             tickLine={false}
                             domain={['auto', 'auto']}
@@ -2585,7 +2862,14 @@ export default function SaudePage() {
                             dataKey="peso"
                             stroke={SAGE}
                             strokeWidth={2.5}
-                            dot={<Dot r={4} fill={SAGE} stroke={CARD_BG} strokeWidth={2} />}
+                            dot={
+                              <Dot
+                                r={4}
+                                fill={SAGE}
+                                stroke={CARD_BG}
+                                strokeWidth={2}
+                              />
+                            }
                             activeDot={{ r: 5 }}
                           />
                         </LineChart>
@@ -2613,19 +2897,36 @@ export default function SaudePage() {
                     <SectionLabel>Evolução da altura (cm)</SectionLabel>
                     <div
                       className="rounded-2xl pt-3 pb-2 pr-2"
-                      style={{ backgroundColor: MUTED_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: MUTED_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
                       <ResponsiveContainer width="100%" height={140}>
-                        <LineChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={CARD_BORDER} />
+                        <LineChart
+                          data={chartData}
+                          margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke={CARD_BORDER}
+                          />
                           <XAxis
                             dataKey="date"
-                            tick={{ fontSize: 9, fontFamily: 'Nunito', fill: TXT_MUTED }}
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
                             axisLine={false}
                             tickLine={false}
                           />
                           <YAxis
-                            tick={{ fontSize: 9, fontFamily: 'Nunito', fill: TXT_MUTED }}
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
                             axisLine={false}
                             tickLine={false}
                             domain={['auto', 'auto']}
@@ -2645,7 +2946,14 @@ export default function SaudePage() {
                             dataKey="altura"
                             stroke={MAUVE}
                             strokeWidth={2.5}
-                            dot={<Dot r={4} fill={MAUVE} stroke={CARD_BG} strokeWidth={2} />}
+                            dot={
+                              <Dot
+                                r={4}
+                                fill={MAUVE}
+                                stroke={CARD_BG}
+                                strokeWidth={2}
+                              />
+                            }
                             activeDot={{ r: 5 }}
                           />
                         </LineChart>
@@ -2668,7 +2976,9 @@ export default function SaudePage() {
                 <input
                   type="date"
                   value={growthForm.date ?? ''}
-                  onChange={e => setGrowthForm(f => ({ ...f, date: e.target.value }))}
+                  onChange={e =>
+                    setGrowthForm(f => ({ ...f, date: e.target.value }))
+                  }
                   style={{ ...inputStyle, marginBottom: 12 }}
                 />
               </div>
@@ -2686,11 +2996,12 @@ export default function SaudePage() {
                     step="0.01"
                     placeholder="Ex: 5.2"
                     value={growthForm.weight ?? ''}
-                    onChange={e => setGrowthForm(f => ({ ...f, weight: e.target.value }))}
+                    onChange={e =>
+                      setGrowthForm(f => ({ ...f, weight: e.target.value }))
+                    }
                     style={inputStyle}
                   />
                 </div>
-
                 <div>
                   <p
                     className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
@@ -2703,7 +3014,9 @@ export default function SaudePage() {
                     step="0.1"
                     placeholder="Ex: 58.5"
                     value={growthForm.height ?? ''}
-                    onChange={e => setGrowthForm(f => ({ ...f, height: e.target.value }))}
+                    onChange={e =>
+                      setGrowthForm(f => ({ ...f, height: e.target.value }))
+                    }
                     style={inputStyle}
                   />
                 </div>
@@ -2713,7 +3026,9 @@ export default function SaudePage() {
                 type="text"
                 placeholder="Observação (opcional)"
                 value={growthForm.note ?? ''}
-                onChange={e => setGrowthForm(f => ({ ...f, note: e.target.value }))}
+                onChange={e =>
+                  setGrowthForm(f => ({ ...f, note: e.target.value }))
+                }
                 style={{ ...inputStyle, marginTop: 12 }}
               />
 
@@ -2721,7 +3036,11 @@ export default function SaudePage() {
                 onClick={saveGrowthMeasurement}
                 disabled={growthSaving || (!growthForm.weight && !growthForm.height)}
                 className="mt-3 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-                style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+                style={{
+                  backgroundColor: SAGE,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
                 {growthSaving ? 'Salvando…' : 'Salvar medição'}
               </button>
@@ -2733,10 +3052,15 @@ export default function SaudePage() {
                 <div className="space-y-2">
                   {growthHistory.map((entry, idx) => {
                     const prevEntry = growthHistory[idx + 1];
+
+                    const entryWeightKg = normalizeWeightKg(entry.weight);
+                    const prevEntryWeightKg = normalizeWeightKg(prevEntry?.weight);
+
                     const deltaW =
-                      entry.weight != null && prevEntry?.weight != null
-                        ? +(entry.weight - prevEntry.weight).toFixed(2)
+                      entryWeightKg != null && prevEntryWeightKg != null
+                        ? +(entryWeightKg - prevEntryWeightKg).toFixed(2)
                         : null;
+
                     const deltaH =
                       entry.height != null && prevEntry?.height != null
                         ? +(entry.height - prevEntry.height).toFixed(1)
@@ -2746,24 +3070,29 @@ export default function SaudePage() {
                       <div
                         key={entry.id}
                         className="rounded-2xl px-4 py-3"
-                        style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                        style={{
+                          backgroundColor: CARD_BG,
+                          border: `1px solid ${CARD_BORDER}`,
+                        }}
                       >
                         <div className="flex items-stretch justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 flex-wrap">
-                              {entry.weight != null && (
+                              {entryWeightKg != null && (
                                 <span
                                   className="text-[15px] font-bold font-quicksand"
                                   style={{ color: SAGE }}
                                 >
-                                  {fmtWeight(entry.weight)}
+                                  {formatWeightValue(entryWeightKg)}
                                   {deltaW != null && (
                                     <span
                                       className="text-[10px] font-semibold ml-1"
-                                      style={{ color: deltaW >= 0 ? SAGE : AMBER }}
+                                      style={{
+                                        color: deltaW >= 0 ? SAGE : AMBER,
+                                      }}
                                     >
                                       {deltaW >= 0 ? '▲' : '▼'}
-                                      {fmtWeightDelta(deltaW, entry.weight >= 1000)}
+                                      {formatWeightDelta(deltaW)}
                                     </span>
                                   )}
                                 </span>
@@ -2778,7 +3107,9 @@ export default function SaudePage() {
                                   {deltaH != null && (
                                     <span
                                       className="text-[10px] font-semibold ml-1"
-                                      style={{ color: deltaH >= 0 ? MAUVE : AMBER }}
+                                      style={{
+                                        color: deltaH >= 0 ? MAUVE : AMBER,
+                                      }}
                                     >
                                       {deltaH >= 0 ? '▲' : '▼'}
                                       {Math.abs(deltaH)}
@@ -2798,13 +3129,19 @@ export default function SaudePage() {
                             </div>
 
                             {entry.note && (
-                              <p className="text-[11px] font-nunito mt-1 italic" style={{ color: TXT_MUTED }}>
+                              <p
+                                className="text-[11px] font-nunito mt-1 italic"
+                                style={{ color: TXT_MUTED }}
+                              >
                                 {entry.note}
                               </p>
                             )}
 
                             <div className="mt-2">
-                              <p className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>
+                              <p
+                                className="text-[10px] font-nunito"
+                                style={{ color: TXT_MUTED }}
+                              >
                                 {entry.date.toLocaleDateString('pt-BR', {
                                   day: '2-digit',
                                   month: '2-digit',
@@ -2840,23 +3177,31 @@ export default function SaudePage() {
             {growthHistory.length === 0 && (
               <div
                 className="rounded-2xl px-5 py-8 text-center"
-                style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                style={{
+                  backgroundColor: CARD_BG,
+                  border: `1px solid ${CARD_BORDER}`,
+                }}
               >
                 <p className="text-3xl mb-2">📏</p>
-                <p className="text-[14px] font-bold font-quicksand" style={{ color: TXT }}>
+                <p
+                  className="text-[14px] font-bold font-quicksand"
+                  style={{ color: TXT }}
+                >
                   Nenhuma medição registrada
                 </p>
                 <p
                   className="text-[12px] mt-1 font-nunito leading-snug max-w-[220px] mx-auto"
                   style={{ color: TXT_MUTED }}
                 >
-                  Registre peso e altura para iniciar o histórico de crescimento de {childName}.
+                  Registre peso e altura para iniciar o histórico de crescimento de{' '}
+                  {childName}.
                 </p>
               </div>
             )}
           </ExpandableSection>
         </div>
 
+        {/* RELATÓRIO MÉDICO */}
         <PaywallGate feature="relatorio">
           <ExpandableSection
             id="report"
@@ -2879,7 +3224,6 @@ export default function SaudePage() {
           >
             <div>
               <SectionLabel>Adicionar nota livre</SectionLabel>
-
               <textarea
                 value={quickNote}
                 onChange={e => setQuickNote(e.target.value)}
@@ -2887,12 +3231,15 @@ export default function SaudePage() {
                 rows={3}
                 style={{ ...inputStyle, resize: 'none' }}
               />
-
               <button
                 onClick={saveQuickNote}
                 disabled={savingNote || !quickNote.trim()}
                 className="mt-2 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
-                style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+                style={{
+                  backgroundColor: SAGE,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
                 {savingNote ? 'Salvando…' : 'Salvar nota'}
               </button>
@@ -2903,7 +3250,10 @@ export default function SaudePage() {
                   style={{ backgroundColor: SAGE_BG }}
                 >
                   <span className="text-[13px]">✓</span>
-                  <p className="text-[12px] font-semibold font-nunito" style={{ color: SAGE }}>
+                  <p
+                    className="text-[12px] font-semibold font-nunito"
+                    style={{ color: SAGE }}
+                  >
                     Nota salva com data e hora
                   </p>
                 </div>
@@ -2918,12 +3268,18 @@ export default function SaudePage() {
                     <div
                       key={i}
                       className="rounded-2xl px-4 py-3"
-                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
                       <p className="text-[12px] font-nunito leading-snug" style={{ color: TXT }}>
                         {n.text}
                       </p>
-                      <p className="text-[10px] font-nunito mt-1.5" style={{ color: TXT_MUTED }}>
+                      <p
+                        className="text-[10px] font-nunito mt-1.5"
+                        style={{ color: TXT_MUTED }}
+                      >
                         {n.date.toLocaleString('pt-BR', {
                           day: '2-digit',
                           month: '2-digit',
@@ -2946,7 +3302,10 @@ export default function SaudePage() {
                     <div
                       key={entry.id}
                       className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
-                      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
                     >
                       <div className="flex flex-wrap gap-1 flex-1 min-w-0">
                         {entry.symptoms.slice(0, 3).map(s => (
@@ -2959,13 +3318,18 @@ export default function SaudePage() {
                           </span>
                         ))}
                         {entry.symptoms.length > 3 && (
-                          <span className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>
+                          <span
+                            className="text-[10px] font-nunito"
+                            style={{ color: TXT_MUTED }}
+                          >
                             +{entry.symptoms.length - 3}
                           </span>
                         )}
                       </div>
-
-                      <p className="text-[10px] font-nunito flex-shrink-0" style={{ color: TXT_MUTED }}>
+                      <p
+                        className="text-[10px] font-nunito flex-shrink-0"
+                        style={{ color: TXT_MUTED }}
+                      >
                         {entry.date.toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: '2-digit',
@@ -3021,7 +3385,9 @@ export default function SaudePage() {
             userId={user.id}
             onClose={() => setShowConsultModal(false)}
             onSaved={entry =>
-              setConsultations(prev => [...prev, entry].sort((a, b) => b.date.localeCompare(a.date)))
+              setConsultations(prev =>
+                [...prev, entry].sort((a, b) => b.date.localeCompare(a.date))
+              )
             }
           />
         )}
@@ -3051,7 +3417,9 @@ export default function SaudePage() {
           <GrowthEditModal
             entry={editingGrowthEntry}
             onClose={() => setEditingGrowthEntry(null)}
-            onSave={payload => updateGrowthMeasurement(editingGrowthEntry.id, payload)}
+            onSave={payload =>
+              updateGrowthMeasurement(editingGrowthEntry.id, payload)
+            }
           />
         )}
       </AnimatePresence>

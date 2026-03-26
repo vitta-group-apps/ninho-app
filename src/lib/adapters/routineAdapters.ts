@@ -24,19 +24,29 @@ function parsePayload<T extends RoutineLogType>(
   type: T,
   notes: string | null
 ): RoutinePayloadMap[T] {
-  const raw = asObject(safeJsonParse(notes));
+  const parsed = safeJsonParse(notes);
+  const raw = asObject(parsed);
 
   switch (type) {
     case 'sleep':
       return {
-        quality: typeof raw.quality === 'string' ? raw.quality as 'good' | 'ok' | 'bad' : null,
+        quality:
+          raw.quality === 'good' || raw.quality === 'ok' || raw.quality === 'bad'
+            ? raw.quality
+            : null,
         location: typeof raw.location === 'string' ? raw.location : null,
       } as RoutinePayloadMap[T];
 
     case 'feed':
       return {
-        mode: typeof raw.mode === 'string' ? raw.mode as 'breastfeeding' | 'bottle' | 'solid' : null,
-        side: typeof raw.side === 'string' ? raw.side as 'left' | 'right' | 'both' : null,
+        mode:
+          raw.mode === 'breastfeeding' || raw.mode === 'bottle' || raw.mode === 'solid'
+            ? raw.mode
+            : null,
+        side:
+          raw.side === 'left' || raw.side === 'right' || raw.side === 'both'
+            ? raw.side
+            : null,
         amountMl: typeof raw.amountMl === 'number' ? raw.amountMl : null,
         food: typeof raw.food === 'string' ? raw.food : null,
       } as RoutinePayloadMap[T];
@@ -49,10 +59,14 @@ function parsePayload<T extends RoutineLogType>(
         poopTexture: typeof raw.poopTexture === 'string' ? raw.poopTexture : null,
       } as RoutinePayloadMap[T];
 
-    case 'note':
+    case 'note': {
+      const fallbackText =
+        typeof parsed === 'string' ? parsed : typeof notes === 'string' ? notes : null;
+
       return {
-        text: typeof raw.text === 'string' ? raw.text : notes,
+        text: typeof raw.text === 'string' ? raw.text : fallbackText,
       } as RoutinePayloadMap[T];
+    }
 
     default:
       return {} as RoutinePayloadMap[T];

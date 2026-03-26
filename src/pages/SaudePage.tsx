@@ -24,6 +24,14 @@ import { getAgeContext } from '@/lib/eventSystem';
 import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PaywallGate } from '@/components/PaywallGate';
+import type {
+  ConsultationRecord,
+  GrowthRecord,
+  MedicalNoteRecord,
+  MedicationRecord,
+  SymptomRecord,
+  VaccineRecord,
+} from '@/lib/contracts/health';
 
 const SAGE = '#789687';
 const AMBER = '#C8894A';
@@ -89,6 +97,11 @@ const COMPLEMENTARY_VACCINES: {
   },
 ];
 
+/**
+ * Tipos de UI da tela.
+ * O contrato oficial do banco fica em src/lib/contracts/health.ts
+ * Aqui existem só os shapes prontos para renderização.
+ */
 interface GrowthEntry {
   id: string;
   weight?: number;
@@ -148,6 +161,86 @@ interface MedicationFormState {
   active: boolean;
 }
 
+/**
+ * Adapters locais temporários.
+ * A ideia correta é migrar isso depois para src/lib/adapters/healthAdapters.ts,
+ * mas já deixamos a tela toda consumindo contratos de forma padronizada.
+ */
+function consultationRecordToEntry(record: ConsultationRecord): ConsultationEntry {
+  return {
+    id: record.id,
+    doctor: record.doctorName ?? '',
+    specialty: record.specialty ?? '',
+    location: record.location ?? '',
+    date: record.date,
+    note: record.notes ?? '',
+  };
+}
+
+function growthRecordToEntry(record: GrowthRecord): GrowthEntry {
+  return {
+    id: record.id,
+    weight: record.weightKg ?? undefined,
+    height: record.heightCm ?? undefined,
+    headCircumference: record.headCircumferenceCm ?? undefined,
+    note: record.notes ?? undefined,
+    date: new Date(`${record.measuredOn}T12:00:00`),
+    edited: false,
+  };
+}
+
+function symptomRecordToEntry(record: SymptomRecord): SymptomEntry {
+  return {
+    id: record.id,
+    symptoms: Array.isArray(record.symptoms) ? record.symptoms : [],
+    note: record.notes ?? undefined,
+    severity: record.severity ?? undefined,
+    temperatureC: record.temperatureC ?? undefined,
+    date: new Date(record.occurredAt),
+  };
+}
+
+function medicalNoteRecordToEntry(record: MedicalNoteRecord): NoteEntry {
+  return {
+    id: record.id,
+    text: record.note,
+    source: record.source ?? undefined,
+    date: new Date(record.notedAt),
+  };
+}
+
+function medicationRecordToEntry(record: MedicationRecord): MedicationEntry {
+  return {
+    id: record.id,
+    name: record.name,
+    dosage: record.dosage ?? '',
+    frequency: record.frequency ?? '',
+    startDate: record.startDate ?? '',
+    endDate: record.endDate ?? '',
+    note: record.notes ?? '',
+    active: record.isActive,
+    createdAt: record.createdAt,
+    authorId: record.authorId,
+    childId: record.childId,
+  };
+}
+
+function vaccineRecordIsApplied(record: VaccineRecord): boolean {
+  return record.status === 'applied' && !!record.vaccineCode;
+}
+
+function medicationToFormState(entry: MedicationEntry): MedicationFormState {
+  return {
+    name: entry.name ?? '',
+    dosage: entry.dosage ?? '',
+    frequency: entry.frequency ?? '',
+    startDate: entry.startDate ?? '',
+    endDate: entry.endDate ?? '',
+    note: entry.note ?? '',
+    active: entry.active ?? true,
+  };
+}
+
 function computeVaccineState(ageMonths: number, appliedVaccineIds: Set<string>) {
   const due = vaccineSchedule.filter(v => {
     const vm = v.ageMonths ?? 0;
@@ -203,34 +296,6 @@ function sortByIsoDateDesc<T extends { startDate?: string; date?: string; create
     const bDate = b.startDate ?? b.date ?? b.createdAt ?? '';
     return bDate.localeCompare(aDate);
   });
-}
-
-function toMedicationEntry(row: Record<string, unknown>): MedicationEntry {
-  return {
-    id: String(row.id ?? ''),
-    name: typeof row.name === 'string' ? row.name : '',
-    dosage: typeof row.dosage === 'string' ? row.dosage : '',
-    frequency: typeof row.frequency === 'string' ? row.frequency : '',
-    startDate: typeof row.start_date === 'string' ? row.start_date : '',
-    endDate: typeof row.end_date === 'string' ? row.end_date : '',
-    note: typeof row.notes === 'string' ? row.notes : '',
-    active: row.is_active === true,
-    createdAt: typeof row.created_at === 'string' ? row.created_at : '',
-    authorId: typeof row.author_id === 'string' ? row.author_id : '',
-    childId: typeof row.child_id === 'string' ? row.child_id : '',
-  };
-}
-
-function medicationToFormState(entry: MedicationEntry): MedicationFormState {
-  return {
-    name: entry.name ?? '',
-    dosage: entry.dosage ?? '',
-    frequency: entry.frequency ?? '',
-    startDate: entry.startDate ?? '',
-    endDate: entry.endDate ?? '',
-    note: entry.note ?? '',
-    active: entry.active ?? true,
-  };
 }
 
 const SYMPTOM_CHIPS = [
@@ -789,15 +854,20 @@ function ConsultationModal({
 
       if (error) throw error;
 
-      onSaved({
+      const record: ConsultationRecord = {
         id: data.id,
-        doctor: data.doctor_name ?? '',
-        specialty: data.specialty ?? '',
-        location: data.location ?? '',
+        childId: data.child_id,
+        authorId: data.author_id,
         date: data.consultation_date,
-        note: data.notes ?? '',
-      });
+        doctorName: data.doctor_name,
+        specialty: data.specialty,
+        location: data.location,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
 
+      onSaved(consultationRecordToEntry(record));
       toast({ title: '🩺 Consulta registrada' });
       onClose();
     } catch {
@@ -998,27 +1068,40 @@ function MedicationModal({
     setSaving(true);
 
     try {
-      const payload = {
-        child_id: childId,
-        author_id: userId,
-        name: form.name.trim(),
-        dosage: form.dosage.trim() || null,
-        frequency: form.frequency.trim() || null,
-        start_date: form.startDate || null,
-        end_date: form.endDate || null,
-        is_active: form.active,
-        notes: form.note.trim() || null,
-      };
-
       const { data, error } = await supabase
         .from('child_medications')
-        .insert(payload)
+        .insert({
+          child_id: childId,
+          author_id: userId,
+          name: form.name.trim(),
+          dosage: form.dosage.trim() || null,
+          frequency: form.frequency.trim() || null,
+          start_date: form.startDate || null,
+          end_date: form.endDate || null,
+          is_active: form.active,
+          notes: form.note.trim() || null,
+        })
         .select('*')
         .single();
 
       if (error) throw error;
 
-      onSaved(toMedicationEntry((data ?? {}) as Record<string, unknown>));
+      const record: MedicationRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        name: data.name,
+        dosage: data.dosage,
+        frequency: data.frequency,
+        startDate: data.start_date,
+        endDate: data.end_date,
+        isActive: data.is_active,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      onSaved(medicationRecordToEntry(record));
       toast({ title: '💊 Medicamento registrado' });
       onClose();
     } catch {
@@ -1836,7 +1919,9 @@ export default function SaudePage() {
             scheduled_age_months,
             scheduled_date,
             source,
-            notes
+            notes,
+            created_at,
+            updated_at
           `)
           .eq('child_id', activeChild.id),
 
@@ -1854,53 +1939,106 @@ export default function SaudePage() {
       if (vaccineRowsResult.error) throw vaccineRowsResult.error;
       if (medicationRowsResult.error) throw medicationRowsResult.error;
 
-      const consults: ConsultationEntry[] = (consultationsResult.data ?? []).map(row => ({
-        id: row.id,
-        doctor: row.doctor_name ?? '',
-        specialty: row.specialty ?? '',
-        location: row.location ?? '',
-        date: row.consultation_date,
-        note: row.notes ?? '',
-      }));
-
-      const growth: GrowthEntry[] = (growthResult.data ?? []).map(row => ({
-        id: row.id,
-        weight: row.weight_kg ?? undefined,
-        height: row.height_cm ?? undefined,
-        headCircumference: row.head_circumference_cm ?? undefined,
-        note: row.notes ?? undefined,
-        date: new Date(`${row.measured_on}T12:00:00`),
-        edited: false,
-      }));
-
-      const symptoms: SymptomEntry[] = (symptomsResult.data ?? []).map(row => ({
-        id: row.id,
-        symptoms: row.symptoms ?? [],
-        note: row.notes ?? undefined,
-        severity: row.severity ?? undefined,
-        temperatureC: row.temperature_c ?? undefined,
-        date: new Date(row.occurred_at),
-      }));
-
-      const notes: NoteEntry[] = (notesResult.data ?? []).map(row => ({
-        id: row.id,
-        text: row.note,
-        source: row.source ?? undefined,
-        date: new Date(row.noted_at),
-      }));
-
-      const meds = (medicationRowsResult.data ?? []).map(row =>
-        toMedicationEntry(row as unknown as Record<string, unknown>)
+      const consultationRecords: ConsultationRecord[] = (consultationsResult.data ?? []).map(
+        row => ({
+          id: row.id,
+          childId: row.child_id,
+          authorId: row.author_id,
+          date: row.consultation_date,
+          doctorName: row.doctor_name,
+          specialty: row.specialty,
+          location: row.location,
+          notes: row.notes,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })
       );
+
+      const growthRecords: GrowthRecord[] = (growthResult.data ?? []).map(row => ({
+        id: row.id,
+        childId: row.child_id,
+        authorId: row.author_id,
+        measuredOn: row.measured_on,
+        weightKg: row.weight_kg,
+        heightCm: row.height_cm,
+        headCircumferenceCm: row.head_circumference_cm,
+        notes: row.notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      const symptomRecords: SymptomRecord[] = (symptomsResult.data ?? []).map(row => ({
+        id: row.id,
+        childId: row.child_id,
+        authorId: row.author_id,
+        occurredAt: row.occurred_at,
+        symptoms: row.symptoms ?? [],
+        severity: row.severity,
+        temperatureC: row.temperature_c,
+        notes: row.notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      const noteRecords: MedicalNoteRecord[] = (notesResult.data ?? []).map(row => ({
+        id: row.id,
+        childId: row.child_id,
+        authorId: row.author_id,
+        notedAt: row.noted_at,
+        note: row.note,
+        source: row.source,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      const medicationRecords: MedicationRecord[] = (medicationRowsResult.data ?? []).map(
+        row => ({
+          id: row.id,
+          childId: row.child_id,
+          authorId: row.author_id,
+          name: row.name,
+          dosage: row.dosage,
+          frequency: row.frequency,
+          startDate: row.start_date,
+          endDate: row.end_date,
+          isActive: row.is_active,
+          notes: row.notes,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })
+      );
+
+      const vaccineRecords: VaccineRecord[] = (vaccineRowsResult.data ?? []).map(row => ({
+        id: row.id,
+        childId: row.child_id,
+        vaccineId: row.vaccine_id,
+        vaccineCode: row.vaccine_code,
+        vaccineName: row.vaccine_name,
+        doseLabel: row.dose_label,
+        scheduledAgeMonths: row.scheduled_age_months,
+        scheduledDate: row.scheduled_date,
+        appliedDate: row.applied_date,
+        status: row.status,
+        source: row.source,
+        notes: row.notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      const consults = consultationRecords.map(consultationRecordToEntry);
+      const growth = growthRecords.map(growthRecordToEntry);
+      const symptoms = symptomRecords.map(symptomRecordToEntry);
+      const notes = noteRecords.map(medicalNoteRecordToEntry);
+      const meds = medicationRecords.map(medicationRecordToEntry);
 
       const appliedIds = new Set<string>();
       const appliedDates: Record<string, string> = {};
 
-      for (const row of vaccineRowsResult.data ?? []) {
-        if (row.status === 'applied' && row.vaccine_code) {
-          appliedIds.add(row.vaccine_code);
-          if (row.applied_date) {
-            appliedDates[row.vaccine_code] = row.applied_date;
+      for (const record of vaccineRecords) {
+        if (vaccineRecordIsApplied(record) && record.vaccineCode) {
+          appliedIds.add(record.vaccineCode);
+          if (record.appliedDate) {
+            appliedDates[record.vaccineCode] = record.appliedDate;
           }
         }
       }
@@ -1949,15 +2087,18 @@ export default function SaudePage() {
 
       if (error) throw error;
 
-      setSavedNotes(prev => [
-        {
-          id: data.id,
-          text: data.note,
-          source: data.source ?? undefined,
-          date: new Date(data.noted_at),
-        },
-        ...prev,
-      ]);
+      const record: MedicalNoteRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        notedAt: data.noted_at,
+        note: data.note,
+        source: data.source,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      setSavedNotes(prev => [medicalNoteRecordToEntry(record), ...prev]);
 
       setQuickNote('');
       setNoteSavedFeedback(true);
@@ -1983,8 +2124,7 @@ export default function SaudePage() {
     setGrowthSaving(true);
 
     try {
-      const measuredOn =
-        growthForm.date || new Date().toISOString().split('T')[0];
+      const measuredOn = growthForm.date || new Date().toISOString().split('T')[0];
 
       const { data, error } = await supabase
         .from('child_growth_measurements')
@@ -1997,26 +2137,28 @@ export default function SaudePage() {
           head_circumference_cm: growthForm.headCircumference
             ? parseFloat(growthForm.headCircumference)
             : null,
-          notes: growthForm.note ?? null,
+          notes: growthForm.note?.trim() || null,
         })
         .select('*')
         .single();
 
       if (error) throw error;
 
+      const record: GrowthRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        measuredOn: data.measured_on,
+        weightKg: data.weight_kg,
+        heightCm: data.height_cm,
+        headCircumferenceCm: data.head_circumference_cm,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
       setGrowthHistory(prev =>
-        sortGrowthHistoryDesc([
-          {
-            id: data.id,
-            weight: data.weight_kg ?? undefined,
-            height: data.height_cm ?? undefined,
-            headCircumference: data.head_circumference_cm ?? undefined,
-            note: data.notes ?? undefined,
-            date: new Date(`${data.measured_on}T12:00:00`),
-            edited: false,
-          },
-          ...prev,
-        ])
+        sortGrowthHistoryDesc([growthRecordToEntry(record), ...prev])
       );
 
       setGrowthForm({
@@ -2044,7 +2186,7 @@ export default function SaudePage() {
     if (!activeChild || !user) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('child_growth_measurements')
         .update({
           measured_on: payload.date,
@@ -2054,26 +2196,32 @@ export default function SaudePage() {
           notes: payload.note ?? null,
         })
         .eq('id', entryId)
-        .eq('child_id', activeChild.id);
+        .eq('child_id', activeChild.id)
+        .select('*')
+        .single();
 
       if (error) throw error;
 
+      const record: GrowthRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        measuredOn: data.measured_on,
+        weightKg: data.weight_kg,
+        heightCm: data.height_cm,
+        headCircumferenceCm: data.head_circumference_cm,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      const updatedEntry = {
+        ...growthRecordToEntry(record),
+        edited: true,
+      };
+
       setGrowthHistory(prev =>
-        sortGrowthHistoryDesc(
-          prev.map(entry =>
-            entry.id === entryId
-              ? {
-                  ...entry,
-                  weight: payload.weight,
-                  height: payload.height,
-                  headCircumference: payload.headCircumference,
-                  note: payload.note,
-                  date: new Date(`${payload.date}T12:00:00`),
-                  edited: true,
-                }
-              : entry
-          )
-        )
+        sortGrowthHistoryDesc(prev.map(entry => (entry.id === entryId ? updatedEntry : entry)))
       );
 
       setEditingGrowthEntry(null);
@@ -2087,19 +2235,17 @@ export default function SaudePage() {
     if (!activeChild || !user) return;
 
     try {
-      const updatePayload = {
-        name: payload.name.trim(),
-        dosage: payload.dosage.trim() || null,
-        frequency: payload.frequency.trim() || null,
-        start_date: payload.startDate || null,
-        end_date: payload.endDate || null,
-        is_active: payload.active,
-        notes: payload.note.trim() || null,
-      };
-
       const { data, error } = await supabase
         .from('child_medications')
-        .update(updatePayload)
+        .update({
+          name: payload.name.trim(),
+          dosage: payload.dosage.trim() || null,
+          frequency: payload.frequency.trim() || null,
+          start_date: payload.startDate || null,
+          end_date: payload.endDate || null,
+          is_active: payload.active,
+          notes: payload.note.trim() || null,
+        })
         .eq('id', entryId)
         .eq('child_id', activeChild.id)
         .select('*')
@@ -2107,7 +2253,22 @@ export default function SaudePage() {
 
       if (error) throw error;
 
-      const updatedEntry = toMedicationEntry((data ?? {}) as Record<string, unknown>);
+      const record: MedicationRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        name: data.name,
+        dosage: data.dosage,
+        frequency: data.frequency,
+        startDate: data.start_date,
+        endDate: data.end_date,
+        isActive: data.is_active,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      const updatedEntry = medicationRecordToEntry(record);
 
       setMedications(prev =>
         sortByIsoDateDesc(prev.map(item => (item.id === entryId ? updatedEntry : item)))
@@ -2148,17 +2309,20 @@ export default function SaudePage() {
 
       if (error) throw error;
 
-      setSymptomHistory(prev => [
-        {
-          id: data.id,
-          symptoms: data.symptoms ?? [],
-          note: data.notes ?? undefined,
-          severity: data.severity ?? undefined,
-          temperatureC: data.temperature_c ?? undefined,
-          date: new Date(data.occurred_at),
-        },
-        ...prev,
-      ]);
+      const record: SymptomRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        occurredAt: data.occurred_at,
+        symptoms: data.symptoms ?? [],
+        severity: data.severity,
+        temperatureC: data.temperature_c,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      setSymptomHistory(prev => [symptomRecordToEntry(record), ...prev]);
 
       setLoggedSymptoms([]);
       setSymptomNote('');
@@ -2182,9 +2346,7 @@ export default function SaudePage() {
     const first = vaccineState.due[0];
     priorityItems.push({
       emoji: '💉',
-      title: `${vaccineState.due.length} vacina${
-        vaccineState.due.length > 1 ? 's' : ''
-      } a confirmar`,
+      title: `${vaccineState.due.length} vacina${vaccineState.due.length > 1 ? 's' : ''} a confirmar`,
       body: `${first.shortName} (${first.doses}) prevista para esta fase.`,
       cta: 'Ver',
       sectionId: 'vaccines',
@@ -3347,7 +3509,8 @@ export default function SaudePage() {
                         className="text-[12px] font-nunito"
                         style={{ color: TXT_MUTED }}
                       >
-                        Circunferência cefálica: <strong style={{ color: TXT }}>{latest.headCircumference} cm</strong>
+                        Circunferência cefálica:{' '}
+                        <strong style={{ color: TXT }}>{latest.headCircumference} cm</strong>
                       </p>
                     )}
 
@@ -3525,9 +3688,7 @@ export default function SaudePage() {
                 <input
                   type="date"
                   value={growthForm.date ?? ''}
-                  onChange={e =>
-                    setGrowthForm(f => ({ ...f, date: e.target.value }))
-                  }
+                  onChange={e => setGrowthForm(f => ({ ...f, date: e.target.value }))}
                   style={{ ...inputStyle, marginBottom: 12 }}
                 />
               </div>
@@ -3546,9 +3707,7 @@ export default function SaudePage() {
                     step="0.01"
                     placeholder="Ex: 5.2"
                     value={growthForm.weight ?? ''}
-                    onChange={e =>
-                      setGrowthForm(f => ({ ...f, weight: e.target.value }))
-                    }
+                    onChange={e => setGrowthForm(f => ({ ...f, weight: e.target.value }))}
                     style={inputStyle}
                   />
                 </div>
@@ -3566,9 +3725,7 @@ export default function SaudePage() {
                     step="0.1"
                     placeholder="Ex: 58.5"
                     value={growthForm.height ?? ''}
-                    onChange={e =>
-                      setGrowthForm(f => ({ ...f, height: e.target.value }))
-                    }
+                    onChange={e => setGrowthForm(f => ({ ...f, height: e.target.value }))}
                     style={inputStyle}
                   />
                 </div>

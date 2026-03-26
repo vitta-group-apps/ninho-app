@@ -11,6 +11,24 @@ function asObject(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
+function asStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const onlyStrings = value.filter((item): item is string => typeof item === 'string');
+  return onlyStrings;
+}
+
 function parsePayload<T extends RoutineLogType>(
   type: T,
   rawPayload: unknown,
@@ -25,34 +43,49 @@ function parsePayload<T extends RoutineLogType>(
           raw.quality === 'good' || raw.quality === 'ok' || raw.quality === 'bad'
             ? raw.quality
             : null,
-        location: typeof raw.location === 'string' ? raw.location : null,
+        location: asString(raw.location),
       } as RoutinePayloadMap[T];
 
     case 'feed':
       return {
         mode:
-          raw.mode === 'breastfeeding' || raw.mode === 'bottle' || raw.mode === 'solid'
+          raw.mode === 'breastfeeding' ||
+          raw.mode === 'bottle' ||
+          raw.mode === 'solid' ||
+          raw.mode === 'manual'
             ? raw.mode
             : null,
         side:
           raw.side === 'left' || raw.side === 'right' || raw.side === 'both'
             ? raw.side
             : null,
-        amountMl: typeof raw.amountMl === 'number' ? raw.amountMl : null,
-        food: typeof raw.food === 'string' ? raw.food : null,
+        amountMl: asNumber(raw.amountMl),
+        food: asString(raw.food),
+
+        leftSeconds: asNumber(raw.leftSeconds),
+        rightSeconds: asNumber(raw.rightSeconds),
+        totalSeconds: asNumber(raw.totalSeconds),
+        switches: asNumber(raw.switches),
+
+        tags: asStringArray(raw.tags),
+        includeInReport: asBoolean(raw.includeInReport),
       } as RoutinePayloadMap[T];
 
     case 'diaper':
       return {
-        pee: typeof raw.pee === 'boolean' ? raw.pee : false,
-        poop: typeof raw.poop === 'boolean' ? raw.poop : false,
-        poopColor: typeof raw.poopColor === 'string' ? raw.poopColor : null,
-        poopTexture: typeof raw.poopTexture === 'string' ? raw.poopTexture : null,
+        pee: raw.pee === true,
+        poop: raw.poop === true,
+        quantity: asString(raw.quantity),
+        peeColor: asString(raw.peeColor),
+        poopColor: asString(raw.poopColor),
+        poopTexture: asString(raw.poopTexture),
+        includeInReport: asBoolean(raw.includeInReport),
       } as RoutinePayloadMap[T];
 
     case 'note':
       return {
-        text: typeof raw.text === 'string' ? raw.text : notes,
+        text: asString(raw.text) ?? notes,
+        includeInReport: asBoolean(raw.includeInReport),
       } as RoutinePayloadMap[T];
 
     default:

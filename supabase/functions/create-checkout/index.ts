@@ -18,7 +18,7 @@ const logStep = (step: string) => {
   console.log(`[CREATE-CHECKOUT] ${step}`);
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async req => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -54,10 +54,16 @@ Deno.serve(async (req) => {
     );
 
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) throw new Error('User not authenticated');
+
+    if (userError || !userData.user) {
+      throw new Error('User not authenticated');
+    }
 
     const user = userData.user;
-    if (!user.email) throw new Error('User email not available');
+
+    if (!user.email) {
+      throw new Error('User email not available');
+    }
 
     logStep('User authenticated');
 
@@ -69,12 +75,12 @@ Deno.serve(async (req) => {
       .limit(1);
 
     if (ownedFamilyError) {
-      throw new Error('Failed to load user family');
+      throw new Error('Failed to load owned family');
     }
 
     let familyId = ownedFamilies?.[0]?.id ?? null;
 
-    // 2. If not owner, try active family membership
+    // 2. If not owner, try active family member relationship
     if (!familyId) {
       const { data: familyMembers, error: familyMembersError } = await supabase
         .from('family_members')
@@ -98,7 +104,6 @@ Deno.serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' });
 
-    // Create or retrieve Stripe customer by email
     const customers = await stripe.customers.list({
       email: user.email,
       limit: 1,

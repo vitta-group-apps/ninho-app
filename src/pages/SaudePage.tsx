@@ -514,8 +514,9 @@ function VaccineConfirmModal({
 
     try {
       const { error } = await supabase.from('child_vaccines').upsert(
-        {
+        [{
           child_id: childId,
+          vaccine_id: vaccine.id,
           vaccine_code: vaccine.id,
           vaccine_name: vaccine.shortName,
           dose_label: vaccine.doses ?? '',
@@ -525,7 +526,7 @@ function VaccineConfirmModal({
           status: 'applied',
           source: 'app',
           notes: null,
-        },
+        }],
         {
           onConflict: 'child_id,vaccine_code,dose_label',
         }

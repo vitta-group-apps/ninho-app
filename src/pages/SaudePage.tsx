@@ -2052,273 +2052,281 @@ export default function SaudePage() {
   }, [loadData]);
 
   async function saveQuickNote() {
-    if (!quickNote.trim() || !activeChild || !user) return;
+  if (!quickNote.trim() || !activeChild || !user) return;
 
-    setSavingNote(true);
+  setSavingNote(true);
 
-    try {
-      const now = new Date();
+  try {
+    const now = new Date();
 
-      const { data, error } = await supabase
-        .from('child_medical_notes')
-        .insert({
-          child_id: activeChild.id,
-          author_id: user.id,
-          note: quickNote.trim(),
-          noted_at: now.toISOString(),
-          source: 'manual',
-        })
-        .select('*')
-        .single();
+    const { data, error } = await supabase
+      .from('child_medical_notes')
+      .insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        note: quickNote.trim(),
+        noted_at: now.toISOString(),
+        source: 'manual',
+      })
+      .select('*')
+      .single();
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const record: MedicalNoteRecord = {
-        id: data.id,
-        childId: data.child_id,
-        authorId: data.author_id,
-        notedAt: data.noted_at,
-        note: data.note,
-        source: data.source,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
+    const record = toMedicalNoteRecord(data);
 
-      setSavedNotes(prev => [medicalNoteRecordToEntry(record), ...prev]);
-
-      setQuickNote('');
-      setNoteSavedFeedback(true);
-      setTimeout(() => setNoteSavedFeedback(false), 2500);
-
-      toast({ title: '📋 Nota salva no relatório' });
-    } catch {
-      toast({ title: 'Erro ao salvar nota', variant: 'destructive' });
-    } finally {
-      setSavingNote(false);
+    if (!isValidMedicalNoteRecord(record)) {
+      throw new Error('Invalid medical note record returned from database');
     }
+
+    const nextNote: NoteEntry = {
+      id: record.id,
+      text: record.note,
+      source: record.source ?? undefined,
+      date: new Date(record.notedAt),
+    };
+
+    setSavedNotes(prev => [nextNote, ...prev]);
+
+    setQuickNote('');
+    setNoteSavedFeedback(true);
+    setTimeout(() => setNoteSavedFeedback(false), 2500);
+
+    toast({ title: '📋 Nota salva no relatório' });
+  } catch {
+    toast({ title: 'Erro ao salvar nota', variant: 'destructive' });
+  } finally {
+    setSavingNote(false);
   }
+}
 
-  async function saveGrowthMeasurement() {
-    if (
-      !activeChild ||
-      !user ||
-      (!growthForm.weight && !growthForm.height && !growthForm.headCircumference)
-    ) {
-      return;
-    }
-
-    setGrowthSaving(true);
-
-    try {
-      const measuredOn = growthForm.date || new Date().toISOString().split('T')[0];
-
-      const { data, error } = await supabase
-        .from('child_growth_measurements')
-        .insert({
-          child_id: activeChild.id,
-          author_id: user.id,
-          measured_on: measuredOn,
-          weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
-          height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
-          head_circumference_cm: growthForm.headCircumference
-            ? parseFloat(growthForm.headCircumference)
-            : null,
-          notes: growthForm.note?.trim() || null,
-        })
-        .select('*')
-        .single();
-
-      if (error) throw error;
-
-      const record: GrowthRecord = {
-        id: data.id,
-        childId: data.child_id,
-        authorId: data.author_id,
-        measuredOn: data.measured_on,
-        weightKg: data.weight_kg,
-        heightCm: data.height_cm,
-        headCircumferenceCm: data.head_circumference_cm,
-        notes: data.notes,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-
-      setGrowthHistory(prev =>
-        sortGrowthHistoryDesc([growthRecordToEntry(record), ...prev])
-      );
-
-      setGrowthForm({
-        date: new Date().toISOString().split('T')[0],
-      });
-
-      toast({ title: '📏 Medição salva' });
-    } catch {
-      toast({ title: 'Erro ao salvar medição', variant: 'destructive' });
-    } finally {
-      setGrowthSaving(false);
-    }
-  }
-
-  async function updateGrowthMeasurement(
-    entryId: string,
-    payload: {
-      weight?: number;
-      height?: number;
-      headCircumference?: number;
-      note?: string;
-      date: string;
-    }
+async function saveGrowthMeasurement() {
+  if (
+    !activeChild ||
+    !user ||
+    (!growthForm.weight && !growthForm.height && !growthForm.headCircumference)
   ) {
-    if (!activeChild || !user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('child_growth_measurements')
-        .update({
-          measured_on: payload.date,
-          weight_kg: payload.weight ?? null,
-          height_cm: payload.height ?? null,
-          head_circumference_cm: payload.headCircumference ?? null,
-          notes: payload.note ?? null,
-        })
-        .eq('id', entryId)
-        .eq('child_id', activeChild.id)
-        .select('*')
-        .single();
-
-      if (error) throw error;
-
-      const record: GrowthRecord = {
-        id: data.id,
-        childId: data.child_id,
-        authorId: data.author_id,
-        measuredOn: data.measured_on,
-        weightKg: data.weight_kg,
-        heightCm: data.height_cm,
-        headCircumferenceCm: data.head_circumference_cm,
-        notes: data.notes,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-
-      const updatedEntry = {
-        ...growthRecordToEntry(record),
-        edited: true,
-      };
-
-      setGrowthHistory(prev =>
-        sortGrowthHistoryDesc(prev.map(entry => (entry.id === entryId ? updatedEntry : entry)))
-      );
-
-      setEditingGrowthEntry(null);
-      toast({ title: '📏 Medição atualizada' });
-    } catch {
-      toast({ title: 'Erro ao atualizar medição', variant: 'destructive' });
-    }
+    return;
   }
 
-  async function updateMedication(entryId: string, payload: MedicationFormState) {
-    if (!activeChild || !user) return;
+  setGrowthSaving(true);
 
-    try {
-      const { data, error } = await supabase
-        .from('child_medications')
-        .update({
-          name: payload.name.trim(),
-          dosage: payload.dosage.trim() || null,
-          frequency: payload.frequency.trim() || null,
-          start_date: payload.startDate || null,
-          end_date: payload.endDate || null,
-          is_active: payload.active,
-          notes: payload.note.trim() || null,
-        })
-        .eq('id', entryId)
-        .eq('child_id', activeChild.id)
-        .select('*')
-        .single();
+  try {
+    const measuredOn = growthForm.date || new Date().toISOString().split('T')[0];
 
-      if (error) throw error;
+    const { data, error } = await supabase
+      .from('child_growth_measurements')
+      .insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        measured_on: measuredOn,
+        weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
+        height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
+        head_circumference_cm: growthForm.headCircumference
+          ? parseFloat(growthForm.headCircumference)
+          : null,
+        notes: growthForm.note?.trim() || null,
+      })
+      .select('*')
+      .single();
 
-      const record: MedicationRecord = {
-        id: data.id,
-        childId: data.child_id,
-        authorId: data.author_id,
-        name: data.name,
-        dosage: data.dosage,
-        frequency: data.frequency,
-        startDate: data.start_date,
-        endDate: data.end_date,
-        isActive: data.is_active,
-        notes: data.notes,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
+    if (error) throw error;
 
-      const updatedEntry = medicationRecordToEntry(record);
+    const record = toGrowthRecord(data);
 
-      setMedications(prev =>
-        sortByIsoDateDesc(prev.map(item => (item.id === entryId ? updatedEntry : item)))
-      );
-
-      setEditingMedicationEntry(null);
-      toast({ title: '💊 Medicamento atualizado' });
-    } catch {
-      toast({
-        title: 'Não foi possível atualizar o medicamento',
-        description: 'Tente novamente em instantes.',
-        variant: 'destructive',
-      });
+    if (!isValidGrowthRecord(record)) {
+      throw new Error('Invalid growth record returned from database');
     }
+
+    const nextGrowth: GrowthEntry = {
+      id: record.id,
+      weight: record.weightKg ?? undefined,
+      height: record.heightCm ?? undefined,
+      headCircumference: record.headCircumferenceCm ?? undefined,
+      note: record.notes ?? undefined,
+      date: new Date(`${record.measuredOn}T12:00:00`),
+      edited: false,
+    };
+
+    setGrowthHistory(prev => sortGrowthHistoryDesc([nextGrowth, ...prev]));
+
+    setGrowthForm({
+      date: new Date().toISOString().split('T')[0],
+    });
+
+    toast({ title: '📏 Medição salva' });
+  } catch {
+    toast({ title: 'Erro ao salvar medição', variant: 'destructive' });
+  } finally {
+    setGrowthSaving(false);
   }
+}
 
-  async function saveSymptoms() {
-    if (!activeChild || !user || loggedSymptoms.length === 0) return;
+async function updateGrowthMeasurement(
+  entryId: string,
+  payload: {
+    weight?: number;
+    height?: number;
+    headCircumference?: number;
+    note?: string;
+    date: string;
+  }
+) {
+  if (!activeChild || !user) return;
 
-    setSymptomSaving(true);
+  try {
+    const { data, error } = await supabase
+      .from('child_growth_measurements')
+      .update({
+        measured_on: payload.date,
+        weight_kg: payload.weight ?? null,
+        height_cm: payload.height ?? null,
+        head_circumference_cm: payload.headCircumference ?? null,
+        notes: payload.note?.trim() || null,
+      })
+      .eq('id', entryId)
+      .eq('child_id', activeChild.id)
+      .select('*')
+      .single();
 
-    try {
-      const now = new Date();
+    if (error) throw error;
 
-      const { data, error } = await supabase
-        .from('child_symptom_logs')
-        .insert({
-          child_id: activeChild.id,
-          author_id: user.id,
-          symptoms: loggedSymptoms,
-          notes: symptomNote.trim() || null,
-          occurred_at: now.toISOString(),
-          severity: null,
-          temperature_c: null,
-        })
-        .select('*')
-        .single();
+    const record = toGrowthRecord(data);
 
-      if (error) throw error;
-
-      const record: SymptomRecord = {
-        id: data.id,
-        childId: data.child_id,
-        authorId: data.author_id,
-        occurredAt: data.occurred_at,
-        symptoms: data.symptoms ?? [],
-        severity: data.severity,
-        temperatureC: data.temperature_c,
-        notes: data.notes,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-
-      setSymptomHistory(prev => [symptomRecordToEntry(record), ...prev]);
-
-      setLoggedSymptoms([]);
-      setSymptomNote('');
-      toast({ title: '🌡️ Sintomas registrados' });
-    } catch {
-      toast({ title: 'Erro ao salvar sintomas', variant: 'destructive' });
-    } finally {
-      setSymptomSaving(false);
+    if (!isValidGrowthRecord(record)) {
+      throw new Error('Invalid updated growth record returned from database');
     }
+
+    const updatedEntry: GrowthEntry = {
+      id: record.id,
+      weight: record.weightKg ?? undefined,
+      height: record.heightCm ?? undefined,
+      headCircumference: record.headCircumferenceCm ?? undefined,
+      note: record.notes ?? undefined,
+      date: new Date(`${record.measuredOn}T12:00:00`),
+      edited: true,
+    };
+
+    setGrowthHistory(prev =>
+      sortGrowthHistoryDesc(
+        prev.map(entry => (entry.id === entryId ? updatedEntry : entry))
+      )
+    );
+
+    setEditingGrowthEntry(null);
+    toast({ title: '📏 Medição atualizada' });
+  } catch {
+    toast({ title: 'Erro ao atualizar medição', variant: 'destructive' });
   }
+}
+
+async function updateMedication(entryId: string, payload: MedicationFormState) {
+  if (!activeChild || !user) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('child_medications')
+      .update({
+        name: payload.name.trim(),
+        dosage: payload.dosage.trim() || null,
+        frequency: payload.frequency.trim() || null,
+        start_date: payload.startDate || null,
+        end_date: payload.endDate || null,
+        is_active: payload.active,
+        notes: payload.note.trim() || null,
+      })
+      .eq('id', entryId)
+      .eq('child_id', activeChild.id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const record = toMedicationRecord(data);
+
+    if (!isValidMedicationRecord(record)) {
+      throw new Error('Invalid updated medication record returned from database');
+    }
+
+    const updatedEntry: MedicationEntry = {
+      id: record.id,
+      name: record.name,
+      dosage: record.dosage ?? '',
+      frequency: record.frequency ?? '',
+      startDate: record.startDate ?? '',
+      endDate: record.endDate ?? '',
+      note: record.notes ?? '',
+      active: record.isActive,
+      createdAt: record.createdAt,
+      authorId: record.authorId,
+      childId: record.childId,
+    };
+
+    setMedications(prev =>
+      sortByIsoDateDesc(prev.map(item => (item.id === entryId ? updatedEntry : item)))
+    );
+
+    setEditingMedicationEntry(null);
+    toast({ title: '💊 Medicamento atualizado' });
+  } catch {
+    toast({
+      title: 'Não foi possível atualizar o medicamento',
+      description: 'Tente novamente em instantes.',
+      variant: 'destructive',
+    });
+  }
+}
+
+async function saveSymptoms() {
+  if (!activeChild || !user || loggedSymptoms.length === 0) return;
+
+  setSymptomSaving(true);
+
+  try {
+    const now = new Date();
+
+    const { data, error } = await supabase
+      .from('child_symptom_logs')
+      .insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        symptoms: loggedSymptoms,
+        notes: symptomNote.trim() || null,
+        occurred_at: now.toISOString(),
+        severity: null,
+        temperature_c: null,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const record = toSymptomRecord(data);
+
+    if (!isValidSymptomRecord(record)) {
+      throw new Error('Invalid symptom record returned from database');
+    }
+
+    const nextSymptom: SymptomEntry = {
+      id: record.id,
+      symptoms: record.symptoms,
+      note: record.notes ?? undefined,
+      severity: record.severity ?? undefined,
+      temperatureC: record.temperatureC ?? undefined,
+      date: new Date(record.occurredAt),
+    };
+
+    setSymptomHistory(prev => [nextSymptom, ...prev]);
+
+    setLoggedSymptoms([]);
+    setSymptomNote('');
+    toast({ title: '🌡️ Sintomas registrados' });
+  } catch {
+    toast({ title: 'Erro ao salvar sintomas', variant: 'destructive' });
+  } finally {
+    setSymptomSaving(false);
+  }
+}
 
   const priorityItems: {
     emoji: string;

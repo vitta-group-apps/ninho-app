@@ -2071,8 +2071,6 @@ export default function SaudePage() {
   notes: payload.note.trim() || null,
 };
 
-      console.error('[child_medications update payload]', { entryId, updatePayload });
-
       const { data, error } = await supabase
         .from('child_medications')
         .update(updatePayload)
@@ -2081,10 +2079,7 @@ export default function SaudePage() {
         .select('*')
         .single();
 
-      if (error) {
-        console.error('[child_medications update error]', error);
-        throw error;
-      }
+      if (error) throw error;
 
       const updatedEntry = toMedicationEntry((data ?? {}) as Record<string, unknown>);
 
@@ -2096,14 +2091,10 @@ export default function SaudePage() {
 
       setEditingMedicationEntry(null);
       toast({ title: '💊 Medicamento atualizado' });
-    } catch (error) {
-      console.error('[update medication error]', error);
+    } catch {
       toast({
-        title: 'Erro ao atualizar medicamento',
-        description:
-          error instanceof Error
-            ? error.message
-            : JSON.stringify(error, null, 2),
+        title: 'Não foi possível atualizar o medicamento',
+        description: 'Tente novamente em instantes.',
         variant: 'destructive',
       });
     }

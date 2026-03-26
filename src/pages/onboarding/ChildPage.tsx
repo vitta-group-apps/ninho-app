@@ -10,18 +10,17 @@ import { useAuth } from '@/hooks/useAuth';
 import simboloNinho from '@/assets/simbolo-ninho.png';
 
 const SEX_OPTIONS = [
-  { value: 'F', label: 'Menina 👧' },
-  { value: 'M', label: 'Menino 👦' },
-  { value: '', label: 'Prefiro não dizer' },
-];
+  { value: 'female', label: 'Menina 👧' },
+  { value: 'male', label: 'Menino 👦' },
+  { value: 'unknown', label: 'Prefiro não dizer' },
+] as const;
 
 export default function ChildPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [childName, setChildName] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [sex, setSex] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [sexAtBirth, setSexAtBirth] = useState<'female' | 'male' | 'unknown'>('unknown');  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const isValid = childName.trim().length >= 1 && birthDate !== '';
@@ -37,11 +36,11 @@ export default function ChildPage() {
     setLoading(true);
     try {
       const { error: childError } = await supabase.from('children').insert({
-        family_id: familyId,
-        name: childName.trim(),
-        birth_date: birthDate,
-        sex: sex ?? null,
-      });
+  family_id: familyId,
+  name: childName.trim(),
+  birth_date: birthDate,
+  sex_at_birth: sexAtBirth,
+});
       if (childError) throw childError;
 
       await supabase
@@ -168,20 +167,20 @@ export default function ChildPage() {
                 fontFamily: 'Nunito, sans-serif', fontSize: 10, fontWeight: 700,
                 color: '#7A7A7A', textTransform: 'uppercase', letterSpacing: '0.5px'
               }}>
-              Sexo (opcional)
+              Sexo ao nascer (opcional)
             </label>
             <div className="flex flex-wrap gap-2">
               {SEX_OPTIONS.map(opt => (
                 <button
                   key={opt.value + opt.label}
                   type="button"
-                  onClick={() => setSex(s => s === opt.value ? null : opt.value)}
+                  onClick={() => setSexAtBirth(opt.value)}
                   className="px-4 py-2 rounded-full text-sm font-semibold transition-all"
                   style={{
                     fontFamily: 'Nunito, sans-serif',
-                    backgroundColor: sex === opt.value ? '#806e84' : '#fff',
-                    color: sex === opt.value ? 'white' : '#4b4b47',
-                    border: sex === opt.value ? 'none' : '1.5px solid #E5E0D8',
+                    backgroundColor: sexAtBirth === opt.value ? '#806e84' : '#fff',
+                    color: sexAtBirth === opt.value ? 'white' : '#4b4b47',
+                    border: sexAtBirth === opt.value ? 'none' : '1.5px solid #E5E0D8',
                     cursor: 'pointer',
                   }}
                 >

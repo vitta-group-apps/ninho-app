@@ -50,7 +50,6 @@ import {
   isValidSymptomRecord,
   isValidMedicalNoteRecord,
   isValidMedicationRecord,
-  isValidVaccineRecord,
 } from '@/lib/validators/healthValidators';
 
 const SAGE = '#789687';

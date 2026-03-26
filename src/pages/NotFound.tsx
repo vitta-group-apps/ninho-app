@@ -7,7 +7,7 @@ const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
-    console.error("404: rota inexistente:", location.pathname);
+    if (import.meta.env.DEV) console.warn('[404]', location.pathname);
   }, [location.pathname]);
 
   return (

@@ -514,8 +514,9 @@ function VaccineConfirmModal({
 
     try {
       const { error } = await supabase.from('child_vaccines').upsert(
-        {
+        [{
           child_id: childId,
+          vaccine_id: vaccine.id,
           vaccine_code: vaccine.id,
           vaccine_name: vaccine.shortName,
           dose_label: vaccine.doses ?? '',
@@ -525,7 +526,7 @@ function VaccineConfirmModal({
           status: 'applied',
           source: 'app',
           notes: null,
-        },
+        }],
         {
           onConflict: 'child_id,vaccine_code,dose_label',
         }
@@ -536,8 +537,7 @@ function VaccineConfirmModal({
       onConfirmed(vaccine.id, appliedDate);
       toast({ title: `✅ ${vaccine.shortName} confirmada` });
       onClose();
-    } catch (e) {
-      console.error('[vaccine confirm]', e);
+    } catch {
       toast({ title: 'Erro ao confirmar vacina', variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -1012,32 +1012,21 @@ function MedicationModal({
   notes: form.note.trim() || null,
 };
 
-      console.error('[child_medications insert payload]', payload);
-
       const { data, error } = await supabase
         .from('child_medications')
         .insert(payload)
         .select('*')
         .single();
 
-      if (error) {
-        console.error('[child_medications insert error]', error);
-        throw error;
-      }
-
-      console.error('[child_medications insert success]', data);
+      if (error) throw error;
 
       onSaved(toMedicationEntry((data ?? {}) as Record<string, unknown>));
       toast({ title: '💊 Medicamento registrado' });
       onClose();
-    } catch (error) {
-      console.error('[save medication full error]', error);
+    } catch {
       toast({
-        title: 'Erro ao salvar medicamento',
-        description:
-          error instanceof Error
-            ? error.message
-            : JSON.stringify(error, null, 2),
+        title: 'Não foi possível salvar o medicamento',
+        description: 'Tente novamente em instantes.',
         variant: 'destructive',
       });
     } finally {
@@ -1826,26 +1815,13 @@ export default function SaudePage() {
           .order('created_at', { ascending: false }),
       ]);
 
-      if (healthLogsResult.error) {
-        console.error('[load health_logs error]', healthLogsResult.error);
-        throw healthLogsResult.error;
-      }
-
-      if (vaccineRowsResult.error) {
-        console.error('[load child_vaccines error]', vaccineRowsResult.error);
-        throw vaccineRowsResult.error;
-      }
-
-      if (medicationRowsResult.error) {
-        console.error('[load child_medications error]', medicationRowsResult.error);
-        throw medicationRowsResult.error;
-      }
+      if (healthLogsResult.error) throw healthLogsResult.error;
+      if (vaccineRowsResult.error) throw vaccineRowsResult.error;
+      if (medicationRowsResult.error) throw medicationRowsResult.error;
 
       const healthData = healthLogsResult.data ?? [];
       const vaccineRows = vaccineRowsResult.data ?? [];
       const medicationRows = medicationRowsResult.data ?? [];
-
-      console.error('[load child_medications success]', medicationRows);
 
       const notes: NoteEntry[] = [];
       const growth: GrowthEntry[] = [];
@@ -1925,14 +1901,10 @@ export default function SaudePage() {
       setMedications(sortByIsoDateDesc(meds));
       setAppliedVaccineIds(appliedIds);
       setAppliedVaccineDates(appliedDates);
-    } catch (error) {
-      console.error('[SaudePage loadData full error]', error);
+    } catch {
       toast({
         title: 'Erro ao carregar dados de saúde',
-        description:
-          error instanceof Error
-            ? error.message
-            : JSON.stringify(error, null, 2),
+        description: 'Tente novamente em instantes.',
         variant: 'destructive',
       });
     } finally {
@@ -1991,7 +1963,7 @@ export default function SaudePage() {
     setGrowthSaving(true);
 
     try {
-      const updatedDate = new Date(`${payload.date}T23:59:59`);
+      const measuredAt = new Date();
 
       const { data, error } = await supabase
         .from('health_logs')
@@ -2100,8 +2072,6 @@ export default function SaudePage() {
   notes: payload.note.trim() || null,
 };
 
-      console.error('[child_medications update payload]', { entryId, updatePayload });
-
       const { data, error } = await supabase
         .from('child_medications')
         .update(updatePayload)
@@ -2110,10 +2080,7 @@ export default function SaudePage() {
         .select('*')
         .single();
 
-      if (error) {
-        console.error('[child_medications update error]', error);
-        throw error;
-      }
+      if (error) throw error;
 
       const updatedEntry = toMedicationEntry((data ?? {}) as Record<string, unknown>);
 
@@ -2125,14 +2092,10 @@ export default function SaudePage() {
 
       setEditingMedicationEntry(null);
       toast({ title: '💊 Medicamento atualizado' });
-    } catch (error) {
-      console.error('[update medication error]', error);
+    } catch {
       toast({
-        title: 'Erro ao atualizar medicamento',
-        description:
-          error instanceof Error
-            ? error.message
-            : JSON.stringify(error, null, 2),
+        title: 'Não foi possível atualizar o medicamento',
+        description: 'Tente novamente em instantes.',
         variant: 'destructive',
       });
     }

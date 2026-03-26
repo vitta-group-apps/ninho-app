@@ -37,7 +37,7 @@ export default function FamilyPage() {
       const { error: memberError } = await supabase
         .from('memberships')
         .insert({ family_id: family.id, user_id: user.id, role: 'admin' });
-      if (memberError) console.warn('[FamilyPage] membership insert (non-fatal):', memberError);
+      if (memberError && import.meta.env.DEV) console.warn('[FamilyPage] membership insert (non-fatal)');
 
       sessionStorage.setItem('onboarding_family_id', family.id);
       navigate('/onboarding/child');

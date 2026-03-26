@@ -14,33 +14,295 @@ export type Database = {
   }
   public: {
     Tables: {
-      child_vaccines: {
+      child_consultations: {
         Row: {
-          applied_on: string | null
+          author_id: string
+          child_id: string
+          consultation_date: string
+          created_at: string
+          doctor_name: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          specialty: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          child_id: string
+          consultation_date: string
+          created_at?: string
+          doctor_name?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          specialty?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          child_id?: string
+          consultation_date?: string
+          created_at?: string
+          doctor_name?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          specialty?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_consultations_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_growth_measurements: {
+        Row: {
+          author_id: string
+          child_id: string
+          created_at: string
+          head_circumference_cm: number | null
+          height_cm: number | null
+          id: string
+          measured_on: string
+          notes: string | null
+          updated_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          author_id: string
+          child_id: string
+          created_at?: string
+          head_circumference_cm?: number | null
+          height_cm?: number | null
+          id?: string
+          measured_on: string
+          notes?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          author_id?: string
+          child_id?: string
+          created_at?: string
+          head_circumference_cm?: number | null
+          height_cm?: number | null
+          id?: string
+          measured_on?: string
+          notes?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_growth_measurements_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_medical_notes: {
+        Row: {
+          author_id: string
           child_id: string
           created_at: string
           id: string
-          status: string | null
+          note: string
+          noted_at: string
+          source: string | null
           updated_at: string
-          vaccine_id: string
         }
         Insert: {
-          applied_on?: string | null
+          author_id: string
           child_id: string
           created_at?: string
           id?: string
-          status?: string | null
+          note: string
+          noted_at?: string
+          source?: string | null
           updated_at?: string
-          vaccine_id: string
         }
         Update: {
-          applied_on?: string | null
+          author_id?: string
           child_id?: string
           created_at?: string
           id?: string
+          note?: string
+          noted_at?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_medical_notes_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_medications: {
+        Row: {
+          author_id: string
+          child_id: string
+          created_at: string
+          dosage: string | null
+          end_date: string | null
+          frequency: string | null
+          id: string
+          instructions: string | null
+          is_active: boolean
+          name: string
+          notes: string | null
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          child_id: string
+          created_at?: string
+          dosage?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          child_id?: string
+          created_at?: string
+          dosage?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_medications_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_symptom_logs: {
+        Row: {
+          author_id: string
+          child_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          occurred_at: string
+          severity: string | null
+          symptoms: string[]
+          temperature_c: number | null
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          child_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          severity?: string | null
+          symptoms?: string[]
+          temperature_c?: number | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          child_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          severity?: string | null
+          symptoms?: string[]
+          temperature_c?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_symptom_logs_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_vaccines: {
+        Row: {
+          applied_date: string | null
+          applied_on: string | null
+          child_id: string
+          created_at: string
+          dose_label: string | null
+          id: string
+          notes: string | null
+          scheduled_age_months: number | null
+          scheduled_date: string | null
+          source: string | null
+          status: string | null
+          updated_at: string
+          vaccine_code: string | null
+          vaccine_id: string
+          vaccine_name: string | null
+        }
+        Insert: {
+          applied_date?: string | null
+          applied_on?: string | null
+          child_id: string
+          created_at?: string
+          dose_label?: string | null
+          id?: string
+          notes?: string | null
+          scheduled_age_months?: number | null
+          scheduled_date?: string | null
+          source?: string | null
           status?: string | null
           updated_at?: string
+          vaccine_code?: string | null
+          vaccine_id: string
+          vaccine_name?: string | null
+        }
+        Update: {
+          applied_date?: string | null
+          applied_on?: string | null
+          child_id?: string
+          created_at?: string
+          dose_label?: string | null
+          id?: string
+          notes?: string | null
+          scheduled_age_months?: number | null
+          scheduled_date?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+          vaccine_code?: string | null
           vaccine_id?: string
+          vaccine_name?: string | null
         }
         Relationships: [
           {
@@ -78,6 +340,7 @@ export type Database = {
           pediatrician: string | null
           premature: boolean | null
           sex: string | null
+          sex_at_birth: string
           updated_at: string
         }
         Insert: {
@@ -98,6 +361,7 @@ export type Database = {
           pediatrician?: string | null
           premature?: boolean | null
           sex?: string | null
+          sex_at_birth: string
           updated_at?: string
         }
         Update: {
@@ -118,6 +382,7 @@ export type Database = {
           pediatrician?: string | null
           premature?: boolean | null
           sex?: string | null
+          sex_at_birth?: string
           updated_at?: string
         }
         Relationships: [
@@ -240,6 +505,85 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      family_member_permissions: {
+        Row: {
+          action: string
+          created_at: string
+          family_member_id: string
+          id: string
+          is_allowed: boolean
+          resource: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          family_member_id: string
+          id?: string
+          is_allowed?: boolean
+          resource: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          family_member_id?: string
+          id?: string
+          is_allowed?: boolean
+          resource?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_member_permissions_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_members: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          invited_by: string | null
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       health_events: {
         Row: {
@@ -539,6 +883,7 @@ export type Database = {
       vaccines_catalog: {
         Row: {
           calendar_type: string
+          code: string
           description: string | null
           dose_number: number | null
           id: string
@@ -547,6 +892,7 @@ export type Database = {
         }
         Insert: {
           calendar_type?: string
+          code: string
           description?: string | null
           dose_number?: number | null
           id?: string
@@ -555,6 +901,7 @@ export type Database = {
         }
         Update: {
           calendar_type?: string
+          code?: string
           description?: string | null
           dose_number?: number | null
           id?: string
@@ -583,13 +930,15 @@ export type Database = {
         Args: { _family_id: string; _roles: string[] }
         Returns: boolean
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      has_role:
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | { Args: { target_role: string }; Returns: boolean }
       is_family_member: { Args: { _family_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
@@ -608,10 +957,27 @@ export type Database = {
           read_ct: number
         }[]
       }
+      user_belongs_to_family: {
+        Args: { target_family_id: string }
+        Returns: boolean
+      }
+      user_can_manage_family: {
+        Args: { target_family_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "monitor" | "viewer"
-      health_log_type: "vaccine" | "fever" | "medication" | "note"
+      health_log_type:
+        | "vaccine"
+        | "fever"
+        | "medication"
+        | "note"
+        | "consultation"
+        | "growth"
+        | "symptom"
+        | "medical_note"
+        | "milestone"
       routine_log_type: "sleep" | "feed" | "diaper" | "note"
     }
     CompositeTypes: {
@@ -741,7 +1107,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "monitor", "viewer"],
-      health_log_type: ["vaccine", "fever", "medication", "note"],
+      health_log_type: [
+        "vaccine",
+        "fever",
+        "medication",
+        "note",
+        "consultation",
+        "growth",
+        "symptom",
+        "medical_note",
+        "milestone",
+      ],
       routine_log_type: ["sleep", "feed", "diaper", "note"],
     },
   },

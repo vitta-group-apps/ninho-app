@@ -1900,14 +1900,10 @@ export default function SaudePage() {
       setMedications(sortByIsoDateDesc(meds));
       setAppliedVaccineIds(appliedIds);
       setAppliedVaccineDates(appliedDates);
-    } catch (error) {
-      console.error('[SaudePage loadData full error]', error);
+    } catch {
       toast({
         title: 'Erro ao carregar dados de saúde',
-        description:
-          error instanceof Error
-            ? error.message
-            : JSON.stringify(error, null, 2),
+        description: 'Tente novamente em instantes.',
         variant: 'destructive',
       });
     } finally {

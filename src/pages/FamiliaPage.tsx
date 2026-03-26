@@ -44,20 +44,24 @@ interface Member {
   id: string;
   user_id: string;
   role: string;
-  invited_email: string | null;
+  status: string | null;
+  invited_by: string | null;
+  created_at?: string | null;
   profile?: Profile | null;
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  admin:   'Administrador',
-  monitor: 'Cuidador',
-  viewer:  'Observador',
+  owner: 'Responsável',
+  admin: 'Administrador',
+  caregiver: 'Cuidador',
+  viewer: 'Visualizador',
 };
 
 const ROLE_COLOR: Record<string, string> = {
-  admin:   MAUVE,
-  monitor: SAGE,
-  viewer:  TXT_MUTED,
+  owner: EARTH,
+  admin: MAUVE,
+  caregiver: SAGE,
+  viewer: TXT_MUTED,
 };
 
 function fmtWeight(w: number): string {
@@ -146,54 +150,65 @@ export default function FamiliaPage() {
       });
   }, [children]);
 
-  const loadAll = useCallback(async () => {
-    if (!familyId) { setLoading(false); return; }
-    setLoading(true);
-    try {
-      const [famRes, memRes] = await Promise.all([
-  supabase.from('families').select('name').eq('id', familyId).maybeSingle(),
-  supabase
-    .from('memberships')
-    .select('id, user_id, role, invited_email')
-    .eq('family_id', familyId)
-    .order('created_at'),
-]);
+ const loadAll = useCallback(async () => {
+  if (!familyId) {
+    setLoading(false);
+    return;
+  }
 
-setFamilyName(famRes.data?.name ?? null);
+  setLoading(true);
 
-const rawMembers = (memRes.data ?? []) as Member[];
+  try {
+    const [famRes, memRes] = await Promise.all([
+      supabase.from('families').select('name').eq('id', familyId).maybeSingle(),
+      supabase
+        .from('family_members')
+        .select('id, user_id, role, status, invited_by, created_at')
+        .eq('family_id', familyId)
+        .eq('status', 'active')
+        .order('created_at'),
+    ]);
 
-const userIds = rawMembers
-  .map(m => m.user_id)
-  .filter(Boolean);
+    setFamilyName(famRes.data?.name ?? null);
 
-let profilesMap: Record<string, Profile> = {};
+    const rawMembers = (memRes.data ?? []) as Member[];
 
-if (userIds.length > 0) {
-  const { data: profilesData } = await supabase
-    .from('profiles')
-    .select('user_id, full_name, email')
-    .in('user_id', userIds);
+    const userIds = rawMembers.map(m => m.user_id).filter(Boolean);
 
-  profilesMap = Object.fromEntries(
-    ((profilesData ?? []) as unknown as Profile[]).map((p) => [p.user_id, p])
-  );
-}
+    let profilesMap: Record<string, Profile> = {};
 
-const enrichedMembers = rawMembers.map((member) => ({
-  ...member,
-  profile: profilesMap[member.user_id] ?? null,
-}));
+    if (userIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds);
 
-setMembers(enrichedMembers);
-      if (children.length) {
-        const { data } = await supabase.from('routine_logs').select('*')
-          .in('child_id', children.map(c => c.id))
-          .order('start_time', { ascending: false }).limit(3);
-        setRecentLogs(data ?? []);
-      }
-    } finally { setLoading(false); }
-  }, [familyId, children]);
+      profilesMap = Object.fromEntries(
+        ((profilesData ?? []) as Profile[]).map((p) => [p.user_id, p])
+      );
+    }
+
+    const enrichedMembers = rawMembers.map((member) => ({
+      ...member,
+      profile: profilesMap[member.user_id] ?? null,
+    }));
+
+    setMembers(enrichedMembers);
+
+    if (children.length) {
+      const { data } = await supabase
+        .from('routine_logs')
+        .select('*')
+        .in('child_id', children.map(c => c.id))
+        .order('start_time', { ascending: false })
+        .limit(3);
+
+      setRecentLogs(data ?? []);
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [familyId, children]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -390,8 +405,13 @@ setMembers(enrichedMembers);
                     <p className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
                       <span className="font-bold" style={{ color: TXT }}>{label}</span>
                       {' — '}
-                      {role === 'admin' ? 'acesso total' : role === 'monitor' ? 'pode registrar eventos' : 'somente visualizar'}
-                    </p>
+{role === 'owner'
+  ? 'controle total da família'
+  : role === 'admin'
+  ? 'acesso total'
+  : role === 'caregiver'
+  ? 'pode registrar eventos'
+  : 'somente visualiza'}                    </p>
                   </div>
                 ))}
               </div>
@@ -408,12 +428,10 @@ setMembers(enrichedMembers);
                   {members.map(m => {
   const displayName =
     m.profile?.full_name?.trim() ||
-    (m.invited_email ? m.invited_email.split('@')[0] : '') ||
     'Cuidador';
 
   const displayEmail =
     m.profile?.email?.trim() ||
-    m.invited_email ||
     (m.user_id === user?.id ? user.email : null);
 
   return (

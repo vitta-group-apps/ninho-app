@@ -5,15 +5,6 @@ import type {
   RoutineRecord,
 } from '@/lib/contracts/routine';
 
-function safeJsonParse(value: string | null): unknown {
-  if (!value?.trim()) return {};
-  try {
-    return JSON.parse(value);
-  } catch {
-    return {};
-  }
-}
-
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -22,10 +13,10 @@ function asObject(value: unknown): Record<string, unknown> {
 
 function parsePayload<T extends RoutineLogType>(
   type: T,
+  rawPayload: unknown,
   notes: string | null
 ): RoutinePayloadMap[T] {
-  const parsed = safeJsonParse(notes);
-  const raw = asObject(parsed);
+  const raw = asObject(rawPayload);
 
   switch (type) {
     case 'sleep':
@@ -59,14 +50,10 @@ function parsePayload<T extends RoutineLogType>(
         poopTexture: typeof raw.poopTexture === 'string' ? raw.poopTexture : null,
       } as RoutinePayloadMap[T];
 
-    case 'note': {
-      const fallbackText =
-        typeof parsed === 'string' ? parsed : typeof notes === 'string' ? notes : null;
-
+    case 'note':
       return {
-        text: typeof raw.text === 'string' ? raw.text : fallbackText,
+        text: typeof raw.text === 'string' ? raw.text : notes,
       } as RoutinePayloadMap[T];
-    }
 
     default:
       return {} as RoutinePayloadMap[T];
@@ -74,7 +61,7 @@ function parsePayload<T extends RoutineLogType>(
 }
 
 export function toRoutineRecord<T extends RoutineLogType>(
-  row: Tables<'routine_logs'> & { type: T }
+  row: Tables<'routine_logs'> & { type: T; payload?: unknown }
 ): RoutineRecord<T> {
   return {
     id: row.id,
@@ -84,26 +71,18 @@ export function toRoutineRecord<T extends RoutineLogType>(
     startTime: row.start_time,
     endTime: row.end_time,
     notes: row.notes,
-    payload: parsePayload(row.type, row.notes),
+    payload: parsePayload(row.type, row.payload, row.notes),
     createdAt: row.created_at,
   };
 }
 
 export function serializeRoutinePayload<T extends RoutineLogType>(
-  type: T,
+  _type: T,
   payload: RoutinePayloadMap[T]
-): string {
-  const clean =
-    Object.fromEntries(
-      Object.entries(payload as Record<string, unknown>).filter(
-        ([, value]) => value !== undefined
-      )
-    );
-
-  if (type === 'note') {
-    const text = (clean.text as string | undefined)?.trim();
-    return JSON.stringify({ text: text ?? null });
-  }
-
-  return JSON.stringify(clean);
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(payload as Record<string, unknown>).filter(
+      ([, value]) => value !== undefined
+    )
+  );
 }

@@ -23,8 +23,6 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
     }
 
     async function check() {
-      console.log('[useOnboardingStatus] Checking for userId:', userId);
-
       // 1. Check for family owned by user
       const { data: ownedFamilies, error: ownedErr } = await supabase
         .from('families')
@@ -32,8 +30,8 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
         .eq('owner_id', userId)
         .limit(1);
 
-      if (ownedErr) {
-        console.error('[useOnboardingStatus] families query error:', ownedErr);
+      if (ownedErr && import.meta.env.DEV) {
+        console.warn('[useOnboardingStatus] families query error');
       }
 
       let familyId = ownedFamilies?.[0]?.id ?? null;
@@ -46,15 +44,14 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
           .eq('user_id', userId)
           .limit(1);
 
-        if (memberErr) {
-          console.error('[useOnboardingStatus] memberships query error:', memberErr);
+        if (memberErr && import.meta.env.DEV) {
+          console.warn('[useOnboardingStatus] memberships query error');
         }
 
         familyId = memberFamilies?.[0]?.family_id ?? null;
       }
 
       const hasFamily = !!familyId;
-      console.log('[useOnboardingStatus] familyId:', familyId, 'hasFamily:', hasFamily);
 
       let hasChild = false;
       if (familyId) {
@@ -64,14 +61,13 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
           .eq('family_id', familyId)
           .limit(1);
 
-        if (childErr) {
-          console.error('[useOnboardingStatus] children query error:', childErr);
+        if (childErr && import.meta.env.DEV) {
+          console.warn('[useOnboardingStatus] children query error');
         }
 
         hasChild = (children?.length ?? 0) > 0;
       }
 
-      console.log('[useOnboardingStatus] hasChild:', hasChild);
       setStatus({ loading: false, hasFamily, hasChild, familyId });
     }
 

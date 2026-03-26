@@ -17,61 +17,80 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
   });
 
   useEffect(() => {
+    let isMounted = true;
+
     if (!userId) {
-      setStatus({ loading: false, hasFamily: false, hasChild: false, familyId: null });
+      setStatus({
+        loading: false,
+        hasFamily: false,
+        hasChild: false,
+        familyId: null,
+      });
       return;
     }
 
     async function check() {
-      // 1. Check for family owned by user
-      const { data: ownedFamilies, error: ownedErr } = await supabase
-        .from('families')
-        .select('id')
-        .eq('owner_id', userId)
-        .limit(1);
-
-      if (ownedErr && import.meta.env.DEV) {
-        console.warn('[useOnboardingStatus] families query error');
-      }
-
-      let familyId = ownedFamilies?.[0]?.id ?? null;
-
-      // 2. If not owner, check memberships
-      if (!familyId) {
-        const { data: memberFamilies, error: memberErr } = await supabase
-          .from('memberships')
-          .select('family_id')
-          .eq('user_id', userId)
-          .limit(1);
-
-        if (memberErr && import.meta.env.DEV) {
-          console.warn('[useOnboardingStatus] memberships query error');
-        }
-
-        familyId = memberFamilies?.[0]?.family_id ?? null;
-      }
-
-      const hasFamily = !!familyId;
-
-      let hasChild = false;
-      if (familyId) {
-        const { data: children, error: childErr } = await supabase
-          .from('children')
+      try {
+        // 1. Check for family owned by user
+        const { data: ownedFamilies } = await supabase
+          .from('families')
           .select('id')
-          .eq('family_id', familyId)
+          .eq('owner_id', userId)
           .limit(1);
 
-        if (childErr && import.meta.env.DEV) {
-          console.warn('[useOnboardingStatus] children query error');
+        let familyId = ownedFamilies?.[0]?.id ?? null;
+
+        // 2. If not owner, check active family membership
+        if (!familyId) {
+          const { data: memberFamilies } = await supabase
+            .from('family_members')
+            .select('family_id')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .limit(1);
+
+          familyId = memberFamilies?.[0]?.family_id ?? null;
         }
 
-        hasChild = (children?.length ?? 0) > 0;
-      }
+        const hasFamily = !!familyId;
 
-      setStatus({ loading: false, hasFamily, hasChild, familyId });
+        let hasChild = false;
+
+        if (familyId) {
+          const { data: children } = await supabase
+            .from('children')
+            .select('id')
+            .eq('family_id', familyId)
+            .limit(1);
+
+          hasChild = (children?.length ?? 0) > 0;
+        }
+
+        if (!isMounted) return;
+
+        setStatus({
+          loading: false,
+          hasFamily,
+          hasChild,
+          familyId,
+        });
+      } catch {
+        if (!isMounted) return;
+
+        setStatus({
+          loading: false,
+          hasFamily: false,
+          hasChild: false,
+          familyId: null,
+        });
+      }
     }
 
     check();
+
+    return () => {
+      isMounted = false;
+    };
   }, [userId]);
 
   return status;

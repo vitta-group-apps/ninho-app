@@ -281,9 +281,11 @@ setMembers(enrichedMembers);
                           <div className="flex-1 min-w-0">
                             <p className="text-[15px] font-bold font-quicksand" style={{ color: TXT }}>{child.name}</p>
                             <p className="text-[12px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
-                              {getAgeLabel(child.birth_date)}
-                              {child.sex && ` · ${child.sex === 'male' || child.sex === 'M' ? '♂' : '♀'}`}
-                            </p>
+                            {getAgeLabel(child.birth_date)}
+                             {child.sex_at_birth === 'female' && ' · Menina'}
+                             {child.sex_at_birth === 'male' && ' · Menino'}
+                             {child.sex_at_birth === 'unknown' && ' · Prefiro não dizer'}
+                          </p>
                           </div>
                           {child.blood_type && (
                             <InlineStatusPill label={child.blood_type} variant="info" color={MAUVE} />

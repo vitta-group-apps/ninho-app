@@ -9,8 +9,14 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Tables } from '@/integrations/supabase/types';
+import type { ChildSexAtBirth } from '@/types/child';
+import { normalizeChildSexAtBirth } from '@/types/child';
 
-export type Child = Tables<'children'>;
+type DbChild = Tables<'children'>;
+
+export type Child = Omit<DbChild, 'sex_at_birth'> & {
+  sex_at_birth: ChildSexAtBirth;
+};
 
 interface ActiveChildContextValue {
   children: Child[];
@@ -55,15 +61,16 @@ export function ActiveChildProvider({ children: reactChildren }: { children: Rea
       let fid = ownedFamilies?.[0]?.id ?? null;
 
       if (!fid) {
-        const { data: memberFamilies, error: mErr } = await supabase
-          .from('memberships')
-          .select('family_id')
-          .eq('user_id', user.id)
-          .limit(1);
-        if (mErr) throw mErr;
-        fid = memberFamilies?.[0]?.family_id ?? null;
-      }
+  const { data: memberFamilies, error: mErr } = await supabase
+    .from('family_members')
+    .select('family_id')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .limit(1);
 
+  if (mErr) throw mErr;
+  fid = memberFamilies?.[0]?.family_id ?? null;
+}
       setFamilyId(fid);
 
       if (!fid) {
@@ -81,8 +88,15 @@ export function ActiveChildProvider({ children: reactChildren }: { children: Rea
 
       if (kErr) throw kErr;
 
-      const kids = kidsData ?? [];
-      setChildren(kids);
+     const kids: Child[] = (kidsData ?? []).map((row) => ({
+  ...row,
+  sex_at_birth:
+    normalizeChildSexAtBirth(row.sex_at_birth) ??
+    normalizeChildSexAtBirth(row.sex) ??
+    'unknown',
+}));
+
+setChildren(kids);
 
       // Preserve active selection across refetches; default to first
       setActiveChildId(prev => {

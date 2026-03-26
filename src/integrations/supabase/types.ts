@@ -930,15 +930,7 @@ export type Database = {
         Args: { _family_id: string; _roles: string[] }
         Returns: boolean
       }
-      has_role:
-        | {
-            Args: {
-              _role: Database["public"]["Enums"]["app_role"]
-              _user_id: string
-            }
-            Returns: boolean
-          }
-        | { Args: { target_role: string }; Returns: boolean }
+      has_role: { Args: { target_role: string }; Returns: boolean }
       is_family_member: { Args: { _family_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
@@ -967,7 +959,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "monitor" | "viewer"
+      app_role: "owner" | "admin" | "caregiver" | "viewer"
       health_log_type:
         | "vaccine"
         | "fever"
@@ -1106,7 +1098,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "monitor", "viewer"],
+      app_role: ["owner", "admin", "caregiver", "viewer"],
       health_log_type: [
         "vaccine",
         "fever",

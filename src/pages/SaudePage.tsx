@@ -50,6 +50,7 @@ import {
   isValidSymptomRecord,
   isValidMedicalNoteRecord,
   isValidMedicationRecord,
+  isValidVaccineRecord,
 } from '@/lib/validators/healthValidators';
 
 const SAGE = '#789687';
@@ -1880,205 +1881,171 @@ export default function SaudePage() {
   }
 
   const loadData = useCallback(async () => {
-    if (!activeChild) {
-      setDbLoading(false);
-      return;
-    }
+  if (!activeChild) {
+    setDbLoading(false);
+    return;
+  }
 
-    setDbLoading(true);
+  setDbLoading(true);
 
-    try {
-      const [
-        consultationsResult,
-        growthResult,
-        symptomsResult,
-        notesResult,
-        vaccineRowsResult,
-        medicationRowsResult,
-      ] = await Promise.all([
-        supabase
-          .from('child_consultations')
-          .select('*')
-          .eq('child_id', activeChild.id)
-          .order('consultation_date', { ascending: false })
-          .limit(200),
+  try {
+    const [
+      consultationsResult,
+      growthResult,
+      symptomsResult,
+      notesResult,
+      vaccineRowsResult,
+      medicationRowsResult,
+    ] = await Promise.all([
+      supabase
+        .from('child_consultations')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('consultation_date', { ascending: false })
+        .limit(200),
 
-        supabase
-          .from('child_growth_measurements')
-          .select('*')
-          .eq('child_id', activeChild.id)
-          .order('measured_on', { ascending: false })
-          .limit(200),
+      supabase
+        .from('child_growth_measurements')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('measured_on', { ascending: false })
+        .limit(200),
 
-        supabase
-          .from('child_symptom_logs')
-          .select('*')
-          .eq('child_id', activeChild.id)
-          .order('occurred_at', { ascending: false })
-          .limit(200),
+      supabase
+        .from('child_symptom_logs')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('occurred_at', { ascending: false })
+        .limit(200),
 
-        supabase
-          .from('child_medical_notes')
-          .select('*')
-          .eq('child_id', activeChild.id)
-          .order('noted_at', { ascending: false })
-          .limit(200),
+      supabase
+        .from('child_medical_notes')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('noted_at', { ascending: false })
+        .limit(200),
 
-        supabase
-          .from('child_vaccines')
-          .select(`
-            id,
-            child_id,
-            vaccine_id,
-            vaccine_code,
-            vaccine_name,
-            dose_label,
-            status,
-            applied_date,
-            scheduled_age_months,
-            scheduled_date,
-            source,
-            notes,
-            created_at,
-            updated_at
-          `)
-          .eq('child_id', activeChild.id),
+      supabase
+        .from('child_vaccines')
+        .select('*')
+        .eq('child_id', activeChild.id),
 
-        supabase
-          .from('child_medications')
-          .select('*')
-          .eq('child_id', activeChild.id)
-          .order('created_at', { ascending: false }),
-      ]);
+      supabase
+        .from('child_medications')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('created_at', { ascending: false }),
+    ]);
 
-      if (consultationsResult.error) throw consultationsResult.error;
-      if (growthResult.error) throw growthResult.error;
-      if (symptomsResult.error) throw symptomsResult.error;
-      if (notesResult.error) throw notesResult.error;
-      if (vaccineRowsResult.error) throw vaccineRowsResult.error;
-      if (medicationRowsResult.error) throw medicationRowsResult.error;
+    if (consultationsResult.error) throw consultationsResult.error;
+    if (growthResult.error) throw growthResult.error;
+    if (symptomsResult.error) throw symptomsResult.error;
+    if (notesResult.error) throw notesResult.error;
+    if (vaccineRowsResult.error) throw vaccineRowsResult.error;
+    if (medicationRowsResult.error) throw medicationRowsResult.error;
 
-      const consultationRecords: ConsultationRecord[] = (consultationsResult.data ?? []).map(
-        row => ({
-          id: row.id,
-          childId: row.child_id,
-          authorId: row.author_id,
-          date: row.consultation_date,
-          doctorName: row.doctor_name,
-          specialty: row.specialty,
-          location: row.location,
-          notes: row.notes,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        })
-      );
+    const consultationRecords: ConsultationRecord[] = (consultationsResult.data ?? [])
+      .map(row => toConsultationRecord(row))
+      .filter(isValidConsultationRecord);
 
-      const growthRecords: GrowthRecord[] = (growthResult.data ?? []).map(row => ({
-        id: row.id,
-        childId: row.child_id,
-        authorId: row.author_id,
-        measuredOn: row.measured_on,
-        weightKg: row.weight_kg,
-        heightCm: row.height_cm,
-        headCircumferenceCm: row.head_circumference_cm,
-        notes: row.notes,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      }));
+    const growthRecords: GrowthRecord[] = (growthResult.data ?? [])
+      .map(row => toGrowthRecord(row))
+      .filter(isValidGrowthRecord);
 
-      const symptomRecords: SymptomRecord[] = (symptomsResult.data ?? []).map(row => ({
-        id: row.id,
-        childId: row.child_id,
-        authorId: row.author_id,
-        occurredAt: row.occurred_at,
-        symptoms: row.symptoms ?? [],
-        severity: row.severity,
-        temperatureC: row.temperature_c,
-        notes: row.notes,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      }));
+    const symptomRecords: SymptomRecord[] = (symptomsResult.data ?? [])
+      .map(row => toSymptomRecord(row))
+      .filter(isValidSymptomRecord);
 
-      const noteRecords: MedicalNoteRecord[] = (notesResult.data ?? []).map(row => ({
-        id: row.id,
-        childId: row.child_id,
-        authorId: row.author_id,
-        notedAt: row.noted_at,
-        note: row.note,
-        source: row.source,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      }));
+    const medicalNoteRecords: MedicalNoteRecord[] = (notesResult.data ?? [])
+      .map(row => toMedicalNoteRecord(row))
+      .filter(isValidMedicalNoteRecord);
 
-      const medicationRecords: MedicationRecord[] = (medicationRowsResult.data ?? []).map(
-        row => ({
-          id: row.id,
-          childId: row.child_id,
-          authorId: row.author_id,
-          name: row.name,
-          dosage: row.dosage,
-          frequency: row.frequency,
-          startDate: row.start_date,
-          endDate: row.end_date,
-          isActive: row.is_active,
-          notes: row.notes,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        })
-      );
+    const medicationRecords: MedicationRecord[] = (medicationRowsResult.data ?? [])
+      .map(row => toMedicationRecord(row))
+      .filter(isValidMedicationRecord);
 
-      const vaccineRecords: VaccineRecord[] = (vaccineRowsResult.data ?? []).map(row => ({
-        id: row.id,
-        childId: row.child_id,
-        vaccineId: row.vaccine_id,
-        vaccineCode: row.vaccine_code,
-        vaccineName: row.vaccine_name,
-        doseLabel: row.dose_label,
-        scheduledAgeMonths: row.scheduled_age_months,
-        scheduledDate: row.scheduled_date,
-        appliedDate: row.applied_date,
-        status: row.status,
-        source: row.source,
-        notes: row.notes,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      }));
+    const vaccineRecords: VaccineRecord[] = (vaccineRowsResult.data ?? [])
+      .map(row => toVaccineRecord(row))
+      .filter(isValidVaccineRecord);
 
-      const consults = consultationRecords.map(consultationRecordToEntry);
-      const growth = growthRecords.map(growthRecordToEntry);
-      const symptoms = symptomRecords.map(symptomRecordToEntry);
-      const notes = noteRecords.map(medicalNoteRecordToEntry);
-      const meds = medicationRecords.map(medicationRecordToEntry);
+    const consults: ConsultationEntry[] = consultationRecords.map(record => ({
+      id: record.id,
+      doctor: record.doctorName ?? '',
+      specialty: record.specialty ?? '',
+      location: record.location ?? '',
+      date: record.date,
+      note: record.notes ?? '',
+    }));
 
-      const appliedIds = new Set<string>();
-      const appliedDates: Record<string, string> = {};
+    const growth: GrowthEntry[] = growthRecords.map(record => ({
+      id: record.id,
+      weight: record.weightKg ?? undefined,
+      height: record.heightCm ?? undefined,
+      headCircumference: record.headCircumferenceCm ?? undefined,
+      note: record.notes ?? undefined,
+      date: new Date(`${record.measuredOn}T12:00:00`),
+      edited: false,
+    }));
 
-      for (const record of vaccineRecords) {
-        if (vaccineRecordIsApplied(record) && record.vaccineCode) {
-          appliedIds.add(record.vaccineCode);
-          if (record.appliedDate) {
-            appliedDates[record.vaccineCode] = record.appliedDate;
-          }
+    const symptoms: SymptomEntry[] = symptomRecords.map(record => ({
+      id: record.id,
+      symptoms: record.symptoms,
+      note: record.notes ?? undefined,
+      severity: record.severity ?? undefined,
+      temperatureC: record.temperatureC ?? undefined,
+      date: new Date(record.occurredAt),
+    }));
+
+    const notes: NoteEntry[] = medicalNoteRecords.map(record => ({
+      id: record.id,
+      text: record.note,
+      source: record.source ?? undefined,
+      date: new Date(record.notedAt),
+    }));
+
+    const meds: MedicationEntry[] = medicationRecords.map(record => ({
+      id: record.id,
+      name: record.name,
+      dosage: record.dosage ?? '',
+      frequency: record.frequency ?? '',
+      startDate: record.startDate ?? '',
+      endDate: record.endDate ?? '',
+      note: record.notes ?? '',
+      active: record.isActive,
+      createdAt: record.createdAt,
+      authorId: record.authorId,
+      childId: record.childId,
+    }));
+
+    const appliedIds = new Set<string>();
+    const appliedDates: Record<string, string> = {};
+
+    for (const record of vaccineRecords) {
+      if (record.status === 'applied' && record.vaccineCode) {
+        appliedIds.add(record.vaccineCode);
+        if (record.appliedDate) {
+          appliedDates[record.vaccineCode] = record.appliedDate;
         }
       }
-
-      setSavedNotes(notes);
-      setGrowthHistory(sortGrowthHistoryDesc(growth));
-      setSymptomHistory(symptoms);
-      setConsultations(sortByIsoDateDesc(consults));
-      setMedications(sortByIsoDateDesc(meds));
-      setAppliedVaccineIds(appliedIds);
-      setAppliedVaccineDates(appliedDates);
-    } catch {
-      toast({
-        title: 'Erro ao carregar dados de saúde',
-        description: 'Tente novamente em instantes.',
-        variant: 'destructive',
-      });
-    } finally {
-      setDbLoading(false);
     }
-  }, [activeChild]);
+
+    setSavedNotes(notes);
+    setGrowthHistory(sortGrowthHistoryDesc(growth));
+    setSymptomHistory(symptoms);
+    setConsultations(sortByIsoDateDesc(consults));
+    setMedications(sortByIsoDateDesc(meds));
+    setAppliedVaccineIds(appliedIds);
+    setAppliedVaccineDates(appliedDates);
+  } catch {
+    toast({
+      title: 'Erro ao carregar dados de saúde',
+      description: 'Tente novamente em instantes.',
+      variant: 'destructive',
+    });
+  } finally {
+    setDbLoading(false);
+  }
+}, [activeChild]);
 
   useEffect(() => {
     loadData();

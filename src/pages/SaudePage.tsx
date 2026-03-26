@@ -536,8 +536,7 @@ function VaccineConfirmModal({
       onConfirmed(vaccine.id, appliedDate);
       toast({ title: `✅ ${vaccine.shortName} confirmada` });
       onClose();
-    } catch (e) {
-      console.error('[vaccine confirm]', e);
+    } catch {
       toast({ title: 'Erro ao confirmar vacina', variant: 'destructive' });
     } finally {
       setSaving(false);

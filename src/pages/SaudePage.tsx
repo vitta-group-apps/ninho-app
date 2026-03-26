@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
   Dot,
 } from 'recharts';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
@@ -24,14 +25,33 @@ import { getAgeContext } from '@/lib/eventSystem';
 import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PaywallGate } from '@/components/PaywallGate';
+
 import type {
   ConsultationRecord,
   GrowthRecord,
+  SymptomRecord,
   MedicalNoteRecord,
   MedicationRecord,
-  SymptomRecord,
   VaccineRecord,
 } from '@/lib/contracts/health';
+
+import {
+  toConsultationRecord,
+  toGrowthRecord,
+  toSymptomRecord,
+  toMedicalNoteRecord,
+  toMedicationRecord,
+  toVaccineRecord,
+} from '@/lib/adapters/healthAdapters';
+
+import {
+  isValidConsultationRecord,
+  isValidGrowthRecord,
+  isValidSymptomRecord,
+  isValidMedicalNoteRecord,
+  isValidMedicationRecord,
+  isValidVaccineRecord,
+} from '@/lib/validators/healthValidators';
 
 const SAGE = '#789687';
 const AMBER = '#C8894A';

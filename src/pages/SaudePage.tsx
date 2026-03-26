@@ -1011,32 +1011,21 @@ function MedicationModal({
   notes: form.note.trim() || null,
 };
 
-      console.error('[child_medications insert payload]', payload);
-
       const { data, error } = await supabase
         .from('child_medications')
         .insert(payload)
         .select('*')
         .single();
 
-      if (error) {
-        console.error('[child_medications insert error]', error);
-        throw error;
-      }
-
-      console.error('[child_medications insert success]', data);
+      if (error) throw error;
 
       onSaved(toMedicationEntry((data ?? {}) as Record<string, unknown>));
       toast({ title: '💊 Medicamento registrado' });
       onClose();
-    } catch (error) {
-      console.error('[save medication full error]', error);
+    } catch {
       toast({
-        title: 'Erro ao salvar medicamento',
-        description:
-          error instanceof Error
-            ? error.message
-            : JSON.stringify(error, null, 2),
+        title: 'Não foi possível salvar o medicamento',
+        description: 'Tente novamente em instantes.',
         variant: 'destructive',
       });
     } finally {

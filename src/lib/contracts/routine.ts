@@ -37,7 +37,7 @@ export type RoutineRecord<T extends RoutineLogType = RoutineLogType> = {
   type: T;
   startTime: string;
   endTime: string | null;
-  notes: string | null;
-  payload: RoutinePayloadMap[T];
+  notes: string | null; // observação humana
+  payload: RoutinePayloadMap[T]; // dado estruturado
   createdAt: string;
 };

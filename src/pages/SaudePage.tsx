@@ -577,7 +577,7 @@ function VaccineConfirmModal({
   vaccine: VaccineEntry;
   childId: string;
   onClose: () => void;
-  onConfirmed: (vaccineId: string, date: string) => void;
+  onConfirmed: (record: VaccineRecord) => void;
 }) {
   const today = new Date().toISOString().split('T')[0];
   const [appliedDate, setAppliedDate] = useState(today);
@@ -588,30 +588,40 @@ function VaccineConfirmModal({
     setSaving(true);
 
     try {
-      const { error } = await supabase.from('child_vaccines').upsert(
-        [
+      const { data, error } = await supabase
+        .from('child_vaccines')
+        .upsert(
+          [
+            {
+              child_id: childId,
+              vaccine_id: vaccine.id,
+              vaccine_code: vaccine.id,
+              vaccine_name: vaccine.shortName,
+              dose_label: vaccine.doses ?? '',
+              scheduled_age_months: vaccine.ageMonths ?? null,
+              scheduled_date: null,
+              applied_date: appliedDate,
+              status: 'applied',
+              source: 'app',
+              notes: null,
+            },
+          ],
           {
-            child_id: childId,
-            vaccine_id: vaccine.id,
-            vaccine_code: vaccine.id,
-            vaccine_name: vaccine.shortName,
-            dose_label: vaccine.doses ?? '',
-            scheduled_age_months: vaccine.ageMonths ?? null,
-            scheduled_date: null,
-            applied_date: appliedDate,
-            status: 'applied',
-            source: 'app',
-            notes: null,
-          },
-        ],
-        {
-          onConflict: 'child_id,vaccine_code,dose_label',
-        }
-      );
+            onConflict: 'child_id,vaccine_code,dose_label',
+          }
+        )
+        .select('*')
+        .single();
 
       if (error) throw error;
 
-      onConfirmed(vaccine.id, appliedDate);
+      const record = toVaccineRecord(data);
+
+      if (!isValidVaccineRecord(record)) {
+        throw new Error('Invalid vaccine record returned from database');
+      }
+
+      onConfirmed(record);
       toast({ title: `✅ ${vaccine.shortName} confirmada` });
       onClose();
     } catch {
@@ -4088,19 +4098,28 @@ async function saveSymptoms() {
       </div>
 
       <AnimatePresence>
-        {confirmVaccine && activeChild && (
-          <VaccineConfirmModal
-            vaccine={confirmVaccine}
-            childId={activeChild.id}
-            onClose={() => setConfirmVaccine(null)}
-            onConfirmed={(vaccineId, date) => {
-              setAppliedVaccineIds(prev => new Set([...prev, vaccineId]));
-              setAppliedVaccineDates(prev => ({ ...prev, [vaccineId]: date }));
-              setConfirmVaccine(null);
-            }}
-          />
-        )}
-      </AnimatePresence>
+  {confirmVaccine && activeChild && (
+    <VaccineConfirmModal
+      vaccine={confirmVaccine}
+      childId={activeChild.id}
+      onClose={() => setConfirmVaccine(null)}
+      onConfirmed={(record) => {
+        if (record.vaccineCode) {
+          setAppliedVaccineIds(prev => new Set([...prev, record.vaccineCode!]));
+        }
+
+        if (record.vaccineCode && record.appliedDate) {
+          setAppliedVaccineDates(prev => ({
+            ...prev,
+            [record.vaccineCode!]: record.appliedDate!,
+          }));
+        }
+
+        setConfirmVaccine(null);
+      }}
+    />
+  )}
+</AnimatePresence>
 
       <AnimatePresence>
         {showConsultModal && activeChild && user && (

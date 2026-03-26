@@ -1814,26 +1814,13 @@ export default function SaudePage() {
           .order('created_at', { ascending: false }),
       ]);
 
-      if (healthLogsResult.error) {
-        console.error('[load health_logs error]', healthLogsResult.error);
-        throw healthLogsResult.error;
-      }
-
-      if (vaccineRowsResult.error) {
-        console.error('[load child_vaccines error]', vaccineRowsResult.error);
-        throw vaccineRowsResult.error;
-      }
-
-      if (medicationRowsResult.error) {
-        console.error('[load child_medications error]', medicationRowsResult.error);
-        throw medicationRowsResult.error;
-      }
+      if (healthLogsResult.error) throw healthLogsResult.error;
+      if (vaccineRowsResult.error) throw vaccineRowsResult.error;
+      if (medicationRowsResult.error) throw medicationRowsResult.error;
 
       const healthData = healthLogsResult.data ?? [];
       const vaccineRows = vaccineRowsResult.data ?? [];
       const medicationRows = medicationRowsResult.data ?? [];
-
-      console.error('[load child_medications success]', medicationRows);
 
       const notes: NoteEntry[] = [];
       const growth: GrowthEntry[] = [];

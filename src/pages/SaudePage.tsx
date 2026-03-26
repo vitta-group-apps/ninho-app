@@ -1962,7 +1962,7 @@ export default function SaudePage() {
     setGrowthSaving(true);
 
     try {
-      const updatedDate = new Date(`${payload.date}T23:59:59`);
+      const measuredAt = new Date();
 
       const { data, error } = await supabase
         .from('health_logs')

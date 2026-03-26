@@ -33,7 +33,8 @@ function isSleepPayload(value: unknown): value is RoutinePayloadMap['sleep'] {
     quality === 'ok' ||
     quality === 'bad';
 
-  const locationOk = location === undefined || location === null || typeof location === 'string';
+  const locationOk =
+    location === undefined || location === null || typeof location === 'string';
 
   return qualityOk && locationOk;
 }
@@ -60,8 +61,11 @@ function isFeedPayload(value: unknown): value is RoutinePayloadMap['feed'] {
     side === 'right' ||
     side === 'both';
 
-  const amountOk = amountMl === undefined || amountMl === null || typeof amountMl === 'number';
-  const foodOk = food === undefined || food === null || typeof food === 'string';
+  const amountOk =
+    amountMl === undefined || amountMl === null || typeof amountMl === 'number';
+
+  const foodOk =
+    food === undefined || food === null || typeof food === 'string';
 
   return modeOk && sideOk && amountOk && foodOk;
 }
@@ -76,7 +80,8 @@ function isDiaperPayload(value: unknown): value is RoutinePayloadMap['diaper'] {
 
   const peeOk = pee === undefined || typeof pee === 'boolean';
   const poopOk = poop === undefined || typeof poop === 'boolean';
-  const colorOk = poopColor === undefined || poopColor === null || typeof poopColor === 'string';
+  const colorOk =
+    poopColor === undefined || poopColor === null || typeof poopColor === 'string';
   const textureOk =
     poopTexture === undefined || poopTexture === null || typeof poopTexture === 'string';
 
@@ -90,10 +95,7 @@ function isNotePayload(value: unknown): value is RoutinePayloadMap['note'] {
   return text === undefined || text === null || typeof text === 'string';
 }
 
-function isValidPayloadForType(
-  type: RoutineLogType,
-  payload: unknown
-): boolean {
+function isValidPayloadForType(type: RoutineLogType, payload: unknown): boolean {
   switch (type) {
     case 'sleep':
       return isSleepPayload(payload);
@@ -110,10 +112,7 @@ function isValidPayloadForType(
 
 export function isValidRoutineRecord(value: unknown): value is RoutineRecord {
   if (!isObject(value)) return false;
-
-  const type = value.type;
-
-  if (!isRoutineLogType(type)) return false;
+  if (!isRoutineLogType(value.type)) return false;
 
   return (
     isNonEmptyString(value.id) &&
@@ -123,6 +122,6 @@ export function isValidRoutineRecord(value: unknown): value is RoutineRecord {
     isStringOrNull(value.endTime) &&
     isStringOrNull(value.notes) &&
     isNonEmptyString(value.createdAt) &&
-    isValidPayloadForType(type, value.payload)
+    isValidPayloadForType(value.type, value.payload)
   );
 }

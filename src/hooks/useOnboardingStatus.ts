@@ -31,7 +31,6 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
 
     async function check() {
       try {
-        // 1. Check for family owned by user
         const { data: ownedFamilies } = await supabase
           .from('families')
           .select('id')
@@ -40,7 +39,6 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
 
         let familyId = ownedFamilies?.[0]?.id ?? null;
 
-        // 2. If not owner, check active family membership
         if (!familyId) {
           const { data: memberFamilies } = await supabase
             .from('family_members')

@@ -1,11 +1,16 @@
- /**
+/**
  * FeedDetailSheet — shared detail + edit view for breastfeeding sessions.
- * Adaptado para o contrato novo:
- *   - payload estruturado
- *   - notes humano
+ *
+ * Modelo novo:
+ *   - routine_logs = fonte da verdade
+ *   - payload = estruturado
+ *   - notes = texto humano
+ *
+ * Compatibilidade:
+ *   - lê tanto snake_case quanto camelCase no payload antigo
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
@@ -13,8 +18,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { getUserNotes, fmtDurationShort, fmtTime } from '@/lib/eventSystem';
-import type { RoutineRecord } from '@/lib/contracts/routine';
+import { fmtDurationShort, fmtTime, getUserNotes } from '@/lib/routineUtils';
+import type { Tables } from '@/integrations/supabase/types';
 
 const TAG_LABELS: Record<string, string> = {
   mamou_bem: '😊 Mamou bem',
@@ -27,13 +32,52 @@ const TAG_LABELS: Record<string, string> = {
 
 const ALL_TAGS = Object.keys(TAG_LABELS);
 
-type FeedDetailLog = RoutineRecord<'feed'>;
+type FeedDetailLog = Tables<'routine_logs'>;
 
 interface FeedDetailSheetProps {
   log: FeedDetailLog | null;
   open: boolean;
   onClose: () => void;
   onUpdated?: () => void;
+}
+
+type PayloadRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is PayloadRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    return value
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function cleanPayload(payload: PayloadRecord): PayloadRecord {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
 }
 
 export function FeedDetailSheet({
@@ -48,38 +92,53 @@ export function FeedDetailSheet({
   const [editReport, setEditReport] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const payload = useMemo<PayloadRecord>(() => {
+    return isRecord(log?.payload) ? log.payload : {};
+  }, [log?.payload]);
+
   if (!log) return null;
 
-  const payload = log.payload ?? {};
   const totalSec =
-    typeof payload.totalSeconds === 'number'
-      ? payload.totalSeconds
-      : log.endTime
+    asNumber(payload.total_seconds) ??
+    asNumber(payload.totalSeconds) ??
+    (log.end_time
       ? Math.floor(
-          (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
+          (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
         )
-      : 0;
+      : 0);
 
   const leftSec =
-    typeof payload.leftSeconds === 'number' ? payload.leftSeconds : 0;
+    asNumber(payload.left_seconds) ??
+    asNumber(payload.leftSeconds) ??
+    0;
 
   const rightSec =
-    typeof payload.rightSeconds === 'number' ? payload.rightSeconds : 0;
+    asNumber(payload.right_seconds) ??
+    asNumber(payload.rightSeconds) ??
+    0;
 
   const switches =
-    typeof payload.switches === 'number' ? payload.switches : 0;
+    asNumber(payload.switches) ?? 0;
 
-  const tags = Array.isArray(payload.tags)
-    ? payload.tags.filter((t): t is string => typeof t === 'string')
-    : [];
+  const tags =
+    asStringArray(payload.tags);
 
-  const userNotes = getUserNotes(log.notes);
+  const userNotes = getUserNotes(log.notes) ?? null;
+
   const includeInReport =
-    typeof payload.includeInReport === 'boolean' ? payload.includeInReport : false;
+    asBoolean(payload.include_in_report) ??
+    asBoolean(payload.includeInReport) ??
+    false;
 
-  const isManual = payload.mode === 'manual';
-  const startTime = fmtTime(log.startTime);
-  const endTime = log.endTime ? fmtTime(log.endTime) : null;
+  const mode =
+    asString(payload.mode) ??
+    asString(payload.feeding_method) ??
+    asString(payload.session_type) ??
+    null;
+
+  const isManual = mode === 'manual';
+  const startTime = fmtTime(log.start_time);
+  const endTime = log.end_time ? fmtTime(log.end_time) : null;
 
   function startEdit() {
     setEditTags([...tags]);
@@ -102,11 +161,13 @@ export function FeedDetailSheet({
     setSaving(true);
 
     try {
-      const newPayload: Record<string, unknown> = {
+      const newPayload: PayloadRecord = cleanPayload({
         ...payload,
         tags: editTags,
-        includeInReport: editReport,
-      };
+        include_in_report: editReport,
+      });
+
+      delete newPayload.includeInReport;
 
       const { error } = await supabase
         .from('routine_logs')

@@ -61,6 +61,53 @@ export type Database = {
           },
         ]
       }
+      child_development_milestones: {
+        Row: {
+          achieved_on: string
+          author_id: string
+          child_id: string
+          created_at: string
+          domain: string | null
+          id: string
+          milestone_id: string
+          notes: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          achieved_on: string
+          author_id: string
+          child_id: string
+          created_at?: string
+          domain?: string | null
+          id?: string
+          milestone_id: string
+          notes?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          achieved_on?: string
+          author_id?: string
+          child_id?: string
+          created_at?: string
+          domain?: string | null
+          id?: string
+          milestone_id?: string
+          notes?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_development_milestones_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       child_growth_measurements: {
         Row: {
           author_id: string
@@ -758,6 +805,7 @@ export type Database = {
           end_time: string | null
           id: string
           notes: string | null
+          payload: Json
           start_time: string
           type: Database["public"]["Enums"]["routine_log_type"]
         }
@@ -768,6 +816,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           notes?: string | null
+          payload?: Json
           start_time?: string
           type: Database["public"]["Enums"]["routine_log_type"]
         }
@@ -778,6 +827,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           notes?: string | null
+          payload?: Json
           start_time?: string
           type?: Database["public"]["Enums"]["routine_log_type"]
         }

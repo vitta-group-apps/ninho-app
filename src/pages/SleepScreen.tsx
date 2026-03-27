@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
-import { makePayloadNotes, fmtTimer } from '@/lib/routineUtils';
+import { fmtTimer } from '@/lib/routineUtils';
 import {
   ScreenHeader, StickyFooterCTA, SectionLabel,
   ChipGroup, ReportToggle, InlineStatusPill,
@@ -184,7 +184,6 @@ function SleepQualityForm({
 }) {
   return (
     <div className="space-y-6">
-      {/* Tipo de sono — noturno ou soneca */}
       <div>
         <SectionLabel>Tipo de sono</SectionLabel>
         <ChipGroup options={SLEEP_TYPE_OPTIONS} value={sleepType}
@@ -203,7 +202,6 @@ function SleepQualityForm({
           onToggle={v => setHowFellAsleep(howFellAsleep === v ? '' : v)} accentColor={SLEEP_COLOR} />
       </div>
 
-      {/* Posição — relevante para AAP / pediatra */}
       <div>
         <SectionLabel>Posição de sono</SectionLabel>
         <ChipGroup options={SLEEP_POSITION_OPTIONS} value={sleepPosition}
@@ -219,7 +217,6 @@ function SleepQualityForm({
         )}
       </div>
 
-      {/* Qualidade geral */}
       <div>
         <SectionLabel>Como foi o sono?</SectionLabel>
         <ChipGroup options={SLEEP_QUALITY_OPTIONS} value={sleepQuality}
@@ -232,7 +229,6 @@ function SleepQualityForm({
           onToggle={v => setAwakenings(awakenings === v ? '' : v)} accentColor={SLEEP_COLOR} />
       </div>
 
-      {/* Chupeta — AAP recomenda como proteção SIDS */}
       <div className="flex items-center justify-between px-1">
         <div>
           <p className="text-[13px] font-bold font-quicksand" style={{ color: TXT }}>
@@ -279,7 +275,6 @@ export default function SleepScreen() {
   const [saving, setSaving]   = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
 
-  // Campos compartilhados (ended + manual)
   const [location, setLocation]               = useState('');
   const [howFellAsleep, setHowFellAsleep]     = useState('');
   const [awakenings, setAwakenings]           = useState('');
@@ -290,12 +285,10 @@ export default function SleepScreen() {
   const [notes, setNotes]                     = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
-  // Campos exclusivos do modo manual
   const [manualStartTime, setManualStartTime] = useState(nowTime);
   const [manualEndTime, setManualEndTime]     = useState(nowTime);
   const [manualDurationMin, setManualDurationMin] = useState('');
 
-  // Handlers de tempo manual (mesma lógica da BreastfeedingScreen)
   function handleManualStartChange(value: string) {
     setManualStartTime(value);
     const startMin = timeToMinutes(value);
@@ -390,52 +383,77 @@ export default function SleepScreen() {
     if (!user || !activeChildId || !session) return;
     setSaving(true);
     try {
-      const startIso  = session.startIso;
-      const totalSec  = session.accumulatedSec;
-      const endTime   = new Date(new Date(startIso).getTime() + totalSec * 1000).toISOString();
-      const payload   = buildPayload();
+      const startIso = session.startIso;
+      const totalSec = session.accumulatedSec;
+      const endTime  = new Date(new Date(startIso).getTime() + totalSec * 1000).toISOString();
+      const payload  = buildPayload();
+
       const { error } = await supabase.from('routine_logs').insert({
-        child_id: activeChildId, author_id: user.id, type: 'sleep',
-        start_time: startIso, end_time: endTime,
-        notes: (notes.trim() || Object.keys(payload).length > 0) ? makePayloadNotes(payload, notes) : null,
+        child_id: activeChildId,
+        author_id: user.id,
+        type: 'sleep',
+        start_time: startIso,
+        end_time: endTime,
+        payload: Object.keys(payload).length > 0 ? payload : null,
+        notes: notes.trim() || null,
       });
+
       if (error) throw error;
+
       clearSleepSession();
       toast({ title: '😴 Sono registrado' });
       navigate(-1);
     } catch (e: unknown) {
-      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally { setSaving(false); }
+      toast({
+        title: 'Erro ao salvar',
+        description: e instanceof Error ? e.message : 'Tente novamente',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSaveManual() {
     if (!user || !activeChildId) return;
     setSaving(true);
     try {
-      const now   = new Date();
+      const now = new Date();
       const [sh, sm] = manualStartTime.split(':').map(Number);
       const [eh, em] = manualEndTime.split(':').map(Number);
+
       const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm, 0);
-      let   endDate   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em, 0);
+      let endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em, 0);
 
-      // Se fim < início, assume que passou meia-noite
-      if (endDate <= startDate) endDate = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+      if (endDate <= startDate) {
+        endDate = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+      }
 
-      const payload   = buildPayload();
+      const payload = buildPayload();
+
       const { error } = await supabase.from('routine_logs').insert({
-        child_id:   activeChildId,
-        author_id:  user.id,
-        type:       'sleep',
+        child_id: activeChildId,
+        author_id: user.id,
+        type: 'sleep',
         start_time: startDate.toISOString(),
-        end_time:   endDate.toISOString(),
-        notes: (notes.trim() || Object.keys(payload).length > 0) ? makePayloadNotes(payload, notes) : null,
+        end_time: endDate.toISOString(),
+        payload: Object.keys(payload).length > 0 ? payload : null,
+        notes: notes.trim() || null,
       });
+
       if (error) throw error;
+
       toast({ title: '😴 Sono registrado' });
       navigate(-1);
     } catch (e: unknown) {
-      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Tente novamente', variant: 'destructive' });
-    } finally { setSaving(false); }
+      toast({
+        title: 'Erro ao salvar',
+        description: e instanceof Error ? e.message : 'Tente novamente',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleDiscard() { clearSleepSession(); navigate(-1); }
@@ -469,7 +487,6 @@ export default function SleepScreen() {
 
       <div className="ds-form-body">
 
-        {/* ── IDLE ── */}
         {phase === 'idle' && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center pt-8 gap-8">
@@ -486,7 +503,6 @@ export default function SleepScreen() {
               </p>
             </div>
 
-            {/* Opção manual */}
             <div className="w-full pt-2" style={{ borderTop: `1px solid ${CARD_BORDER}` }}>
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] font-nunito mb-2 text-center"
                 style={{ color: TXT_MUTED }}>
@@ -508,7 +524,6 @@ export default function SleepScreen() {
           </motion.div>
         )}
 
-        {/* ── ACTIVE / PAUSED ── */}
         {(phase === 'active' || phase === 'paused') && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="flex flex-col items-center gap-7 pt-4">
@@ -567,10 +582,8 @@ export default function SleepScreen() {
           </motion.div>
         )}
 
-        {/* ── MANUAL ── */}
         {phase === 'manual' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            {/* Card de contexto */}
             <div className="flex items-center gap-3 p-4 rounded-2xl"
               style={{ backgroundColor: SLEEP_BG, border: `1.5px solid ${SLEEP_BORDER}` }}>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
@@ -587,7 +600,6 @@ export default function SleepScreen() {
               </div>
             </div>
 
-            {/* Horários */}
             <div>
               <SectionLabel>Horários</SectionLabel>
               <div className="grid grid-cols-2 gap-3">
@@ -611,7 +623,6 @@ export default function SleepScreen() {
                 </div>
               </div>
 
-              {/* Duração calculada automaticamente */}
               <div className="mt-3">
                 <p className="text-[11px] font-bold uppercase tracking-[0.06em] font-nunito mb-2"
                   style={{ color: TXT_MUTED }}>Duração (minutos)</p>
@@ -630,7 +641,6 @@ export default function SleepScreen() {
 
             <div className="h-px" style={{ backgroundColor: CARD_BORDER }} />
 
-            {/* Formulário de qualidade */}
             <SleepQualityForm
               location={location} setLocation={setLocation}
               howFellAsleep={howFellAsleep} setHowFellAsleep={setHowFellAsleep}
@@ -645,11 +655,9 @@ export default function SleepScreen() {
           </motion.div>
         )}
 
-        {/* ── ENDED ── */}
         {phase === 'ended' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="space-y-6">
-            {/* Summary card */}
             <div className="flex items-center gap-4 p-4 rounded-2xl"
               style={{ backgroundColor: SLEEP_BG, border: `1.5px solid ${SLEEP_BORDER}` }}>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center text-[22px] flex-shrink-0"
@@ -666,7 +674,6 @@ export default function SleepScreen() {
               </div>
             </div>
 
-            {/* Formulário de qualidade — mesmo componente */}
             <SleepQualityForm
               location={location} setLocation={setLocation}
               howFellAsleep={howFellAsleep} setHowFellAsleep={setHowFellAsleep}
@@ -682,7 +689,6 @@ export default function SleepScreen() {
         )}
       </div>
 
-      {/* CTAs */}
       {phase === 'idle' && (
         <StickyFooterCTA
           primaryLabel="▶ Iniciar sono"
@@ -691,6 +697,7 @@ export default function SleepScreen() {
           primaryColor={SLEEP_COLOR}
         />
       )}
+
       {phase === 'manual' && (
         <StickyFooterCTA
           primaryLabel="Salvar registro"
@@ -701,6 +708,7 @@ export default function SleepScreen() {
           onTertiary={() => setPhase('idle')}
         />
       )}
+
       {phase === 'ended' && (
         <StickyFooterCTA
           primaryLabel="Salvar registro"
@@ -724,3 +732,4 @@ export default function SleepScreen() {
     </div>
   );
 }
+

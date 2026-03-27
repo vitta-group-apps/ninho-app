@@ -316,7 +316,7 @@ export function runPriorityEngine(params: {
   // Feed interval suggestion — time-based, age-gated
   const feedThresholdH = getFeedThresholdHours(bucket);
   if (lastFeed && feedThresholdH && ageMonths < 12 && !allItems.find(i => i.id === 'no-feeds-today')) {
-    const minSince = Math.floor((Date.now() - new Date(lastFeed.start_time).getTime()) / 60000);
+    const minSince = Math.floor((Date.now() - new Date(lastFeed.startTime).getTime()) / 60000);
     if (minSince >= feedThresholdH * 60 * 0.85) {
       const h = Math.floor(minSince / 60);
       const m = minSince % 60;

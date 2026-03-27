@@ -380,7 +380,7 @@ export function runPriorityEngine(params: {
 
   // Ongoing sleep session always wins as main message
   if (ongoingSleep) {
-    const diffMs  = Date.now() - new Date(ongoingSleep.start_time).getTime();
+    const diffMs  = Date.now() - new Date(ongoingSleep.startTime).getTime();
     const diffMin = Math.floor(diffMs / 60000);
     const h = Math.floor(diffMin / 60);
     const m = diffMin % 60;

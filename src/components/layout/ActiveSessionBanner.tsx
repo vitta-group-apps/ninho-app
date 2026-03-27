@@ -15,7 +15,7 @@ import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { fmtTimer } from '@/lib/routineUtils';
 import { loadSleepSession } from '@/pages/SleepScreen';
 
-const FEED_SESSION_KEY = 'ninho_feed_session_v6';
+const FEED_SESSION_KEY = 'ninho_feed_session_v7';
 const SLEEP_COLOR = 'hsl(270,12%,42%)';
 const FEED_COLOR = 'hsl(152,15%,55%)';
 
@@ -30,10 +30,13 @@ interface ActiveBannerItem {
 }
 
 type FeedSessionStorage = {
-  status?: 'ACTIVE' | 'PAUSED' | 'ENDED';
+  childId?: string;
   sessionStartEpoch?: number;
-  pausedAtEpoch?: number | null;
-  accumulatedSeconds?: number | null;
+  sideTimes?: { L: number; R: number };
+  activeSide?: 'L' | 'R';
+  switchCount?: number;
+  status?: 'ACTIVE' | 'PAUSED' | 'FINISHED';
+  segmentStartEpoch?: number | null;
 };
 
 function safeNumber(value: unknown, fallback = 0): number {
@@ -58,22 +61,20 @@ function parseFeedSession(raw: string | null): FeedSessionStorage | null {
 }
 
 function buildFeedElapsed(session: FeedSessionStorage): number {
-  const accumulated = safeNumber(session.accumulatedSeconds, 0);
-  const startedAt = safeNumber(session.sessionStartEpoch, 0);
+  const left = safeNumber(session.sideTimes?.L, 0);
+  const right = safeNumber(session.sideTimes?.R, 0);
+  const baseAccumulated = left + right;
 
   if (session.status === 'PAUSED') {
-    const pausedAt = safeNumber(session.pausedAtEpoch, 0);
-
-    if (pausedAt > 0 && startedAt > 0 && pausedAt >= startedAt) {
-      return clampElapsed(accumulated + Math.floor((pausedAt - startedAt) / 1000));
-    }
-
-    return clampElapsed(accumulated);
+    return clampElapsed(baseAccumulated / 1000);
   }
 
   if (session.status === 'ACTIVE') {
-    if (startedAt <= 0) return clampElapsed(accumulated);
-    return clampElapsed(accumulated + Math.floor((Date.now() - startedAt) / 1000));
+    const segmentStartEpoch = safeNumber(session.segmentStartEpoch, 0);
+    const liveSegmentMs =
+      segmentStartEpoch > 0 ? Date.now() - segmentStartEpoch : 0;
+
+    return clampElapsed((baseAccumulated + liveSegmentMs) / 1000);
   }
 
   return 0;

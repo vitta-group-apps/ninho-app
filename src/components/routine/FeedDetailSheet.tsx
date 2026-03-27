@@ -61,7 +61,9 @@ function asString(value: unknown): string | null {
 
 function asStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    return value.filter(
+      (item): item is string => typeof item === 'string' && item.trim().length > 0
+    );
   }
 
   if (typeof value === 'string' && value.trim()) {
@@ -98,30 +100,30 @@ export function FeedDetailSheet({
 
   if (!log) return null;
 
-  const totalSec =
+  const totalSec = Math.max(
+    0,
     asNumber(payload.total_seconds) ??
-    asNumber(payload.totalSeconds) ??
-    (log.end_time
-      ? Math.floor(
-          (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
-        )
-      : 0);
+      asNumber(payload.totalSeconds) ??
+      (log.end_time
+        ? Math.floor(
+            (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
+          )
+        : 0)
+  );
 
-  const leftSec =
-    asNumber(payload.left_seconds) ??
-    asNumber(payload.leftSeconds) ??
-    0;
+  const leftSec = Math.max(
+    0,
+    asNumber(payload.left_seconds) ?? asNumber(payload.leftSeconds) ?? 0
+  );
 
-  const rightSec =
-    asNumber(payload.right_seconds) ??
-    asNumber(payload.rightSeconds) ??
-    0;
+  const rightSec = Math.max(
+    0,
+    asNumber(payload.right_seconds) ?? asNumber(payload.rightSeconds) ?? 0
+  );
 
-  const switches =
-    asNumber(payload.switches) ?? 0;
+  const switches = Math.max(0, asNumber(payload.switches) ?? 0);
 
-  const tags =
-    asStringArray(payload.tags);
+  const tags = asStringArray(payload.tags);
 
   const userNotes = getUserNotes(log.notes) ?? null;
 
@@ -139,6 +141,9 @@ export function FeedDetailSheet({
   const isManual = mode === 'manual';
   const startTime = fmtTime(log.start_time);
   const endTime = log.end_time ? fmtTime(log.end_time) : null;
+
+  const leftPct = totalSec > 0 ? (leftSec / totalSec) * 100 : 0;
+  const rightPct = totalSec > 0 ? (rightSec / totalSec) * 100 : 0;
 
   function startEdit() {
     setEditTags([...tags]);
@@ -163,7 +168,7 @@ export function FeedDetailSheet({
     try {
       const newPayload: PayloadRecord = cleanPayload({
         ...payload,
-        tags: editTags,
+        tags: editTags.filter(Boolean),
         include_in_report: editReport,
       });
 
@@ -330,7 +335,7 @@ export function FeedDetailSheet({
                 >
                   <div
                     style={{
-                      width: `${leftSec > 0 ? (leftSec / totalSec) * 100 : 0}%`,
+                      width: `${leftPct}%`,
                       background: 'hsl(var(--ninho-sage))',
                       borderRadius: '9999px 0 0 9999px',
                     }}
@@ -338,7 +343,7 @@ export function FeedDetailSheet({
                   {rightSec > 0 && (
                     <div
                       style={{
-                        width: `${(rightSec / totalSec) * 100}%`,
+                        width: `${rightPct}%`,
                         background: 'hsl(var(--ninho-mauve))',
                         borderRadius: '0 9999px 9999px 0',
                       }}

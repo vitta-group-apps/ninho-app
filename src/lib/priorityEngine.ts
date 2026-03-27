@@ -206,12 +206,12 @@ export function runPriorityEngine(params: {
   // ─── Derive log states ─────────────────────────────────────────────────
   const feedLogs     = logs.filter(l => l.type === 'feed');
   const diaperLogs   = logs.filter(l => l.type === 'diaper');
-  const sleepLogs    = logs.filter(l => l.type === 'sleep' && l.end_time);
-  const ongoingSleep = logs.find(l => l.type === 'sleep' && !l.end_time);
+  const sleepLogs    = logs.filter(l => l.type === 'sleep' && l.endTime);
+  const ongoingSleep = logs.find(l => l.type === 'sleep' && !l.endTime);
   const lastFeed     = feedLogs[0]; // logs are newest-first
 
   const sleepSec = sleepLogs.reduce((acc, l) =>
-    acc + Math.floor((new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000), 0);
+    acc + Math.floor((new Date(l.endTime!).getTime() - new Date(l.startTime).getTime()) / 1000), 0);
 
   const vaccineState = getVaccineState(activeChild.birth_date, ageMonths);
   // Adjust "due" count by subtracting already-applied if known

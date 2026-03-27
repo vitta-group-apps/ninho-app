@@ -3,6 +3,7 @@ export type RoutineLogType = 'sleep' | 'feed' | 'diaper' | 'note';
 export type SleepPayload = {
   quality?: 'good' | 'ok' | 'bad' | null;
   location?: string | null;
+  includeInReport?: boolean | null;
 };
 
 export type FeedPayload = {
@@ -15,6 +16,8 @@ export type FeedPayload = {
   rightSeconds?: number | null;
   totalSeconds?: number | null;
   switches?: number | null;
+  lastSide?: 'L' | 'R' | null;
+  isManual?: boolean | null;
 
   tags?: string[] | null;
   includeInReport?: boolean | null;

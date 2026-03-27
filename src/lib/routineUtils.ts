@@ -12,9 +12,7 @@
 import type {
   RoutineRecord,
   FeedPayload,
-  SleepPayload,
   DiaperPayload,
-  NotePayload,
 } from '@/lib/contracts/routine';
 
 export type RoutineLog = RoutineRecord;
@@ -24,15 +22,19 @@ export function getUserNotes(notes: string | null): string | null {
 }
 
 export function fmtTimer(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 export function fmtDurationShort(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
+  const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  if (safe < 60) return `${safe}s`;
+
+  const m = Math.floor(safe / 60);
   if (m < 60) return `${m}min`;
+
   const h = Math.floor(m / 60);
   const rem = m % 60;
   return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
@@ -75,6 +77,39 @@ export interface LogMeta {
   durationBadge: string | null;
 }
 
+const DIAPER_QUANTITY_LABEL: Record<string, string> = {
+  small: 'pouca',
+  medium: 'média',
+  large: 'grande',
+};
+
+const DIAPER_PEE_COLOR_LABEL: Record<string, string> = {
+  clear: 'transparente',
+  pale_yellow: 'amarelo claro',
+  dark_yellow: 'amarelo escuro',
+  other: 'outra cor',
+};
+
+const DIAPER_POOP_COLOR_LABEL: Record<string, string> = {
+  yellow: 'amarelo',
+  green: 'verde',
+  brown: 'marrom',
+  dark: 'escuro',
+  red: 'avermelhado',
+  black: 'preto',
+  white: 'branco',
+  other: 'outra cor',
+};
+
+const DIAPER_TEXTURE_LABEL: Record<string, string> = {
+  liquid: 'líquido',
+  pasty: 'pastoso',
+  soft: 'macio',
+  firm: 'firme',
+  mucus_like: 'com muco',
+  other: 'outro',
+};
+
 export function getLogMeta(log: RoutineLog): LogMeta {
   switch (log.type) {
     case 'feed': {
@@ -87,9 +122,7 @@ export function getLogMeta(log: RoutineLog): LogMeta {
             ? payload.totalSeconds
             : log.endTime
             ? Math.floor(
-                (new Date(log.endTime).getTime() -
-                  new Date(log.startTime).getTime()) /
-                  1000
+                (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
               )
             : 0;
 
@@ -161,7 +194,6 @@ export function getLogMeta(log: RoutineLog): LogMeta {
     }
 
     case 'sleep': {
-      const _payload = (log.payload ?? {}) as SleepPayload;
       const duration = log.endTime
         ? fmtRangeDuration(log.startTime, log.endTime)
         : null;
@@ -182,7 +214,6 @@ export function getLogMeta(log: RoutineLog): LogMeta {
 
       const pee = payload.pee === true;
       const poop = payload.poop === true;
-
       const kind = pee && poop ? 'both' : poop ? 'poop' : 'pee';
 
       const kindMap: Record<string, string> = {
@@ -193,10 +224,23 @@ export function getLogMeta(log: RoutineLog): LogMeta {
 
       const detailParts: string[] = [];
 
-      if (payload.quantity) detailParts.push(payload.quantity);
-      if (payload.peeColor) detailParts.push(payload.peeColor);
-      if (payload.poopColor) detailParts.push(payload.poopColor);
-      if (payload.poopTexture) detailParts.push(payload.poopTexture);
+      if (payload.quantity) {
+        detailParts.push(DIAPER_QUANTITY_LABEL[payload.quantity] ?? payload.quantity);
+      }
+
+      if (payload.peeColor) {
+        detailParts.push(DIAPER_PEE_COLOR_LABEL[payload.peeColor] ?? payload.peeColor);
+      }
+
+      if (payload.poopColor) {
+        detailParts.push(DIAPER_POOP_COLOR_LABEL[payload.poopColor] ?? payload.poopColor);
+      }
+
+      if (payload.poopTexture) {
+        detailParts.push(
+          DIAPER_TEXTURE_LABEL[payload.poopTexture] ?? payload.poopTexture
+        );
+      }
 
       return {
         emoji: '🧷',
@@ -210,9 +254,7 @@ export function getLogMeta(log: RoutineLog): LogMeta {
     }
 
     case 'note':
-    default: {
-      const _payload = (log.payload ?? {}) as NotePayload;
-
+    default:
       return {
         emoji: '📝',
         label: 'Nota',
@@ -222,6 +264,5 @@ export function getLogMeta(log: RoutineLog): LogMeta {
         bgColor: 'hsl(var(--muted))',
         durationBadge: null,
       };
-    }
   }
 }

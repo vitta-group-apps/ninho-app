@@ -2,7 +2,7 @@
  * DesenvolvimentoPage — Crescer
  *
  * Usa ageJourneys.ts como fonte única de dados de desenvolvimento.
- * Conquistas salvas em health_logs type='note' details.type='milestone'
+ * Conquistas salvas em child_development_milestones.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -43,58 +43,6 @@ const PAGE_BG = '#F8F5F0';
 const TXT = '#2C2C2C';
 const TXT_MUTED = '#7A7A7A';
 
-type DevelopmentMilestoneRow = {
-  id: string;
-  child_id: string;
-  author_id: string;
-  milestone_id: string;
-  milestone_label: string;
-  domain: string;
-  age_hint: string | null;
-  achieved_on: string;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-interface AchievedMilestone {
-  id: string;
-  milestoneId: string;
-  milestoneLabel: string;
-  domain: MilestoneDomain;
-  ageHint?: string;
-  achievedAt: Date;
-  achievedOn: string;
-  notes?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-function isMilestoneDomain(value: unknown): value is MilestoneDomain {
-  return (
-    value === 'motor' ||
-    value === 'linguagem' ||
-    value === 'social' ||
-    value === 'cognitivo'
-  );
-}
-
-function toAchievedMilestone(row: DevelopmentMilestoneRow): AchievedMilestone {
-  return {
-    id: row.id,
-    milestoneId: row.milestone_id,
-    milestoneLabel: row.milestone_label,
-    domain: isMilestoneDomain(row.domain) ? row.domain : 'motor',
-    ageHint: row.age_hint ?? undefined,
-    achievedAt: new Date(`${row.achieved_on}T12:00:00`),
-    achievedOn: row.achieved_on,
-    notes: row.notes ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-// Mapeia domain → bg claro para badges e cards
 function domainBg(domain: MilestoneDomain): string {
   const map: Record<MilestoneDomain, string> = {
     motor: SAGE_BG,
@@ -115,25 +63,35 @@ function domainBorder(domain: MilestoneDomain): string {
   return map[domain];
 }
 
+// ── Interfaces ──
+interface AchievedMilestone {
+  id: string;
+  milestoneId: string;
+  domain?: string;
+  title?: string;
+  achievedAt: Date;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // ── Modal de registro de marco ──
 function MilestoneModal({
   milestone,
   childId,
   userId,
-  existingAchievement,
   onClose,
   onSaved,
 }: {
   milestone: Milestone;
   childId: string;
   userId: string;
-  existingAchievement?: AchievedMilestone;
   onClose: () => void;
   onSaved: (achieved: AchievedMilestone) => void;
 }) {
   const today = new Date().toISOString().split('T')[0];
-  const [date, setDate] = useState(existingAchievement?.achievedOn ?? today);
-  const [notes, setNotes] = useState(existingAchievement?.notes ?? '');
+  const [date, setDate] = useState(today);
+  const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const color = DOMAIN_COLORS[milestone.domain];
@@ -148,11 +106,10 @@ function MilestoneModal({
         child_id: childId,
         author_id: userId,
         milestone_id: milestone.id,
-        milestone_label: milestone.label,
         domain: milestone.domain,
-        age_hint: milestone.ageHint ?? null,
-        achieved_on: date,
+        title: milestone.label,
         notes: notes.trim() || null,
+        achieved_on: date,
       };
 
       const { data, error } = await supabase
@@ -165,10 +122,19 @@ function MilestoneModal({
 
       if (error) throw error;
 
-      onSaved(toAchievedMilestone(data as DevelopmentMilestoneRow));
+      onSaved({
+        id: data.id,
+        milestoneId: data.milestone_id,
+        domain: data.domain ?? undefined,
+        title: data.title ?? undefined,
+        achievedAt: new Date(`${data.achieved_on}T12:00:00`),
+        notes: data.notes ?? undefined,
+        createdAt: data.created_at ?? undefined,
+        updatedAt: data.updated_at ?? undefined,
+      });
 
       toast({
-        title: existingAchievement ? '✨ Marco atualizado!' : '🎉 Marco registrado!',
+        title: '🎉 Marco registrado!',
         description: milestone.label,
       });
 
@@ -210,7 +176,7 @@ function MilestoneModal({
                 className="text-[16px] font-bold font-quicksand"
                 style={{ color: TXT }}
               >
-                {existingAchievement ? 'Atualizar marco' : 'Registrar marco'} 🎉
+                Registrar marco 🎉
               </p>
               <p
                 className="text-[12px] font-nunito mt-0.5"
@@ -325,11 +291,7 @@ function MilestoneModal({
                 cursor: 'pointer',
               }}
             >
-              {saving
-                ? 'Salvando…'
-                : existingAchievement
-                ? 'Salvar atualização'
-                : '🎉 Confirmar marco'}
+              {saving ? 'Salvando…' : '🎉 Confirmar marco'}
             </button>
           </div>
         </div>
@@ -394,7 +356,7 @@ function MilestoneRow({
               month: '2-digit',
               year: '2-digit',
             })}
-            {achieved.notes ? ` · ${achieved.notes}` : ''}
+            {achieved.notes && ` · ${achieved.notes}`}
           </p>
         ) : (
           <p
@@ -406,17 +368,19 @@ function MilestoneRow({
         )}
       </div>
 
-      <button
-        onClick={() => onRegister(milestone)}
-        className="text-[10px] font-bold font-nunito px-2.5 py-1.5 rounded-xl text-white flex-shrink-0 self-center transition-all active:scale-95"
-        style={{
-          backgroundColor: achieved ? MAUVE : SAGE,
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      >
-        {achieved ? 'Editar' : 'Atingido'}
-      </button>
+      {!achieved && (
+        <button
+          onClick={() => onRegister(milestone)}
+          className="text-[10px] font-bold font-nunito px-2.5 py-1.5 rounded-xl text-white flex-shrink-0 self-center transition-all active:scale-95"
+          style={{
+            backgroundColor: SAGE,
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          Atingido
+        </button>
+      )}
     </div>
   );
 }
@@ -510,6 +474,7 @@ function ActivityCard({
   );
 }
 
+// ── Main Page ──
 export default function DesenvolvimentoPage() {
   const { user } = useAuth();
   const { activeChild } = useActiveChild();
@@ -529,11 +494,11 @@ export default function DesenvolvimentoPage() {
   );
   const [showWatchpoints, setShowWatchpoints] = useState(false);
 
-  function toggleDomain(domain: MilestoneDomain) {
+  function toggleDomain(d: MilestoneDomain) {
     setExpandedDomains(prev => {
       const next = new Set(prev);
-      if (next.has(domain)) next.delete(domain);
-      else next.add(domain);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
       return next;
     });
   }
@@ -556,8 +521,18 @@ export default function DesenvolvimentoPage() {
 
       if (error) throw error;
 
-      const rows = (data ?? []) as DevelopmentMilestoneRow[];
-      setAchieved(rows.map(toAchievedMilestone));
+      const list: AchievedMilestone[] = (data ?? []).map(row => ({
+        id: row.id,
+        milestoneId: row.milestone_id,
+        domain: row.domain ?? undefined,
+        title: row.title ?? undefined,
+        achievedAt: new Date(`${row.achieved_on}T12:00:00`),
+        notes: row.notes ?? undefined,
+        createdAt: row.created_at ?? undefined,
+        updatedAt: row.updated_at ?? undefined,
+      }));
+
+      setAchieved(list);
     } catch {
       toast({
         title: 'Erro ao carregar marcos',
@@ -576,33 +551,19 @@ export default function DesenvolvimentoPage() {
     new Set(phase.milestones.map(m => m.domain))
   ) as MilestoneDomain[];
 
-  const milestonesByDomain = domains.reduce((acc, domain) => {
-    acc[domain] = phase.milestones.filter(m => m.domain === domain);
+  const milestonesByDomain = domains.reduce((acc, d) => {
+    acc[d] = phase.milestones.filter(m => m.domain === d);
     return acc;
   }, {} as Record<MilestoneDomain, Milestone[]>);
 
   const achievedIds = new Set(achieved.map(a => a.milestoneId));
   const achievedCount = phase.milestones.filter(m => achievedIds.has(m.id)).length;
   const totalCount = phase.milestones.length;
-  const progressPct = totalCount > 0 ? Math.round((achievedCount / totalCount) * 100) : 0;
+  const progressPct =
+    totalCount > 0 ? Math.round((achievedCount / totalCount) * 100) : 0;
 
   const featuredActivity =
     phase.stimulation.find(a => !doneActivities.has(a.id)) ?? phase.stimulation[0];
-
-  const achievementMap = new Map(achieved.map(item => [item.milestoneId, item] as const));
-
-  function handleSavedMilestone(saved: AchievedMilestone) {
-    setAchieved(prev => {
-      const withoutOld = prev.filter(item => item.milestoneId !== saved.milestoneId);
-      return [saved, ...withoutOld].sort(
-        (a, b) => b.achievedAt.getTime() - a.achievedAt.getTime()
-      );
-    });
-  }
-
-  const editingAchievement = confirmMilestone
-    ? achievementMap.get(confirmMilestone.id)
-    : undefined;
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: PAGE_BG }}>
@@ -654,6 +615,7 @@ export default function DesenvolvimentoPage() {
               >
                 {phase.label}
               </p>
+
               <p
                 className="text-[11px] font-nunito mt-0.5"
                 style={{ color: TXT_MUTED }}
@@ -679,6 +641,7 @@ export default function DesenvolvimentoPage() {
                 >
                   Marcos desta fase
                 </p>
+
                 <p
                   className="text-[11px] font-bold font-nunito"
                   style={{ color: achievedCount > 0 ? SAGE : TXT_MUTED }}
@@ -738,17 +701,17 @@ export default function DesenvolvimentoPage() {
               {phase.stimulation.length > 1 && (
                 <div className="mt-2 space-y-2">
                   {phase.stimulation
-                    .filter(activity => activity.id !== featuredActivity.id)
-                    .map(activity => (
+                    .filter(a => a.id !== featuredActivity.id)
+                    .map(a => (
                       <ActivityCard
-                        key={activity.id}
-                        activity={activity}
-                        done={doneActivities.has(activity.id)}
+                        key={a.id}
+                        activity={a}
+                        done={doneActivities.has(a.id)}
                         onToggle={() =>
                           setDoneActivities(prev => {
                             const next = new Set(prev);
-                            if (next.has(activity.id)) next.delete(activity.id);
-                            else next.add(activity.id);
+                            if (next.has(a.id)) next.delete(a.id);
+                            else next.add(a.id);
                             return next;
                           })
                         }
@@ -792,10 +755,8 @@ export default function DesenvolvimentoPage() {
                 {domains.map(domain => {
                   const color = DOMAIN_COLORS[domain];
                   const bg = domainBg(domain);
-                  const domainMilestones = milestonesByDomain[domain] ?? [];
-                  const domainAchieved = domainMilestones.filter(m =>
-                    achievedIds.has(m.id)
-                  ).length;
+                  const domMilestones = milestonesByDomain[domain] ?? [];
+                  const domAchieved = domMilestones.filter(m => achievedIds.has(m.id)).length;
                   const isExpanded = expandedDomains.has(domain);
 
                   return (
@@ -826,16 +787,17 @@ export default function DesenvolvimentoPage() {
                           >
                             {DOMAIN_LABELS[domain].split(' ').slice(1).join(' ')}
                           </p>
+
                           <p
                             className="text-[11px] font-nunito"
                             style={{ color: TXT_MUTED }}
                           >
-                            {domainAchieved}/{domainMilestones.length} registrados
+                            {domAchieved}/{domMilestones.length} registrados
                           </p>
                         </div>
 
-                        {domainAchieved === domainMilestones.length &&
-                          domainMilestones.length > 0 && (
+                        {domAchieved === domMilestones.length &&
+                          domMilestones.length > 0 && (
                             <InlineStatusPill
                               label="Completo"
                               variant="active"
@@ -864,11 +826,11 @@ export default function DesenvolvimentoPage() {
                               className="px-3 pb-3 pt-2 space-y-2"
                               style={{ borderTop: `1px solid ${CARD_BORDER}` }}
                             >
-                              {domainMilestones.map(milestone => (
+                              {domMilestones.map(m => (
                                 <MilestoneRow
-                                  key={milestone.id}
-                                  milestone={milestone}
-                                  achieved={achievementMap.get(milestone.id)}
+                                  key={m.id}
+                                  milestone={m}
+                                  achieved={achieved.find(a => a.milestoneId === m.id)}
                                   onRegister={setConfirmMilestone}
                                 />
                               ))}
@@ -902,6 +864,7 @@ export default function DesenvolvimentoPage() {
                   >
                     Sinais para observar
                   </p>
+
                   <p
                     className="text-[11px] font-nunito"
                     style={{ color: TXT_MUTED }}
@@ -928,9 +891,9 @@ export default function DesenvolvimentoPage() {
                     className="overflow-hidden"
                   >
                     <div className="mt-2 space-y-2">
-                      {phase.watchpoints.map(watchpoint => (
+                      {phase.watchpoints.map(wp => (
                         <div
-                          key={watchpoint.id}
+                          key={wp.id}
                           className="flex items-start gap-3 px-4 py-3 rounded-2xl"
                           style={{
                             backgroundColor: '#FCEAEA',
@@ -938,13 +901,14 @@ export default function DesenvolvimentoPage() {
                           }}
                         >
                           <span className="text-[14px] flex-shrink-0 mt-0.5">
-                            {DOMAIN_LABELS[watchpoint.domain].split(' ')[0]}
+                            {DOMAIN_LABELS[wp.domain].split(' ')[0]}
                           </span>
+
                           <p
                             className="text-[12px] font-nunito leading-snug"
                             style={{ color: '#7a3030' }}
                           >
-                            {watchpoint.description}
+                            {wp.description}
                           </p>
                         </div>
                       ))}
@@ -957,8 +921,8 @@ export default function DesenvolvimentoPage() {
                           className="text-[11px] font-nunito leading-snug"
                           style={{ color: TXT_MUTED }}
                         >
-                          Esses sinais são referências para conversar com o pediatra
-                          — não diagnósticos.
+                          Esses sinais são referências para conversar com o
+                          pediatra — não diagnósticos.
                         </p>
                       </div>
                     </div>
@@ -978,16 +942,16 @@ export default function DesenvolvimentoPage() {
               </p>
 
               <div className="space-y-2">
-                {achieved.slice(0, 6).map(item => {
+                {achieved.slice(0, 6).map(a => {
                   const milestone =
-                    phase.milestones.find(m => m.id === item.milestoneId) ??
+                    phase.milestones.find(m => m.id === a.milestoneId) ??
                     ({
-                      id: item.milestoneId,
-                      label: item.milestoneLabel,
-                      description: item.notes ?? 'Marco registrado',
-                      ageHint: item.ageHint ?? 'Registrado',
+                      id: a.milestoneId,
+                      label: a.title ?? 'Marco registrado',
+                      domain: (a.domain as MilestoneDomain) || 'motor',
                       emoji: '🎉',
-                      domain: item.domain,
+                      description: '',
+                      ageHint: '',
                     } as Milestone);
 
                   const color = DOMAIN_COLORS[milestone.domain];
@@ -995,7 +959,7 @@ export default function DesenvolvimentoPage() {
 
                   return (
                     <div
-                      key={item.id}
+                      key={a.id}
                       className="flex items-center gap-3 px-4 py-3 rounded-2xl"
                       style={{
                         backgroundColor: bg,
@@ -1011,21 +975,25 @@ export default function DesenvolvimentoPage() {
                         >
                           {milestone.label}
                         </p>
+
                         <p
                           className="text-[11px] font-nunito mt-0.5"
                           style={{ color: TXT_MUTED }}
                         >
-                          {item.achievedAt.toLocaleDateString('pt-BR', {
+                          {a.achievedAt.toLocaleDateString('pt-BR', {
                             day: '2-digit',
                             month: 'long',
                           })}
-                          {item.notes ? ` · ${item.notes}` : ''}
+                          {a.notes ? ` · ${a.notes}` : ''}
                         </p>
                       </div>
 
                       <span
                         className="text-[9px] font-bold font-nunito px-2 py-1 rounded-full uppercase"
-                        style={{ backgroundColor: CARD_BG, color }}
+                        style={{
+                          backgroundColor: CARD_BG,
+                          color,
+                        }}
                       >
                         {DOMAIN_LABELS[milestone.domain].split(' ')[0]}
                       </span>
@@ -1045,18 +1013,20 @@ export default function DesenvolvimentoPage() {
               }}
             >
               <p className="text-3xl mb-2">⭐</p>
+
               <p
                 className="text-[14px] font-bold font-quicksand"
                 style={{ color: TXT }}
               >
                 Nenhum marco registrado ainda
               </p>
+
               <p
                 className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
                 style={{ color: TXT_MUTED }}
               >
-                Quando {childName} atingir um marco, toque em &quot;Atingido&quot;
-                para registrar e guardar a memória.
+                Quando {childName} atingir um marco, toque em "Atingido" para
+                registrar e guardar a memória.
               </p>
             </div>
           )}
@@ -1069,10 +1039,12 @@ export default function DesenvolvimentoPage() {
             milestone={confirmMilestone}
             childId={activeChild.id}
             userId={user.id}
-            existingAchievement={editingAchievement}
             onClose={() => setConfirmMilestone(null)}
-            onSaved={saved => {
-              handleSavedMilestone(saved);
+            onSaved={a => {
+              setAchieved(prev => {
+                const withoutSame = prev.filter(item => item.milestoneId !== a.milestoneId);
+                return [a, ...withoutSame];
+              });
               setConfirmMilestone(null);
             }}
           />

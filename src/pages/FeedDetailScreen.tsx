@@ -17,7 +17,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { parsePayload, makePayloadNotes, getUserNotes, fmtDurationShort, fmtTime } from '@/lib/routineUtils';
+import { getUserNotes, fmtDurationShort, fmtTime } from '@/lib/routineUtils';
+import type { Json } from '@/integrations/supabase/types';
 import type { RoutineLog } from '@/lib/eventSystem';
 import {
   ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle,

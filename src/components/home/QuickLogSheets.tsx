@@ -84,7 +84,7 @@ export function SleepSheet({ open, onClose, onSaved }: SleepSheetProps) {
         type: 'sleep',
         start_time: new Date(ongoingStart).toISOString(),
         end_time: new Date().toISOString(),
-        notes: notes.trim() ? makePayloadNotes({}, notes) : null,
+        notes: notes.trim() || null,
       });
       if (error) throw error;
       localStorage.removeItem(`${SLEEP_KEY}_${childId}`);

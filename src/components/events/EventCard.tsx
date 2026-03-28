@@ -111,7 +111,7 @@ export function EventCard({
               )}
 
               <span className="text-[11px] font-semibold tabular-nums text-muted-foreground font-nunito">
-                {fmtTime(log.startTime)}
+                {fmtTime(log.start_time)}
               </span>
 
               {ev.tappable && (

@@ -180,18 +180,19 @@ export function DiaperDetailSheet({
     try {
       const updatedPayload: Record<string, unknown> = {
         ...payload,
+        kind,
         quantity: quantity || null,
-        peeColor: showPee ? peeColor || null : null,
-        poopColor: showPoop ? poopColor || null : null,
-        poopTexture: showPoop ? texture || null : null,
-        includeInReport,
+        pee_color: showPee ? peeColor || null : null,
+        poop_color: showPoop ? poopColor || null : null,
+        poop_texture: showPoop ? texture || null : null,
+        include_in_report: includeInReport || null,
       };
 
       const { error } = await supabase
         .from('routine_logs')
         .update({
           notes: notes.trim() || null,
-          payload: updatedPayload,
+          payload: updatedPayload as unknown as import('@/integrations/supabase/types').Json,
         })
         .eq('id', log.id);
 

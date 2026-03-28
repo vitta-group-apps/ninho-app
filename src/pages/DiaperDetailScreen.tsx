@@ -181,7 +181,7 @@ export default function DiaperDetailScreen() {
       const { error } = await supabase
         .from('routine_logs')
         .update({
-          payload: serializeRoutinePayload('diaper', nextPayload),
+          payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('@/integrations/supabase/types').Json,
           notes: notes.trim() || null,
         })
         .eq('id', log.id);

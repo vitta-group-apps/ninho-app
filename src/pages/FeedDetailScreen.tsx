@@ -138,10 +138,10 @@ export default function FeedDetailScreen() {
     );
   }
 
-  const p         = parsePayload(log.notes);
-  const totalSec  = Number(p.total_seconds ?? 0);
-  const leftSec   = Number(p.left_seconds ?? 0);
-  const rightSec  = Number(p.right_seconds ?? 0);
+  const p         = asPayload(log.payload);
+  const totalSec  = Number(p.total_seconds ?? p.totalSeconds ?? 0);
+  const leftSec   = Number(p.left_seconds ?? p.leftSeconds ?? 0);
+  const rightSec  = Number(p.right_seconds ?? p.rightSeconds ?? 0);
   const switches  = Number(p.switches ?? 0);
   const endTime   = log.end_time ? fmtTime(log.end_time) : null;
   const tagLabels = tags.map(t => TAG_LABEL[t] ?? t).join(', ');

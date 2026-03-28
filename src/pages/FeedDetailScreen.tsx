@@ -73,6 +73,10 @@ export default function FeedDetailScreen() {
   const [notes, setNotes]                   = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
+  function asPayload(raw: unknown): Record<string, unknown> {
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  }
+
   useEffect(() => {
     if (!logId) return;
     (async () => {
@@ -80,8 +84,9 @@ export default function FeedDetailScreen() {
         .from('routine_logs').select('*').eq('id', logId).maybeSingle();
       if (data) {
         setLog(data);
-        const p = parsePayload(data.notes);
-        setTags(String(p.tags ?? '').split(',').filter(Boolean));
+        const p = asPayload(data.payload);
+        const rawTags = p.tags;
+        setTags(Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : String(rawTags ?? '').split(',').filter(Boolean));
         setNotes(getUserNotes(data.notes) ?? '');
         setIncludeInReport(Boolean(p.include_in_report));
       }

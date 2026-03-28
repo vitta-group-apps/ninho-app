@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
-import { makePayloadNotes, fmtTimer } from '@/lib/routineUtils';
+import { fmtTimer } from '@/lib/routineUtils';
 
 export { FeedSheet } from '@/components/routine/FeedSheet';
 export { DiaperSheet } from '@/components/routine/DiaperSheet';

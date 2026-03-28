@@ -30,7 +30,7 @@ export function EventCard({
 }: EventCardProps) {
   const navigate = useNavigate();
   const ev = getEventPresentation(log);
-  const isOngoing = log.type === 'sleep' && !log.endTime;
+  const isOngoing = log.type === 'sleep' && !log.end_time;
 
   function handleClick() {
     if (!ev.tappable) return;

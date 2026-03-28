@@ -1,10 +1,11 @@
- /**
+/**
  * RotinaPage — Ninho fast-log + trustworthy timeline.
  *
- * Agora adaptada para o contrato novo:
- *   - payload estruturado em routine_logs.payload
- *   - notes como observação humana
- *   - leitura via adapter + validator
+ * Modelo novo:
+ *   - routine_logs = fonte da verdade
+ *   - payload = json estruturado
+ *   - notes = observação humana
+ *   - leitura direta via Tables<'routine_logs'>
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -17,6 +18,7 @@ import {
   PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { EventCard } from '@/components/events/EventCard';
 import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
@@ -24,17 +26,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fmtTimeSince } from '@/lib/routineUtils';
 import { SummaryMetricCard, SectionLabel } from '@/components/ds';
 import { ChipGroup } from '@/components/ds/ChipGroup';
-import type { RoutineLog } from '@/lib/eventSystem';
-import {
-  groupLogsByTimeOfDay,
-  TIME_OF_DAY_EMOJI,
-  analyzeDayPatterns,
-  type TimeOfDay,
-} from '@/lib/eventSystem';
-import { toRoutineRecord } from '@/lib/adapters/routineAdapters';
-import { isValidRoutineRecord } from '@/lib/validators/routineValidators';
 
-// ── Cores fixas do design system ──
+// ── Types ───────────────────────────────────────────────────────────────────
+
+type RoutineLog = Tables<'routine_logs'>;
+type TimeOfDay = 'Manhã' | 'Tarde' | 'Noite' | 'Madrugada';
+
+// ── Cores fixas do design system ────────────────────────────────────────────
+
 const FEED_COLOR = '#789687';
 const SLEEP_COLOR = '#806e84';
 const DIAPER_COLOR = '#C8894A';
@@ -47,6 +46,8 @@ const MAUVE_BG = '#f4f0f3';
 const TXT = '#2C2C2C';
 const TXT_MUTED = '#7A7A7A';
 const PAGE_BG = '#F8F5F0';
+
+// ── Filtros ─────────────────────────────────────────────────────────────────
 
 const TYPE_FILTER_OPTIONS = [
   { value: 'all', label: 'Todos' },
@@ -69,17 +70,121 @@ const TOD_OPTIONS = [
   { value: 'Madrugada', label: '🌃 Madrugada' },
 ];
 
+const TIME_OF_DAY_EMOJI: Record<TimeOfDay, string> = {
+  Manhã: '🌅',
+  Tarde: '☀️',
+  Noite: '🌙',
+  Madrugada: '🌃',
+};
+
+// ── Helpers locais ──────────────────────────────────────────────────────────
+
+function getHourFromLog(log: RoutineLog): number {
+  return new Date(log.start_time).getHours();
+}
+
+function getTimeOfDay(hour: number): TimeOfDay {
+  const hh = hour < 5 ? hour + 24 : hour;
+
+  if (hh >= 5 && hh < 12) return 'Manhã';
+  if (hh >= 12 && hh < 18) return 'Tarde';
+  if (hh >= 18 && hh < 22) return 'Noite';
+  return 'Madrugada';
+}
+
+function groupLogsByTimeOfDay(logs: RoutineLog[]) {
+  const groupsOrder: TimeOfDay[] = ['Manhã', 'Tarde', 'Noite', 'Madrugada'];
+
+  const grouped = groupsOrder
+    .map((group) => ({
+      group,
+      logs: logs.filter((log) => getTimeOfDay(getHourFromLog(log)) === group),
+    }))
+    .filter((item) => item.logs.length > 0);
+
+  return grouped;
+}
+
+function getFeedTotalSeconds(log: RoutineLog): number {
+  const payload =
+    log.payload && typeof log.payload === 'object' && !Array.isArray(log.payload)
+      ? (log.payload as Record<string, unknown>)
+      : {};
+
+  const totalSeconds =
+    typeof payload.total_seconds === 'number'
+      ? payload.total_seconds
+      : typeof payload.totalSeconds === 'number'
+      ? payload.totalSeconds
+      : null;
+
+  if (typeof totalSeconds === 'number' && Number.isFinite(totalSeconds)) {
+    return Math.max(0, totalSeconds);
+  }
+
+  if (log.end_time) {
+    const diff = Math.floor(
+      (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
+    );
+    return Math.max(0, diff);
+  }
+
+  return 0;
+}
+
+function analyzeDayPatterns(logs: RoutineLog[]) {
+  const feeds = logs
+    .filter((l) => l.type === 'feed')
+    .sort(
+      (a, b) =>
+        new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+    );
+
+  let avgFeedIntervalMin: number | null = null;
+
+  if (feeds.length >= 2) {
+    const diffs: number[] = [];
+    for (let i = 0; i < feeds.length - 1; i += 1) {
+      const current = new Date(feeds[i].start_time).getTime();
+      const next = new Date(feeds[i + 1].start_time).getTime();
+      const diffMin = Math.abs(current - next) / 60000;
+      if (diffMin > 0) diffs.push(diffMin);
+    }
+
+    if (diffs.length > 0) {
+      avgFeedIntervalMin = Math.round(
+        diffs.reduce((acc, value) => acc + value, 0) / diffs.length
+      );
+    }
+  }
+
+  const hasLongSleep = logs.some((l) => {
+    if (l.type !== 'sleep' || !l.end_time) return false;
+    const durationSec = Math.floor(
+      (new Date(l.end_time).getTime() - new Date(l.start_time).getTime()) / 1000
+    );
+    return durationSec >= 3 * 60 * 60;
+  });
+
+  return {
+    avgFeedIntervalMin,
+    hasLongSleep,
+  };
+}
+
+// ── Cards e seções ──────────────────────────────────────────────────────────
+
 function DailyStats({ logs }: { logs: RoutineLog[] }) {
-  const feeds = logs.filter(l => l.type === 'feed').length;
-  const diapers = logs.filter(l => l.type === 'diaper').length;
+  const feeds = logs.filter((l) => l.type === 'feed').length;
+  const diapers = logs.filter((l) => l.type === 'diaper').length;
 
   const sleepSec = logs
-    .filter(l => l.type === 'sleep' && l.endTime)
+    .filter((l) => l.type === 'sleep' && l.end_time)
     .reduce((acc, l) => {
       return (
         acc +
         Math.floor(
-          (new Date(l.endTime!).getTime() - new Date(l.startTime).getTime()) / 1000
+          (new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000
         )
       );
     }, 0);
@@ -212,7 +317,7 @@ function QuickNoteSheet({
           <textarea
             autoFocus
             value={note}
-            onChange={e => setNote(e.target.value)}
+            onChange={(e) => setNote(e.target.value)}
             placeholder="Ex: mamou menos hoje, irritado, assadura..."
             rows={4}
             className="w-full px-4 py-3 rounded-2xl text-[13px] font-nunito resize-none outline-none transition-colors"
@@ -330,7 +435,7 @@ function FAB({
         </AnimatePresence>
 
         <button
-          onClick={() => setOpen(v => !v)}
+          onClick={() => setOpen((v) => !v)}
           className="w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-90 text-white"
           style={{
             backgroundColor: MAUVE,
@@ -363,7 +468,7 @@ function GroupedSection({
   return (
     <div className="mb-4">
       <button
-        onClick={() => setCollapsed(v => !v)}
+        onClick={() => setCollapsed((v) => !v)}
         className="flex items-center gap-2 mb-2.5 w-full text-left py-0.5"
       >
         <span className="text-[13px]">{TIME_OF_DAY_EMOJI[group]}</span>
@@ -394,7 +499,7 @@ function GroupedSection({
                 key={log.id}
                 log={log}
                 isLast={idx === logs.length - 1}
-                onTap={onTap}
+                onTap={() => onTap(log)}
               />
             ))}
           </motion.div>
@@ -403,6 +508,8 @@ function GroupedSection({
     </div>
   );
 }
+
+// ── Main page ───────────────────────────────────────────────────────────────
 
 export default function RotinaPage() {
   const navigate = useNavigate();
@@ -418,7 +525,7 @@ export default function RotinaPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [groupByTod, setGroupByTod] = useState(true);
 
-  const lastFeed = allLogs.find(l => l.type === 'feed');
+  const lastFeed = allLogs.find((l) => l.type === 'feed');
 
   const loadLogs = useCallback(async () => {
     if (!activeChild) return;
@@ -446,22 +553,7 @@ export default function RotinaPage() {
 
       if (error) throw error;
 
-      const normalizedLogs: RoutineLog[] = (data ?? [])
-        .map((row) =>
-          toRoutineRecord({
-            id: row.id,
-            child_id: row.child_id,
-            author_id: row.author_id,
-            type: row.type,
-            start_time: row.start_time,
-            end_time: row.end_time,
-            notes: row.notes,
-            payload: (row as { payload?: unknown }).payload,
-            created_at: row.created_at,
-          })
-        )
-        .filter(isValidRoutineRecord) as RoutineLog[];
-
+      const normalizedLogs: RoutineLog[] = (data ?? []) as RoutineLog[];
       setAllLogs(normalizedLogs);
     } catch {
       // manter silencioso por enquanto, seguindo padrão atual
@@ -479,19 +571,19 @@ export default function RotinaPage() {
     loadLogs();
   }
 
-  const filteredLogs = allLogs.filter(log => {
+  const filteredLogs = allLogs.filter((log) => {
     if (typeFilter !== 'all' && log.type !== typeFilter) return false;
 
     if (todFilter) {
-      const h = new Date(log.startTime).getHours();
-      const tod: Record<string, [number, number]> = {
+      const h = new Date(log.start_time).getHours();
+      const todMap: Record<string, [number, number]> = {
         Manhã: [5, 12],
         Tarde: [12, 18],
         Noite: [18, 22],
         Madrugada: [22, 29],
       };
 
-      const [lo, hi] = tod[todFilter] ?? [0, 24];
+      const [lo, hi] = todMap[todFilter] ?? [0, 24];
       const hh = h < 5 ? h + 24 : h;
 
       if (hh < lo || hh >= hi) return false;
@@ -546,7 +638,7 @@ export default function RotinaPage() {
               className="text-[12px] font-semibold font-nunito"
               style={{ color: 'rgba(255,255,255,0.9)' }}
             >
-              Última mamada há {fmtTimeSince(lastFeed.startTime)}
+              Última mamada há {fmtTimeSince(lastFeed.start_time)}
             </p>
           </div>
         )}
@@ -571,7 +663,7 @@ export default function RotinaPage() {
           <input
             type="text"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar eventos..."
             className="flex-1 text-[13px] bg-transparent font-nunito outline-none"
             style={{ color: TXT }}
@@ -584,7 +676,7 @@ export default function RotinaPage() {
           )}
 
           <button
-            onClick={() => setShowFilters(v => !v)}
+            onClick={() => setShowFilters((v) => !v)}
             className="text-[11px] font-bold font-nunito px-2 py-1 rounded-xl transition-colors"
             style={{
               color: hasActiveFilters ? MAUVE : TXT_MUTED,
@@ -609,7 +701,7 @@ export default function RotinaPage() {
                 <ChipGroup
                   options={PERIOD_OPTIONS}
                   value={period}
-                  onToggle={v => setPeriod(v)}
+                  onToggle={(v) => setPeriod(v)}
                   accentColor={SLEEP_COLOR}
                 />
               </div>
@@ -619,7 +711,7 @@ export default function RotinaPage() {
                 <ChipGroup
                   options={TYPE_FILTER_OPTIONS}
                   value={typeFilter}
-                  onToggle={v => setTypeFilter(v)}
+                  onToggle={(v) => setTypeFilter(v)}
                   accentColor={SLEEP_COLOR}
                 />
               </div>
@@ -629,7 +721,7 @@ export default function RotinaPage() {
                 <ChipGroup
                   options={TOD_OPTIONS}
                   value={todFilter}
-                  onToggle={v => setTodFilter(p => (p === v ? '' : v))}
+                  onToggle={(v) => setTodFilter((p) => (p === v ? '' : v))}
                   accentColor={SLEEP_COLOR}
                 />
               </div>
@@ -643,7 +735,7 @@ export default function RotinaPage() {
                 </p>
 
                 <button
-                  onClick={() => setGroupByTod(v => !v)}
+                  onClick={() => setGroupByTod((v) => !v)}
                   className="text-[11px] font-bold font-nunito px-3 py-1.5 rounded-xl transition-all"
                   style={{
                     backgroundColor: groupByTod ? MAUVE : MUTED_BG,
@@ -665,11 +757,11 @@ export default function RotinaPage() {
         {childLoading ? (
           <div className="space-y-3">
             <div className="flex gap-2">
-              {[0, 1, 2].map(i => (
+              {[0, 1, 2].map((i) => (
                 <Skeleton key={i} className="flex-1 h-24 rounded-2xl" />
               ))}
             </div>
-            {[0, 1, 2].map(i => (
+            {[0, 1, 2].map((i) => (
               <Skeleton key={i} className="h-[72px] rounded-2xl" />
             ))}
           </div>
@@ -735,7 +827,7 @@ export default function RotinaPage() {
 
             {logsLoading ? (
               <div className="space-y-2.5">
-                {[0, 1, 2].map(i => (
+                {[0, 1, 2].map((i) => (
                   <Skeleton key={i} className="h-[72px] rounded-2xl" />
                 ))}
               </div>

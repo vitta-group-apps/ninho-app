@@ -98,14 +98,16 @@ export default function FeedDetailScreen() {
     if (!log) return;
     setSaving(true);
     try {
-      const existing = parsePayload(log.notes);
+      const existing = asPayload(log.payload);
       const payload: Record<string, unknown> = { ...existing };
       if (tags.length > 0) payload.tags = tags.join(','); else delete payload.tags;
       if (includeInReport) payload.include_in_report = true; else delete payload.include_in_report;
-      delete payload._notes;
 
       const { error } = await supabase
-        .from('routine_logs').update({ notes: makePayloadNotes(payload, notes) }).eq('id', log.id);
+        .from('routine_logs').update({
+          payload: payload as unknown as Json,
+          notes: notes.trim() || null,
+        }).eq('id', log.id);
       if (error) throw error;
       toast({ title: '✓ Alterações salvas' });
       setIsEditing(false);

@@ -1,21 +1,22 @@
 /**
- * Ninho Unified Event System v4 — Contract-first presentation layer
+ * Ninho Unified Event System v5 — DB-row-first presentation layer
  *
  * Fonte oficial:
- *  - RoutineRecord (contracts/routine.ts)
+ *  - routine_logs (Supabase)
  *  - payload = dado estruturado
  *  - notes = observação humana
  *
  * Regras:
  *  - hints só quando realmente relevantes
  *  - nada alarmista
- *  - todas as leituras usando startTime / endTime
+ *  - todas as leituras usando start_time / end_time
+ *  - snake_case como prioridade, camelCase apenas como fallback temporário
  */
 
-import type { RoutineRecord } from '@/lib/contracts/routine';
+import type { Tables } from '@/integrations/supabase/types';
 import { fmtDurationShort, fmtTime, fmtRangeDuration } from '@/lib/routineUtils';
 
-export type RoutineLog = RoutineRecord;
+export type RoutineLog = Tables<'routine_logs'>;
 export type EventType = 'feed' | 'sleep' | 'diaper' | 'note';
 
 // ─── Detail behavior ───────────────────────────────────────────────────────
@@ -40,7 +41,13 @@ export interface EventPresentation {
   includeInReport?: boolean;
 }
 
-// ─── Helpers de leitura do contrato novo ───────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+type PayloadRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is PayloadRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
@@ -52,6 +59,22 @@ function asNumber(value: unknown): number | null {
 
 function asBoolean(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
+}
+
+function getPayload(log: RoutineLog): PayloadRecord {
+  return isRecord(log.payload) ? log.payload : {};
+}
+
+function readString(payload: PayloadRecord, snake: string, camel?: string): string | null {
+  return asString(payload[snake]) ?? (camel ? asString(payload[camel]) : null);
+}
+
+function readNumber(payload: PayloadRecord, snake: string, camel?: string): number | null {
+  return asNumber(payload[snake]) ?? (camel ? asNumber(payload[camel]) : null);
+}
+
+function readBoolean(payload: PayloadRecord, snake: string, camel?: string): boolean | null {
+  return asBoolean(payload[snake]) ?? (camel ? asBoolean(payload[camel]) : null);
 }
 
 export function getUserNotes(notes: string | null): string | null {
@@ -99,39 +122,78 @@ export const DIAPER_TEXTURE_LABEL: Record<string, string> = {
   other: 'outro',
 };
 
-// ─── Intelligence: anomaly detection ───────────────────────────────────────
-
-type DiaperLikePayload = {
-  pee?: boolean | null;
-  poop?: boolean | null;
-  poopColor?: string | null;
-  poopTexture?: string | null;
-  peeColor?: string | null;
-  quantity?: string | null;
-};
+// ─── Feed / Diaper normalized payloads ─────────────────────────────────────
 
 type FeedLikePayload = {
   mode?: 'breastfeeding' | 'bottle' | 'solid' | null;
   side?: 'left' | 'right' | 'both' | null;
-  amountMl?: number | null;
+  amount_ml?: number | null;
   food?: string | null;
-  totalSeconds?: number | null;
+  total_seconds?: number | null;
   method?: string | null;
 };
 
-function inferDiaperKind(payload: DiaperLikePayload): 'pee' | 'poop' | 'both' {
-  const pee = payload.pee === true;
-  const poop = payload.poop === true;
+type DiaperLikePayload = {
+  kind?: 'pee' | 'poop' | 'both' | null;
+  quantity?: string | null;
+  pee_color?: string | null;
+  poop_color?: string | null;
+  poop_texture?: string | null;
+};
 
-  if (pee && poop) return 'both';
-  if (poop) return 'poop';
+function normalizeFeedPayload(payload: PayloadRecord): FeedLikePayload {
+  return {
+    mode: readString(payload, 'mode') as FeedLikePayload['mode'],
+    side: readString(payload, 'side') as FeedLikePayload['side'],
+    amount_ml: readNumber(payload, 'amount_ml', 'amountMl'),
+    food: readString(payload, 'food'),
+    total_seconds: readNumber(payload, 'total_seconds', 'totalSeconds'),
+    method: readString(payload, 'method'),
+  };
+}
+
+function normalizeDiaperPayload(payload: PayloadRecord): DiaperLikePayload {
+  const kind = readString(payload, 'kind') as DiaperLikePayload['kind'];
+
+  if (kind) {
+    return {
+      kind,
+      quantity: readString(payload, 'quantity'),
+      pee_color: readString(payload, 'pee_color', 'peeColor'),
+      poop_color: readString(payload, 'poop_color', 'poopColor'),
+      poop_texture: readString(payload, 'poop_texture', 'poopTexture'),
+    };
+  }
+
+  const pee = readBoolean(payload, 'pee');
+  const poop = readBoolean(payload, 'poop');
+
+  let inferredKind: 'pee' | 'poop' | 'both' = 'pee';
+  if (pee && poop) inferredKind = 'both';
+  else if (poop) inferredKind = 'poop';
+
+  return {
+    kind: inferredKind,
+    quantity: readString(payload, 'quantity'),
+    pee_color: readString(payload, 'pee_color', 'peeColor'),
+    poop_color: readString(payload, 'poop_color', 'poopColor'),
+    poop_texture: readString(payload, 'poop_texture', 'poopTexture'),
+  };
+}
+
+// ─── Intelligence: anomaly detection ───────────────────────────────────────
+
+function inferDiaperKind(payload: DiaperLikePayload): 'pee' | 'poop' | 'both' {
+  if (payload.kind === 'both' || payload.kind === 'poop' || payload.kind === 'pee') {
+    return payload.kind;
+  }
   return 'pee';
 }
 
 export function isDiaperSignificant(payload: DiaperLikePayload): boolean {
-  const poopColor = String(payload.poopColor ?? '');
-  const peeColor = String(payload.peeColor ?? '');
-  const texture = String(payload.poopTexture ?? '');
+  const poopColor = String(payload.poop_color ?? '');
+  const peeColor = String(payload.pee_color ?? '');
+  const texture = String(payload.poop_texture ?? '');
 
   return (
     ['red', 'black', 'white'].includes(poopColor) ||
@@ -141,9 +203,9 @@ export function isDiaperSignificant(payload: DiaperLikePayload): boolean {
 }
 
 function getDiaperHint(payload: DiaperLikePayload): string | null {
-  const poopColor = String(payload.poopColor ?? '');
-  const peeColor = String(payload.peeColor ?? '');
-  const texture = String(payload.poopTexture ?? '');
+  const poopColor = String(payload.poop_color ?? '');
+  const peeColor = String(payload.pee_color ?? '');
+  const texture = String(payload.poop_texture ?? '');
 
   if (['red', 'black', 'white'].includes(poopColor)) return 'Cor incomum';
   if (texture === 'mucus_like') return 'Com muco';
@@ -152,10 +214,10 @@ function getDiaperHint(payload: DiaperLikePayload): string | null {
 }
 
 function getSleepHint(log: RoutineLog): string | null {
-  if (!log.endTime) return null;
+  if (!log.end_time) return null;
 
   const sec = Math.floor(
-    (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
+    (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
   );
 
   if (sec <= 0) return null;
@@ -165,20 +227,18 @@ function getSleepHint(log: RoutineLog): string | null {
 }
 
 function getFeedHint(payload: FeedLikePayload, log: RoutineLog): string | null {
-  const mode = payload.mode ?? null;
-  const isBreastfeeding = mode === 'breastfeeding';
-
+  const isBreastfeeding = payload.mode === 'breastfeeding';
   if (!isBreastfeeding) return null;
 
   const totalSec =
-    asNumber(payload.totalSeconds) ??
-    (log.endTime
+    payload.total_seconds ??
+    (log.end_time
       ? Math.floor(
-          (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
+          (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
         )
       : 0);
 
-  if (totalSec <= 0) return null;
+  if (!totalSec || totalSec <= 0) return null;
   if (totalSec > 45 * 60) return 'Mamada longa';
   if (totalSec < 5 * 60) return 'Mamada curta';
   return null;
@@ -191,9 +251,9 @@ export function buildDiaperSummary(payload: DiaperLikePayload): string {
   const base = DIAPER_KIND_LABEL[kind] ?? 'Fralda';
   const parts: string[] = [base];
 
-  const texture = DIAPER_TEXTURE_LABEL[String(payload.poopTexture ?? '')];
-  const poopColor = DIAPER_POOP_COLOR_LABEL[String(payload.poopColor ?? '')];
-  const peeColor = DIAPER_PEE_COLOR_LABEL[String(payload.peeColor ?? '')];
+  const texture = DIAPER_TEXTURE_LABEL[String(payload.poop_texture ?? '')];
+  const poopColor = DIAPER_POOP_COLOR_LABEL[String(payload.poop_color ?? '')];
+  const peeColor = DIAPER_PEE_COLOR_LABEL[String(payload.pee_color ?? '')];
   const qty = DIAPER_QUANTITY_LABEL[String(payload.quantity ?? '')];
 
   if (texture) parts.push(texture);
@@ -211,13 +271,13 @@ export function buildDiaperDetail(payload: DiaperLikePayload): string | null {
   const showPoop = kind === 'poop' || kind === 'both';
 
   if (showPee) {
-    const peeColor = DIAPER_PEE_COLOR_LABEL[String(payload.peeColor ?? '')];
+    const peeColor = DIAPER_PEE_COLOR_LABEL[String(payload.pee_color ?? '')];
     if (peeColor) details.push(peeColor);
   }
 
   if (showPoop) {
-    const poopColor = DIAPER_POOP_COLOR_LABEL[String(payload.poopColor ?? '')];
-    const texture = DIAPER_TEXTURE_LABEL[String(payload.poopTexture ?? '')];
+    const poopColor = DIAPER_POOP_COLOR_LABEL[String(payload.poop_color ?? '')];
+    const texture = DIAPER_TEXTURE_LABEL[String(payload.poop_texture ?? '')];
     if (poopColor) details.push(poopColor);
     if (texture) details.push(texture);
   }
@@ -226,12 +286,10 @@ export function buildDiaperDetail(payload: DiaperLikePayload): string | null {
 }
 
 function buildFeedSummary(payload: FeedLikePayload, log: RoutineLog): string {
-  const mode = payload.mode ?? null;
-
-  if (mode === 'breastfeeding') {
-    if (log.endTime) {
+  if (payload.mode === 'breastfeeding') {
+    if (log.end_time) {
       const sec = Math.floor(
-        (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
+        (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
       );
       if (sec > 0) return `Duração: ${fmtDurationShort(sec)}`;
     }
@@ -242,17 +300,17 @@ function buildFeedSummary(payload: FeedLikePayload, log: RoutineLog): string {
     return 'Amamentação';
   }
 
-  if (mode === 'bottle') {
-    const amount = payload.amountMl ? ` · ${payload.amountMl}ml` : '';
+  if (payload.mode === 'bottle') {
+    const amount = payload.amount_ml ? ` · ${payload.amount_ml}ml` : '';
     return `Mamadeira${amount}`;
   }
 
-  if (mode === 'solid') {
+  if (payload.mode === 'solid') {
     return payload.food ? `Sólido · ${payload.food}` : 'Alimentação sólida';
   }
 
-  if (payload.amountMl) {
-    return `Mamadeira · ${payload.amountMl}ml`;
+  if (payload.amount_ml) {
+    return `Mamadeira · ${payload.amount_ml}ml`;
   }
 
   if (payload.food) {
@@ -288,7 +346,7 @@ export function groupLogsByTimeOfDay(
   const map = new Map<TimeOfDay, RoutineLog[]>();
 
   for (const log of logs) {
-    const tod = getTimeOfDay(log.startTime);
+    const tod = getTimeOfDay(log.start_time);
     if (!map.has(tod)) map.set(tod, []);
     map.get(tod)!.push(log);
   }
@@ -298,7 +356,7 @@ export function groupLogsByTimeOfDay(
     .map(g => ({ group: g, logs: map.get(g)! }));
 }
 
-// ─── Pattern analysis ─────────────────────────────────────────────────────
+// ─── Pattern analysis ──────────────────────────────────────────────────────
 
 export interface DayInsights {
   avgFeedIntervalMin: number | null;
@@ -311,9 +369,9 @@ export interface DayInsights {
 export function analyzeDayPatterns(logs: RoutineLog[]): DayInsights {
   const feedLogs = logs
     .filter(l => l.type === 'feed')
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 
-  const sleepLogs = logs.filter(l => l.type === 'sleep' && !!l.endTime);
+  const sleepLogs = logs.filter(l => l.type === 'sleep' && !!l.end_time);
   const diaperLogs = logs.filter(l => l.type === 'diaper');
 
   let avgFeedIntervalMin: number | null = null;
@@ -324,8 +382,8 @@ export function analyzeDayPatterns(logs: RoutineLog[]): DayInsights {
 
     for (let i = 1; i < feedLogs.length; i++) {
       const diffMin =
-        (new Date(feedLogs[i].startTime).getTime() -
-          new Date(feedLogs[i - 1].startTime).getTime()) /
+        (new Date(feedLogs[i].start_time).getTime() -
+          new Date(feedLogs[i - 1].start_time).getTime()) /
         60000;
       intervals.push(diffMin);
     }
@@ -342,14 +400,14 @@ export function analyzeDayPatterns(logs: RoutineLog[]): DayInsights {
     return (
       acc +
       Math.floor(
-        (new Date(l.endTime!).getTime() - new Date(l.startTime).getTime()) / 1000
+        (new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000
       )
     );
   }, 0);
 
   const hasLongSleep = sleepLogs.some(l => {
     const sec = Math.floor(
-      (new Date(l.endTime!).getTime() - new Date(l.startTime).getTime()) / 1000
+      (new Date(l.end_time!).getTime() - new Date(l.start_time).getTime()) / 1000
     );
     return sec > 4 * 3600;
   });
@@ -428,27 +486,25 @@ export function getAgeContext(birthDate: string): AgeContext {
   };
 }
 
+// ─── Presentation ──────────────────────────────────────────────────────────
+
 export function getEventPresentation(log: RoutineLog): EventPresentation {
-  const payload = log.payload ?? {};
+  const payload = getPayload(log);
   const userNotes = getUserNotes(log.notes);
-  const includeInReport = asBoolean((payload as Record<string, unknown>).includeInReport) ?? false;
+
+  const includeInReport =
+    readBoolean(payload, 'include_in_report', 'includeInReport') ?? false;
 
   switch (log.type) {
     case 'feed': {
-      const feedPayload = payload as {
-        mode?: 'breastfeeding' | 'bottle' | 'solid' | null;
-        side?: 'left' | 'right' | 'both' | null;
-        amountMl?: number | null;
-        food?: string | null;
-        totalSeconds?: number | null;
-      };
-
+      const feedPayload = normalizeFeedPayload(payload);
       const isBreastfeed = feedPayload.mode === 'breastfeeding';
+
       const totalSec =
-        asNumber(feedPayload.totalSeconds) ??
-        (log.endTime
+        feedPayload.total_seconds ??
+        (log.end_time
           ? Math.floor(
-              (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
+              (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
             )
           : 0);
 
@@ -475,8 +531,8 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
     }
 
     case 'sleep': {
-      const duration = log.endTime ? fmtRangeDuration(log.startTime, log.endTime) : null;
-      const ongoing = !log.endTime;
+      const duration = log.end_time ? fmtRangeDuration(log.start_time, log.end_time) : null;
+      const ongoing = !log.end_time;
       const hintLabel = getSleepHint(log);
 
       return {
@@ -496,15 +552,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
     }
 
     case 'diaper': {
-      const diaperPayload = payload as {
-        pee?: boolean | null;
-        poop?: boolean | null;
-        poopColor?: string | null;
-        poopTexture?: string | null;
-        peeColor?: string | null;
-        quantity?: string | null;
-      };
-
+      const diaperPayload = normalizeDiaperPayload(payload);
       const significant = isDiaperSignificant(diaperPayload);
       const hintLabel = getDiaperHint(diaperPayload);
 
@@ -527,8 +575,7 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
 
     case 'note':
     default: {
-      const notePayload = payload as { text?: string | null };
-      const noteText = asString(notePayload.text) ?? userNotes ?? '';
+      const noteText = readString(payload, 'text') ?? userNotes ?? '';
 
       return {
         title: 'Nota',

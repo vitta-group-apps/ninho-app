@@ -1,18 +1,23 @@
 /**
  * FamiliaPage — Vertical coordination hub (no horizontal tabs).
+ *
+ * Modelo novo:
+ *  - routine_logs = fonte da verdade
+ *  - payload = json estruturado
+ *  - notes = texto humano
+ *  - leitura direta via Tables<'routine_logs'>
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { ChildAvatar } from '@/components/home/ChildSwitcher';
 import { EventCard } from '@/components/events/EventCard';
 import { InlineStatusPill } from '@/components/ds';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PaywallGate } from '@/components/PaywallGate';
-import type { RoutineLog } from '@/lib/routineUtils';
-import { toRoutineRecord } from '@/lib/adapters/routineAdapters';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -35,6 +40,8 @@ const TXT_MUTED = '#7A7A7A';
 const PAGE_BG = '#F8F5F0';
 const EARTH = '#7e553d';
 const EARTH_BG = '#f5efe9';
+
+type RoutineLog = Tables<'routine_logs'>;
 
 interface Profile {
   user_id: string;
@@ -264,10 +271,7 @@ export default function FamiliaPage() {
           .limit(3);
 
         if (!error) {
-          const adapted = (data ?? []).map(row =>
-            toRoutineRecord(row as never)
-          );
-          setRecentLogs(adapted);
+          setRecentLogs((data ?? []) as RoutineLog[]);
         } else {
           setRecentLogs([]);
         }
@@ -806,7 +810,7 @@ export default function FamiliaPage() {
               ) : (
                 <div>
                   {recentLogs.map((log, idx) => {
-                    const child = children.find(c => c.id === log.childId);
+                    const child = children.find(c => c.id === log.child_id);
 
                     return (
                       <EventCard

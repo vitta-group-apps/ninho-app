@@ -265,8 +265,9 @@ export default function FeedDetailScreen() {
           secondaryLabel="Cancelar"
           onSecondary={() => {
             if (log) {
-              const pp = parsePayload(log.notes);
-              setTags(String(pp.tags ?? '').split(',').filter(Boolean));
+              const pp = asPayload(log.payload);
+              const rawTags = pp.tags;
+              setTags(Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : String(rawTags ?? '').split(',').filter(Boolean));
               setNotes(getUserNotes(log.notes) ?? '');
               setIncludeInReport(Boolean(pp.include_in_report));
             }

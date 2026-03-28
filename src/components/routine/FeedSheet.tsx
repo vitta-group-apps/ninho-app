@@ -961,9 +961,6 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         notes: null,
         payload: payload as unknown as import('@/integrations/supabase/types').Json,
       }]);
-        notes: notes.trim() || null,
-        payload,
-      });
 
       if (error) throw error;
 

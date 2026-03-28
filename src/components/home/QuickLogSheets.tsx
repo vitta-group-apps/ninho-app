@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
-import { makePayloadNotes, fmtTimer } from '@/lib/routineUtils';
+import { fmtTimer } from '@/lib/routineUtils';
 
 export { FeedSheet } from '@/components/routine/FeedSheet';
 export { DiaperSheet } from '@/components/routine/DiaperSheet';
@@ -84,7 +84,7 @@ export function SleepSheet({ open, onClose, onSaved }: SleepSheetProps) {
         type: 'sleep',
         start_time: new Date(ongoingStart).toISOString(),
         end_time: new Date().toISOString(),
-        notes: notes.trim() ? makePayloadNotes({}, notes) : null,
+        notes: notes.trim() || null,
       });
       if (error) throw error;
       localStorage.removeItem(`${SLEEP_KEY}_${childId}`);

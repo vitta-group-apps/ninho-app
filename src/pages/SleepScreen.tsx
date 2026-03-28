@@ -388,15 +388,15 @@ export default function SleepScreen() {
       const endTime  = new Date(new Date(startIso).getTime() + totalSec * 1000).toISOString();
       const payload  = buildPayload();
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: activeChildId,
         author_id: user.id,
-        type: 'sleep',
+        type: 'sleep' as const,
         start_time: startIso,
         end_time: endTime,
-        payload: Object.keys(payload).length > 0 ? payload : null,
+        payload: Object.keys(payload).length > 0 ? payload as unknown as import('@/integrations/supabase/types').Json : null,
         notes: notes.trim() || null,
-      });
+      }]);
 
       if (error) throw error;
 
@@ -431,15 +431,15 @@ export default function SleepScreen() {
 
       const payload = buildPayload();
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: activeChildId,
         author_id: user.id,
-        type: 'sleep',
+        type: 'sleep' as const,
         start_time: startDate.toISOString(),
         end_time: endDate.toISOString(),
-        payload: Object.keys(payload).length > 0 ? payload : null,
+        payload: Object.keys(payload).length > 0 ? payload as unknown as import('@/integrations/supabase/types').Json : null,
         notes: notes.trim() || null,
-      });
+      }]);
 
       if (error) throw error;
 

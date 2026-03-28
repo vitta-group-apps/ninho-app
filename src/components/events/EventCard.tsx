@@ -30,7 +30,7 @@ export function EventCard({
 }: EventCardProps) {
   const navigate = useNavigate();
   const ev = getEventPresentation(log);
-  const isOngoing = log.type === 'sleep' && !log.endTime;
+  const isOngoing = log.type === 'sleep' && !log.end_time;
 
   function handleClick() {
     if (!ev.tappable) return;
@@ -111,7 +111,7 @@ export function EventCard({
               )}
 
               <span className="text-[11px] font-semibold tabular-nums text-muted-foreground font-nunito">
-                {fmtTime(log.startTime)}
+                {fmtTime(log.start_time)}
               </span>
 
               {ev.tappable && (

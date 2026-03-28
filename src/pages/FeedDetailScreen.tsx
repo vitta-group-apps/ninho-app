@@ -17,7 +17,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { parsePayload, makePayloadNotes, getUserNotes, fmtDurationShort, fmtTime } from '@/lib/routineUtils';
+import { getUserNotes, fmtDurationShort, fmtTime } from '@/lib/routineUtils';
+import type { Json } from '@/integrations/supabase/types';
 import type { RoutineLog } from '@/lib/eventSystem';
 import {
   ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle,
@@ -72,6 +73,10 @@ export default function FeedDetailScreen() {
   const [notes, setNotes]                   = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
+  function asPayload(raw: unknown): Record<string, unknown> {
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  }
+
   useEffect(() => {
     if (!logId) return;
     (async () => {
@@ -79,8 +84,9 @@ export default function FeedDetailScreen() {
         .from('routine_logs').select('*').eq('id', logId).maybeSingle();
       if (data) {
         setLog(data);
-        const p = parsePayload(data.notes);
-        setTags(String(p.tags ?? '').split(',').filter(Boolean));
+        const p = asPayload(data.payload);
+        const rawTags = p.tags;
+        setTags(Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : String(rawTags ?? '').split(',').filter(Boolean));
         setNotes(getUserNotes(data.notes) ?? '');
         setIncludeInReport(Boolean(p.include_in_report));
       }
@@ -92,14 +98,16 @@ export default function FeedDetailScreen() {
     if (!log) return;
     setSaving(true);
     try {
-      const existing = parsePayload(log.notes);
+      const existing = asPayload(log.payload);
       const payload: Record<string, unknown> = { ...existing };
       if (tags.length > 0) payload.tags = tags.join(','); else delete payload.tags;
       if (includeInReport) payload.include_in_report = true; else delete payload.include_in_report;
-      delete payload._notes;
 
       const { error } = await supabase
-        .from('routine_logs').update({ notes: makePayloadNotes(payload, notes) }).eq('id', log.id);
+        .from('routine_logs').update({
+          payload: payload as unknown as Json,
+          notes: notes.trim() || null,
+        }).eq('id', log.id);
       if (error) throw error;
       toast({ title: '✓ Alterações salvas' });
       setIsEditing(false);
@@ -130,10 +138,10 @@ export default function FeedDetailScreen() {
     );
   }
 
-  const p         = parsePayload(log.notes);
-  const totalSec  = Number(p.total_seconds ?? 0);
-  const leftSec   = Number(p.left_seconds ?? 0);
-  const rightSec  = Number(p.right_seconds ?? 0);
+  const p         = asPayload(log.payload);
+  const totalSec  = Number(p.total_seconds ?? p.totalSeconds ?? 0);
+  const leftSec   = Number(p.left_seconds ?? p.leftSeconds ?? 0);
+  const rightSec  = Number(p.right_seconds ?? p.rightSeconds ?? 0);
   const switches  = Number(p.switches ?? 0);
   const endTime   = log.end_time ? fmtTime(log.end_time) : null;
   const tagLabels = tags.map(t => TAG_LABEL[t] ?? t).join(', ');
@@ -257,8 +265,9 @@ export default function FeedDetailScreen() {
           secondaryLabel="Cancelar"
           onSecondary={() => {
             if (log) {
-              const pp = parsePayload(log.notes);
-              setTags(String(pp.tags ?? '').split(',').filter(Boolean));
+              const pp = asPayload(log.payload);
+              const rawTags = pp.tags;
+              setTags(Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : String(rawTags ?? '').split(',').filter(Boolean));
               setNotes(getUserNotes(log.notes) ?? '');
               setIncludeInReport(Boolean(pp.include_in_report));
             }

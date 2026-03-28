@@ -167,11 +167,10 @@ export function DiaperDetailSheet({
 
   const kindLabel = DIAPER_KIND_LABEL[kind] ?? 'Fralda';
   const isSignificant = isDiaperSignificant({
-    pee: payload.pee,
-    poop: payload.poop,
-    peeColor: typeof payload.peeColor === 'string' ? payload.peeColor : null,
-    poopColor: typeof payload.poopColor === 'string' ? payload.poopColor : null,
-    poopTexture: typeof payload.poopTexture === 'string' ? payload.poopTexture : null,
+    kind,
+    pee_color: typeof payload.pee_color === 'string' ? payload.pee_color : (typeof payload.peeColor === 'string' ? payload.peeColor : null),
+    poop_color: typeof payload.poop_color === 'string' ? payload.poop_color : (typeof payload.poopColor === 'string' ? payload.poopColor : null),
+    poop_texture: typeof payload.poop_texture === 'string' ? payload.poop_texture : (typeof payload.poopTexture === 'string' ? payload.poopTexture : null),
     quantity: typeof payload.quantity === 'string' ? payload.quantity : null,
   });
 
@@ -181,18 +180,19 @@ export function DiaperDetailSheet({
     try {
       const updatedPayload: Record<string, unknown> = {
         ...payload,
+        kind,
         quantity: quantity || null,
-        peeColor: showPee ? peeColor || null : null,
-        poopColor: showPoop ? poopColor || null : null,
-        poopTexture: showPoop ? texture || null : null,
-        includeInReport,
+        pee_color: showPee ? peeColor || null : null,
+        poop_color: showPoop ? poopColor || null : null,
+        poop_texture: showPoop ? texture || null : null,
+        include_in_report: includeInReport || null,
       };
 
       const { error } = await supabase
         .from('routine_logs')
         .update({
           notes: notes.trim() || null,
-          payload: updatedPayload,
+          payload: updatedPayload as unknown as import('@/integrations/supabase/types').Json,
         })
         .eq('id', log.id);
 

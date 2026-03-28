@@ -531,15 +531,15 @@ export default function BreastfeedingScreen() {
         includeInReport,
       });
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: activeChildId,
         author_id: user.id,
-        type: 'feed',
+        type: 'feed' as const,
         start_time: finishedData.start.toISOString(),
         end_time: finishedData.end.toISOString(),
         notes: notes.trim() || null,
-        payload,
-      });
+        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+      }]);
 
       if (error) throw error;
 
@@ -618,15 +618,15 @@ export default function BreastfeedingScreen() {
         includeInReport,
       });
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: activeChildId,
         author_id: user.id,
-        type: 'feed',
+        type: 'feed' as const,
         start_time: startDate.toISOString(),
         end_time: endDate.toISOString(),
         notes: notes.trim() || null,
-        payload,
-      });
+        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+      }]);
 
       if (error) throw error;
 

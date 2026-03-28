@@ -910,15 +910,15 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         includeInReport,
       });
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: childId,
         author_id: user.id,
-        type: 'feed',
+        type: 'feed' as const,
         start_time: finishedData.start.toISOString(),
         end_time: finishedData.end.toISOString(),
         notes: notes.trim() || null,
-        payload,
-      });
+        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+      }]);
 
       if (error) throw error;
 
@@ -952,15 +952,15 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         includeInReport: false,
       });
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: childId,
         author_id: user.id,
-        type: 'feed',
+        type: 'feed' as const,
         start_time: new Date().toISOString(),
         end_time: null,
-        notes: notes.trim() || null,
-        payload,
-      });
+        notes: null,
+        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+      }]);
 
       if (error) throw error;
 
@@ -1027,15 +1027,15 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         isManual: true,
       });
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: childId,
         author_id: user.id,
-        type: 'feed',
+        type: 'feed' as const,
         start_time: start.toISOString(),
         end_time: end?.toISOString() ?? null,
         notes: notes.trim() || null,
-        payload,
-      });
+        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+      }]);
 
       if (error) throw error;
 

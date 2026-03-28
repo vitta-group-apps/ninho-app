@@ -178,7 +178,7 @@ export function FeedDetailSheet({
         .from('routine_logs')
         .update({
           notes: editNotes.trim() || null,
-          payload: newPayload,
+          payload: newPayload as unknown as import('@/integrations/supabase/types').Json,
         })
         .eq('id', log.id);
 

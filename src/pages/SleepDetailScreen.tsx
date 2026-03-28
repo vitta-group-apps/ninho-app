@@ -279,7 +279,7 @@ export default function SleepDetailScreen() {
         .from('routine_logs')
         .update({
           notes: notes.trim() || null,
-          payload: cleanedPayload,
+          payload: cleanedPayload as unknown as import('@/integrations/supabase/types').Json,
         })
         .eq('id', log.id);
 

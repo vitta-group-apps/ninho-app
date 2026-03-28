@@ -173,14 +173,14 @@ export default function DiaperScreen() {
 
         toast({ title: '✓ Alterações salvas' });
       } else {
-        const { error } = await supabase.from('routine_logs').insert({
+        const { error } = await supabase.from('routine_logs').insert([{
           child_id: activeChildId,
           author_id: user.id,
-          type: 'diaper',
+          type: 'diaper' as const,
           start_time: new Date().toISOString(),
-          payload: serializeRoutinePayload('diaper', nextPayload),
+          payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('@/integrations/supabase/types').Json,
           notes: notes.trim() || null,
-        });
+        }]);
 
         if (error) throw error;
 

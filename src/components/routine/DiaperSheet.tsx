@@ -156,14 +156,14 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
         if (includeInReport) payload.include_in_report = true;
       }
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: childId,
         author_id: user.id,
-        type: 'diaper',
+        type: 'diaper' as const,
         start_time: new Date().toISOString(),
-        payload,
+        payload: payload as unknown as import('@/integrations/supabase/types').Json,
         notes: withEnrich ? notes.trim() || null : null,
-      });
+      }]);
 
       if (error) throw error;
 

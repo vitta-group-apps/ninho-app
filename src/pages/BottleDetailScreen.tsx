@@ -318,7 +318,7 @@ export default function BottleDetailScreen() {
       const { error } = await supabase
         .from('routine_logs')
         .update({
-          payload: nextPayload,
+          payload: nextPayload as unknown as import('@/integrations/supabase/types').Json,
           notes: notes.trim() || null,
         })
         .eq('id', log.id);

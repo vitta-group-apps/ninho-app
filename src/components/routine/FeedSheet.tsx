@@ -952,12 +952,15 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         includeInReport: false,
       });
 
-      const { error } = await supabase.from('routine_logs').insert({
+      const { error } = await supabase.from('routine_logs').insert([{
         child_id: childId,
         author_id: user.id,
-        type: 'feed',
+        type: 'feed' as const,
         start_time: new Date().toISOString(),
         end_time: null,
+        notes: null,
+        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+      }]);
         notes: notes.trim() || null,
         payload,
       });

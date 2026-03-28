@@ -167,11 +167,10 @@ export function DiaperDetailSheet({
 
   const kindLabel = DIAPER_KIND_LABEL[kind] ?? 'Fralda';
   const isSignificant = isDiaperSignificant({
-    pee: payload.pee,
-    poop: payload.poop,
-    peeColor: typeof payload.peeColor === 'string' ? payload.peeColor : null,
-    poopColor: typeof payload.poopColor === 'string' ? payload.poopColor : null,
-    poopTexture: typeof payload.poopTexture === 'string' ? payload.poopTexture : null,
+    kind,
+    pee_color: typeof payload.pee_color === 'string' ? payload.pee_color : (typeof payload.peeColor === 'string' ? payload.peeColor : null),
+    poop_color: typeof payload.poop_color === 'string' ? payload.poop_color : (typeof payload.poopColor === 'string' ? payload.poopColor : null),
+    poop_texture: typeof payload.poop_texture === 'string' ? payload.poop_texture : (typeof payload.poopTexture === 'string' ? payload.poopTexture : null),
     quantity: typeof payload.quantity === 'string' ? payload.quantity : null,
   });
 

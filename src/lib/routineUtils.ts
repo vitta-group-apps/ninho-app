@@ -1,25 +1,84 @@
 /**
  * Shared utilities for routine logs.
  *
- * Contrato novo:
- *  - RoutineRecord é a fonte oficial
+ * Modelo novo:
+ *  - routine_logs (Supabase) é a fonte da verdade
  *  - payload é estruturado
  *  - notes é texto humano
  *
- * Este arquivo NÃO serializa mais JSON em notes.
+ * Este arquivo NÃO serializa JSON em notes.
+ * Snake_case é prioridade; camelCase fica só como fallback temporário.
  */
 
-import type {
-  RoutineRecord,
-  FeedPayload,
-  DiaperPayload,
-} from '@/lib/contracts/routine';
+import type { Tables } from '@/integrations/supabase/types';
 
-export type RoutineLog = RoutineRecord;
+export type RoutineLog = Tables<'routine_logs'>;
+
+type PayloadRecord = Record<string, unknown>;
+
+export interface LogMeta {
+  emoji: string;
+  label: string;
+  sub: string;
+  detail: string | null;
+  color: string;
+  bgColor: string;
+  durationBadge: string | null;
+}
+
+// ─── Basic helpers ──────────────────────────────────────────────────────────
+
+function isRecord(value: unknown): value is PayloadRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getPayload(log: RoutineLog): PayloadRecord {
+  return isRecord(log.payload) ? log.payload : {};
+}
+
+function readString(payload: PayloadRecord, snake: string, camel?: string): string | null {
+  const snakeValue = payload[snake];
+  if (typeof snakeValue === 'string' && snakeValue.trim().length > 0) return snakeValue.trim();
+
+  if (camel) {
+    const camelValue = payload[camel];
+    if (typeof camelValue === 'string' && camelValue.trim().length > 0) return camelValue.trim();
+  }
+
+  return null;
+}
+
+function readNumber(payload: PayloadRecord, snake: string, camel?: string): number | null {
+  const snakeValue = payload[snake];
+  if (typeof snakeValue === 'number' && Number.isFinite(snakeValue)) return snakeValue;
+
+  if (camel) {
+    const camelValue = payload[camel];
+    if (typeof camelValue === 'number' && Number.isFinite(camelValue)) return camelValue;
+  }
+
+  return null;
+}
+
+function readBoolean(payload: PayloadRecord, snake: string, camel?: string): boolean | null {
+  const snakeValue = payload[snake];
+  if (typeof snakeValue === 'boolean') return snakeValue;
+
+  if (camel) {
+    const camelValue = payload[camel];
+    if (typeof camelValue === 'boolean') return camelValue;
+  }
+
+  return null;
+}
+
+// ─── Notes ──────────────────────────────────────────────────────────────────
 
 export function getUserNotes(notes: string | null): string | null {
   return typeof notes === 'string' && notes.trim().length > 0 ? notes.trim() : null;
 }
+
+// ─── Time formatters ────────────────────────────────────────────────────────
 
 export function fmtTimer(seconds: number): string {
   const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
@@ -30,6 +89,7 @@ export function fmtTimer(seconds: number): string {
 
 export function fmtDurationShort(seconds: number): string {
   const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+
   if (safe < 60) return `${safe}s`;
 
   const m = Math.floor(safe / 60);
@@ -67,15 +127,7 @@ export function fmtRangeDuration(start: string, end: string): string {
   return fmtDurationShort(sec);
 }
 
-export interface LogMeta {
-  emoji: string;
-  label: string;
-  sub: string;
-  detail: string | null;
-  color: string;
-  bgColor: string;
-  durationBadge: string | null;
-}
+// ─── Dictionaries ───────────────────────────────────────────────────────────
 
 const DIAPER_QUANTITY_LABEL: Record<string, string> = {
   small: 'pouca',
@@ -110,148 +162,197 @@ const DIAPER_TEXTURE_LABEL: Record<string, string> = {
   other: 'outro',
 };
 
+// ─── Feed meta ──────────────────────────────────────────────────────────────
+
+function getFeedMeta(log: RoutineLog): LogMeta {
+  const payload = getPayload(log);
+
+  const mode = readString(payload, 'mode');
+  const totalSeconds =
+    readNumber(payload, 'total_seconds', 'totalSeconds') ??
+    (log.end_time
+      ? Math.floor(
+          (new Date(log.end_time).getTime() - new Date(log.start_time).getTime()) / 1000
+        )
+      : 0);
+
+  const leftSeconds = readNumber(payload, 'left_seconds', 'leftSeconds') ?? 0;
+  const rightSeconds = readNumber(payload, 'right_seconds', 'rightSeconds') ?? 0;
+  const switches = readNumber(payload, 'switches') ?? 0;
+  const amountMl = readNumber(payload, 'amount_ml', 'amountMl');
+  const food = readString(payload, 'food');
+
+  if (mode === 'breastfeeding' || mode === 'manual') {
+    const parts: string[] = [];
+
+    if (leftSeconds > 0) parts.push(`E: ${fmtDurationShort(leftSeconds)}`);
+    if (rightSeconds > 0) parts.push(`D: ${fmtDurationShort(rightSeconds)}`);
+    if (switches > 0) parts.push(`${switches} troca${switches > 1 ? 's' : ''}`);
+    if (mode === 'manual') parts.push('manual');
+
+    return {
+      emoji: '🤱',
+      label: 'Amamentação',
+      sub: parts.join(' · ') || 'Amamentação',
+      detail: parts.length > 0 ? parts.join(' · ') : null,
+      color: 'hsl(152,15%,55%)',
+      bgColor: 'hsl(152,15%,55%,0.12)',
+      durationBadge: totalSeconds > 0 ? fmtDurationShort(totalSeconds) : null,
+    };
+  }
+
+  if (mode === 'bottle') {
+    const amountLabel = amountMl != null ? ` · ${amountMl}ml` : '';
+
+    return {
+      emoji: '🍼',
+      label: 'Mamadeira',
+      sub: `Mamadeira${amountLabel}`,
+      detail: null,
+      color: 'hsl(152,15%,55%)',
+      bgColor: 'hsl(152,15%,55%,0.12)',
+      durationBadge: null,
+    };
+  }
+
+  if (mode === 'solid') {
+    return {
+      emoji: '🥣',
+      label: 'Alimentação',
+      sub: food ? `Sólido · ${food}` : 'Alimentação sólida',
+      detail: null,
+      color: 'hsl(152,15%,55%)',
+      bgColor: 'hsl(152,15%,55%,0.12)',
+      durationBadge: null,
+    };
+  }
+
+  if (amountMl != null) {
+    return {
+      emoji: '🍼',
+      label: 'Mamadeira',
+      sub: `Mamadeira · ${amountMl}ml`,
+      detail: null,
+      color: 'hsl(152,15%,55%)',
+      bgColor: 'hsl(152,15%,55%,0.12)',
+      durationBadge: null,
+    };
+  }
+
+  if (food) {
+    return {
+      emoji: '🥣',
+      label: 'Alimentação',
+      sub: `Alimentação · ${food}`,
+      detail: null,
+      color: 'hsl(152,15%,55%)',
+      bgColor: 'hsl(152,15%,55%,0.12)',
+      durationBadge: null,
+    };
+  }
+
+  return {
+    emoji: '🤱',
+    label: 'Alimentação',
+    sub: 'Registro de alimentação',
+    detail: null,
+    color: 'hsl(152,15%,55%)',
+    bgColor: 'hsl(152,15%,55%,0.12)',
+    durationBadge: null,
+  };
+}
+
+// ─── Sleep meta ─────────────────────────────────────────────────────────────
+
+function getSleepMeta(log: RoutineLog): LogMeta {
+  const duration = log.end_time
+    ? fmtRangeDuration(log.start_time, log.end_time)
+    : null;
+
+  return {
+    emoji: '😴',
+    label: 'Sono',
+    sub: duration ? `Duração: ${duration}` : 'Em andamento',
+    detail: null,
+    color: 'hsl(270,12%,52%)',
+    bgColor: 'hsl(270,12%,52%,0.12)',
+    durationBadge: duration,
+  };
+}
+
+// ─── Diaper meta ────────────────────────────────────────────────────────────
+
+function getDiaperMeta(log: RoutineLog): LogMeta {
+  const payload = getPayload(log);
+
+  // Novo contrato
+  const explicitKind = readString(payload, 'kind');
+  const quantity = readString(payload, 'quantity');
+  const peeColor = readString(payload, 'pee_color', 'peeColor');
+  const poopColor = readString(payload, 'poop_color', 'poopColor');
+  const poopTexture = readString(payload, 'poop_texture', 'poopTexture');
+
+  // Fallback legado
+  const legacyPee = readBoolean(payload, 'pee');
+  const legacyPoop = readBoolean(payload, 'poop');
+
+  let kind = explicitKind;
+  if (!kind) {
+    kind =
+      legacyPee && legacyPoop
+        ? 'both'
+        : legacyPoop
+        ? 'poop'
+        : 'pee';
+  }
+
+  const kindMap: Record<string, string> = {
+    pee: 'Xixi 💛',
+    poop: 'Cocô 💩',
+    both: 'Xixi + Cocô 🔄',
+  };
+
+  const detailParts: string[] = [];
+
+  if (quantity) {
+    detailParts.push(DIAPER_QUANTITY_LABEL[quantity] ?? quantity);
+  }
+
+  if (peeColor) {
+    detailParts.push(DIAPER_PEE_COLOR_LABEL[peeColor] ?? peeColor);
+  }
+
+  if (poopColor) {
+    detailParts.push(DIAPER_POOP_COLOR_LABEL[poopColor] ?? poopColor);
+  }
+
+  if (poopTexture) {
+    detailParts.push(DIAPER_TEXTURE_LABEL[poopTexture] ?? poopTexture);
+  }
+
+  return {
+    emoji: '🧷',
+    label: 'Fralda',
+    sub: kindMap[kind] ?? 'Fralda',
+    detail: detailParts.length > 0 ? detailParts.join(' · ') : null,
+    color: 'hsl(32,80%,57%)',
+    bgColor: 'hsl(32,80%,57%,0.12)',
+    durationBadge: null,
+  };
+}
+
+// ─── Main ───────────────────────────────────────────────────────────────────
+
 export function getLogMeta(log: RoutineLog): LogMeta {
   switch (log.type) {
-    case 'feed': {
-      const payload = (log.payload ?? {}) as FeedPayload;
-      const mode = payload.mode ?? null;
+    case 'feed':
+      return getFeedMeta(log);
 
-      if (mode === 'breastfeeding' || mode === 'manual') {
-        const total =
-          typeof payload.totalSeconds === 'number'
-            ? payload.totalSeconds
-            : log.endTime
-            ? Math.floor(
-                (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
-              )
-            : 0;
+    case 'sleep':
+      return getSleepMeta(log);
 
-        const left =
-          typeof payload.leftSeconds === 'number' ? payload.leftSeconds : 0;
-        const right =
-          typeof payload.rightSeconds === 'number' ? payload.rightSeconds : 0;
-        const switches =
-          typeof payload.switches === 'number' ? payload.switches : 0;
-
-        const parts: string[] = [];
-        if (left > 0) parts.push(`E: ${fmtDurationShort(left)}`);
-        if (right > 0) parts.push(`D: ${fmtDurationShort(right)}`);
-        if (switches > 0) parts.push(`${switches} troca${switches > 1 ? 's' : ''}`);
-        if (mode === 'manual') parts.push('manual');
-
-        return {
-          emoji: '🤱',
-          label: 'Amamentação',
-          sub: parts.join(' · ') || 'Amamentação',
-          detail: parts.length > 0 ? parts.join(' · ') : null,
-          color: 'hsl(152,15%,55%)',
-          bgColor: 'hsl(152,15%,55%,0.12)',
-          durationBadge: total > 0 ? fmtDurationShort(total) : null,
-        };
-      }
-
-      if (mode === 'bottle') {
-        const amountLabel =
-          typeof payload.amountMl === 'number' ? ` · ${payload.amountMl}ml` : '';
-
-        return {
-          emoji: '🍼',
-          label: 'Mamadeira',
-          sub: `Mamadeira${amountLabel}`,
-          detail: null,
-          color: 'hsl(152,15%,55%)',
-          bgColor: 'hsl(152,15%,55%,0.12)',
-          durationBadge: null,
-        };
-      }
-
-      if (mode === 'solid') {
-        const food =
-          typeof payload.food === 'string' && payload.food.trim()
-            ? payload.food.trim()
-            : '';
-
-        return {
-          emoji: '🥣',
-          label: 'Alimentação',
-          sub: food ? `Sólido · ${food}` : 'Alimentação sólida',
-          detail: null,
-          color: 'hsl(152,15%,55%)',
-          bgColor: 'hsl(152,15%,55%,0.12)',
-          durationBadge: null,
-        };
-      }
-
-      return {
-        emoji: '🤱',
-        label: 'Alimentação',
-        sub: 'Registro de alimentação',
-        detail: null,
-        color: 'hsl(152,15%,55%)',
-        bgColor: 'hsl(152,15%,55%,0.12)',
-        durationBadge: null,
-      };
-    }
-
-    case 'sleep': {
-      const duration = log.endTime
-        ? fmtRangeDuration(log.startTime, log.endTime)
-        : null;
-
-      return {
-        emoji: '😴',
-        label: 'Sono',
-        sub: duration ? `Duração: ${duration}` : 'Em andamento',
-        detail: null,
-        color: 'hsl(270,12%,52%)',
-        bgColor: 'hsl(270,12%,52%,0.12)',
-        durationBadge: duration,
-      };
-    }
-
-    case 'diaper': {
-      const payload = (log.payload ?? {}) as DiaperPayload;
-
-      const pee = payload.pee === true;
-      const poop = payload.poop === true;
-      const kind = pee && poop ? 'both' : poop ? 'poop' : 'pee';
-
-      const kindMap: Record<string, string> = {
-        pee: 'Xixi 💛',
-        poop: 'Cocô 💩',
-        both: 'Xixi + Cocô 🔄',
-      };
-
-      const detailParts: string[] = [];
-
-      if (payload.quantity) {
-        detailParts.push(DIAPER_QUANTITY_LABEL[payload.quantity] ?? payload.quantity);
-      }
-
-      if (payload.peeColor) {
-        detailParts.push(DIAPER_PEE_COLOR_LABEL[payload.peeColor] ?? payload.peeColor);
-      }
-
-      if (payload.poopColor) {
-        detailParts.push(DIAPER_POOP_COLOR_LABEL[payload.poopColor] ?? payload.poopColor);
-      }
-
-      if (payload.poopTexture) {
-        detailParts.push(
-          DIAPER_TEXTURE_LABEL[payload.poopTexture] ?? payload.poopTexture
-        );
-      }
-
-      return {
-        emoji: '🧷',
-        label: 'Fralda',
-        sub: kindMap[kind] ?? 'Fralda',
-        detail: detailParts.length > 0 ? detailParts.join(' · ') : null,
-        color: 'hsl(32,80%,57%)',
-        bgColor: 'hsl(32,80%,57%,0.12)',
-        durationBadge: null,
-      };
-    }
+    case 'diaper':
+      return getDiaperMeta(log);
 
     case 'note':
     default:

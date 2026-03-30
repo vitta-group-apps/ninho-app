@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
-import { makePayloadNotes, fmtTimer } from '@/lib/routineUtils';
+import { fmtTimer } from '@/lib/routineUtils';
 import {
   ScreenHeader, StickyFooterCTA, SectionLabel,
   ChipGroup, ReportToggle, InlineStatusPill,
@@ -428,7 +428,8 @@ export default function SleepScreen() {
         type:       'sleep',
         start_time: startDate.toISOString(),
         end_time:   endDate.toISOString(),
-        notes: (notes.trim() || Object.keys(payload).length > 0) ? makePayloadNotes(payload, notes) : null,
+        payload,
+        notes: notes.trim() || null,
       });
       if (error) throw error;
       toast({ title: '😴 Sono registrado' });

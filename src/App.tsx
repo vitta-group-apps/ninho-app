@@ -1,3 +1,6 @@
+import FamilyEditPage from '@/pages/family/FamilyEditPage';
+import ChildCreatePage from '@/pages/children/ChildCreatePage';
+import ChildEditPage from '@/pages/children/ChildEditPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

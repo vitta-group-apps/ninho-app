@@ -157,7 +157,7 @@ export default function SettingsPage() {
                   </button>
 
                   <button
-                    onClick={() => navigate('/onboarding/child')}
+                    onClick={() => navigate('/family/add-child')}
                     className="py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
                     style={{
                       backgroundColor: MAUVE_BG,
@@ -195,7 +195,7 @@ export default function SettingsPage() {
                 </p>
 
                 <button
-                  onClick={() => navigate('/onboarding/child')}
+                  onClick={() => navigate('/family/add-child')}
                   className="mt-4 inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
                   style={{
                     backgroundColor: MAUVE_BG,

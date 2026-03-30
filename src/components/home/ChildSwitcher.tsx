@@ -66,7 +66,7 @@ export function ChildSwitcher() {
   <button
     onClick={() => {
       setOpen(false);
-      navigate('/onboarding/child');
+      navigate('/family/add-child');
     }}
     className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all active:scale-98"
     style={{

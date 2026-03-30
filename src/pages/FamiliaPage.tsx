@@ -606,7 +606,7 @@ export default function FamiliaPage() {
 
               <PaywallGate feature="segunda_crianca">
                 <button
-                  onClick={() => navigate('/onboarding/child')}
+                  onClick={() => navigate('/family/add-child')}
                   className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-95"
                   style={{
                     backgroundColor: MAUVE_BG,
@@ -773,6 +773,7 @@ export default function FamiliaPage() {
                   </div>
 
                   <button
+                    onClick={() => navigate('/family/invite')}
                     className="rounded-xl px-3 py-1.5 text-[11px] font-bold font-nunito flex-shrink-0 text-white transition-all active:scale-95"
                     style={{
                       backgroundColor: SAGE,

@@ -37,6 +37,12 @@ import BottleDetailScreen from '@/pages/BottleDetailScreen';
 import { ResetPasswordPage } from '@/pages/ResetPassword';
 import NotFound from '@/pages/NotFound';
 
+// Pages — família e filhos (produto — separado do onboarding)
+import ChildCreatePage from '@/pages/children/ChildCreatePage';
+import ChildEditPage from '@/pages/children/ChildEditPage';
+import FamilyEditPage from '@/pages/family/FamilyEditPage';
+import InviteMemberPage from '@/pages/family/InviteMemberPage';
+
 // Pages — onboarding
 import WelcomePage from '@/pages/onboarding/WelcomePage';
 import AuthPage from '@/pages/onboarding/AuthPage';
@@ -61,16 +67,22 @@ function AuthedRoutes() {
     <ActiveChildProvider>
       <Routes>
         {/* Full-screen flows — no AppShell */}
-        <Route path="/diaper/new"           element={<DiaperScreen />} />
-        <Route path="/diaper/detail/:logId" element={<DiaperDetailScreen />} />
-        <Route path="/diaper/edit/:logId"   element={<DiaperScreen />} />
-        <Route path="/sleep/detail/:logId"  element={<SleepDetailScreen />} />
-        <Route path="/feed/detail/:logId"   element={<FeedDetailScreen />} />
-        <Route path="/bottle/detail/:logId" element={<BottleDetailScreen />} />
-        <Route path="/bottle/edit/:logId"   element={<BottleScreen />} />
-        <Route path="/sleep"                element={<SleepScreen />} />
-        <Route path="/breastfeeding"        element={<BreastfeedingScreen />} />
-        <Route path="/bottle"               element={<BottleScreen />} />
+        <Route path="/diaper/new"                    element={<DiaperScreen />} />
+        <Route path="/diaper/detail/:logId"          element={<DiaperDetailScreen />} />
+        <Route path="/diaper/edit/:logId"            element={<DiaperScreen />} />
+        <Route path="/sleep/detail/:logId"           element={<SleepDetailScreen />} />
+        <Route path="/feed/detail/:logId"            element={<FeedDetailScreen />} />
+        <Route path="/bottle/detail/:logId"          element={<BottleDetailScreen />} />
+        <Route path="/bottle/edit/:logId"            element={<BottleScreen />} />
+        <Route path="/sleep"                         element={<SleepScreen />} />
+        <Route path="/breastfeeding"                 element={<BreastfeedingScreen />} />
+        <Route path="/bottle"                        element={<BottleScreen />} />
+
+        {/* Família e filhos — rotas de produto (não onboarding) */}
+        <Route path="/family/add-child"              element={<ChildCreatePage />} />
+        <Route path="/family/child/:childId/edit"    element={<ChildEditPage />} />
+        <Route path="/family/edit"                   element={<FamilyEditPage />} />
+        <Route path="/family/invite"                 element={<InviteMemberPage />} />
 
         {/* Main app shell with bottom nav */}
         <Route path="/*" element={
@@ -86,17 +98,15 @@ function AuthedRoutes() {
               <Route path="/crescer"     element={<Navigate to="/development" replace />} />
               <Route path="/family"      element={<FamiliaPage />} />
               <Route path="/familia"     element={<Navigate to="/family" replace />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/settings/account" element={<SettingsAccountPage />} />
+              <Route path="/settings"          element={<SettingsPage />} />
+              <Route path="/settings/account"  element={<SettingsAccountPage />} />
               <Route path="/settings/language" element={<SettingsLanguagePage />} />
-              <Route path="/settings/units" element={<SettingsUnitsPage />} />
-              <Route path="/settings/export" element={<SettingsExportPage />} />
-              <Route path="/settings/import" element={<SettingsImportPage />} />
-              <Route path="/settings/plan" element={<SettingsPlanPage />} />
-              <Route path="/settings/help" element={<SettingsHelpPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/units"    element={<SettingsUnitsPage />} />
+              <Route path="/settings/export"   element={<SettingsExportPage />} />
+              <Route path="/settings/import"   element={<SettingsImportPage />} />
+              <Route path="/settings/plan"     element={<SettingsPlanPage />} />
+              <Route path="/settings/help"     element={<SettingsHelpPage />} />
               <Route path="*"            element={<NotFound />} />
-           
             </Routes>
           </AppShell>
         } />
@@ -131,12 +141,12 @@ function OnboardingGuard() {
 
   return (
     <Routes>
-      <Route index                element={<WelcomePage />} />
-      <Route path="auth"          element={<AuthPage />} />
-      <Route path="nome"          element={user ? <NomePage />    : <Navigate to="/onboarding/auth" replace />} />
-      <Route path="family"        element={user ? <FamilyPage />  : <Navigate to="/onboarding/auth" replace />} />
-      <Route path="child"         element={user ? <ChildPage />   : <Navigate to="/onboarding/auth" replace />} />
-      <Route path="complete"      element={user ? <CompletePage />: <Navigate to="/onboarding/auth" replace />} />
+      <Route index           element={<WelcomePage />} />
+      <Route path="auth"     element={<AuthPage />} />
+      <Route path="nome"     element={user ? <NomePage />     : <Navigate to="/onboarding/auth" replace />} />
+      <Route path="family"   element={user ? <FamilyPage />   : <Navigate to="/onboarding/auth" replace />} />
+      <Route path="child"    element={user ? <ChildPage />    : <Navigate to="/onboarding/auth" replace />} />
+      <Route path="complete" element={user ? <CompletePage /> : <Navigate to="/onboarding/auth" replace />} />
     </Routes>
   );
 }
@@ -155,22 +165,20 @@ function AppRouter() {
 
   return (
     <Routes>
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/reset-password"  element={<ResetPasswordPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/onboarding/*"   element={<OnboardingGuard />} />
-      <Route path="/"               element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/onboarding" replace />} />
-      <Route path="/*"              element={isLoggedIn ? <AuthedRoutes /> : <Navigate to="/onboarding" replace />} />
+      <Route path="/onboarding/*"    element={<OnboardingGuard />} />
+      <Route path="/"                element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/onboarding" replace />} />
+      <Route path="/*"               element={isLoggedIn ? <AuthedRoutes /> : <Navigate to="/onboarding" replace />} />
     </Routes>
   );
 }
 
 function NinhoApp() {
-  const auth = useAuth(); // called ONCE here
+  const auth = useAuth();
   const { session, loading } = auth;
   const [splashDone, setSplashDone] = useState(false);
   const handleSplashFinish = useCallback(() => setSplashDone(true), []);
-
   const splashDuration = !loading && session ? 1000 : 2400;
 
   return (

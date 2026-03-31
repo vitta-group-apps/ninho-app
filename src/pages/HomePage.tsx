@@ -185,19 +185,19 @@ export default function HomePage() {
   useEffect(() => {
     if (!activeChild) return;
 
-    // Consultas — health_logs type='consultation'
+    // Consultas — child_consultations
     supabase
-      .from('health_logs')
-      .select('id, details', { count: 'exact' })
+      .from('child_consultations')
+      .select('id, consultation_date', { count: 'exact' })
       .eq('child_id', activeChild.id)
-      .eq('type', 'note')
+      
       .then(({ data, count }) => {
         setConsultationCount(count ?? 0);
         const today = new Date().toISOString().split('T')[0];
         const consultDates = (data ?? [])
           .map(r => {
-            const d = (r.details ?? {}) as Record<string, unknown>;
-            return typeof d.date === 'string' ? d.date : null;
+            
+            return typeof r.consultation_date === 'string' ? r.consultation_date : null;
           })
           .filter((d): d is string => d !== null);
         const upcoming = consultDates.filter(d => d >= today).sort()[0] ?? null;

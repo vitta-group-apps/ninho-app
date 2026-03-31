@@ -39,11 +39,31 @@ function parsePayload<T extends RoutineLogType>(
   switch (type) {
     case 'sleep':
       return {
+        sleep_type:
+          raw.sleep_type === 'noturno' || raw.sleep_type === 'soneca'
+            ? raw.sleep_type
+            : null,
+        location: asString(raw.location),
+        how_fell_asleep: asString(raw.how_fell_asleep),
+        sleep_position:
+          raw.sleep_position === 'costas' || raw.sleep_position === 'lado' || raw.sleep_position === 'barriga'
+            ? raw.sleep_position
+            : null,
+        sleep_quality:
+          raw.sleep_quality === 'tranquilo' || raw.sleep_quality === 'agitado' || raw.sleep_quality === 'com_choro'
+            ? raw.sleep_quality
+            : null,
+        awakenings:
+          raw.awakenings === '0' || raw.awakenings === '1' || raw.awakenings === '2' || raw.awakenings === '3+'
+            ? raw.awakenings
+            : null,
+        used_pacifier: typeof raw.used_pacifier === 'boolean' ? raw.used_pacifier : null,
+        include_in_report: typeof raw.include_in_report === 'boolean' ? raw.include_in_report : null,
+        // legado — manter até migração completa
         quality:
           raw.quality === 'good' || raw.quality === 'ok' || raw.quality === 'bad'
             ? raw.quality
             : null,
-        location: asString(raw.location),
       } as RoutinePayloadMap[T];
 
     case 'feed':

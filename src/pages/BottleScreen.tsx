@@ -24,6 +24,12 @@ import {
   ChipGroup,
   ReportToggle,
 } from '@/components/ds';
+import {
+  BOTTLE_TYPE_OPTIONS,
+  BOTTLE_AMOUNT_OPTIONS,
+  BOTTLE_TEMP_OPTIONS,
+  BOTTLE_REACTION_OPTIONS,
+} from '@/lib/eventSystem';
 
 // ── Cores fixas ──
 const BOTTLE_COLOR = '#C8894A';
@@ -35,35 +41,13 @@ const CARD_BORDER = '#E5E0D8';
 
 type FeedType = 'bottle' | 'formula';
 
-const TYPE_OPTIONS = [
-  { value: 'bottle', label: '🍼 Leite materno ordenhado' },
-  { value: 'formula', label: '🥛 Fórmula' },
-];
 
-const AMOUNT_OPTIONS = [
-  { value: '30', label: '30ml' },
-  { value: '60', label: '60ml' },
-  { value: '90', label: '90ml' },
-  { value: '120', label: '120ml' },
-  { value: '150', label: '150ml' },
-  { value: '180', label: '180ml' },
-  { value: '210', label: '210ml' },
-  { value: '240', label: '240ml' },
-];
 
-const TEMP_OPTIONS = [
-  { value: 'cold', label: '🧊 Fria' },
-  { value: 'warm', label: '☁️ Morna' },
-  { value: 'hot', label: '🌡️ Quente' },
-];
 
-const REACTION_OPTIONS = [
-  { value: 'mamou_bem', label: '😊 Aceitou bem' },
-  { value: 'rejeitou', label: '😤 Recusou' },
-  { value: 'pouquinho', label: '🥺 Mamou pouco' },
-  { value: 'arrotou', label: '👍 Arrotou' },
-  { value: 'regurgitou', label: '😬 Regurgitou' },
-];
+
+
+
+
 
 export default function BottleScreen() {
   const navigate = useNavigate();
@@ -172,7 +156,7 @@ export default function BottleScreen() {
           <div>
             <SectionLabel>Tipo</SectionLabel>
             <ChipGroup
-              options={TYPE_OPTIONS}
+              options={BOTTLE_TYPE_OPTIONS}
               value={feedType}
               onToggle={v => setFeedType(v as FeedType)}
               accentColor={BOTTLE_COLOR}
@@ -182,7 +166,7 @@ export default function BottleScreen() {
           <div>
             <SectionLabel>Quantidade</SectionLabel>
             <ChipGroup
-              options={AMOUNT_OPTIONS}
+              options={BOTTLE_AMOUNT_OPTIONS}
               value={amount}
               onToggle={v => {
                 setAmount(prev => (prev === v ? '' : v));
@@ -258,7 +242,7 @@ export default function BottleScreen() {
           <div>
             <SectionLabel>Temperatura</SectionLabel>
             <ChipGroup
-              options={TEMP_OPTIONS}
+              options={BOTTLE_TEMP_OPTIONS}
               value={temperature}
               onToggle={v => setTemperature(prev => (prev === v ? '' : v))}
               accentColor={BOTTLE_COLOR}
@@ -268,7 +252,7 @@ export default function BottleScreen() {
           <div>
             <SectionLabel>Como reagiu?</SectionLabel>
             <ChipGroup
-              options={REACTION_OPTIONS}
+              options={BOTTLE_REACTION_OPTIONS}
               values={reactions}
               onToggle={v =>
                 setReactions(prev =>

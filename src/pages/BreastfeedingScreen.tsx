@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import { fmtTimer, fmtDurationShort } from '@/lib/routineUtils';
+import { BREASTFEEDING_QUICK_TAGS } from '@/lib/eventSystem';
 import { serializeRoutinePayload } from '@/lib/adapters/routineAdapters';
 import {
   ScreenHeader,
@@ -75,13 +76,7 @@ interface FinishedData {
   lastSide: Side;
 }
 
-const QUICK_TAGS = [
-  { id: 'mamou_bem', label: '😊 Mamou bem' },
-  { id: 'inquieto', label: '😟 Inquieto' },
-  { id: 'dormiu', label: '😴 Dormiu durante' },
-  { id: 'pega_boa', label: '👍 Pega boa' },
-  { id: 'rejeitou_lado', label: '↩️ Rejeitou lado' },
-];
+
 
 function timeToMinutes(time: string) {
   if (!time || !time.includes(':')) return null;
@@ -996,7 +991,7 @@ export default function BreastfeedingScreen() {
             <div>
               <SectionLabel>Como foi a mamada?</SectionLabel>
               <ChipGroup
-                options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
+                options={BREASTFEEDING_QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
                 values={obsTags}
                 onToggle={id =>
                   setObsTags(prev =>
@@ -1101,7 +1096,7 @@ export default function BreastfeedingScreen() {
             <div>
               <SectionLabel>Observações rápidas</SectionLabel>
               <ChipGroup
-                options={QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
+                options={BREASTFEEDING_QUICK_TAGS.map(t => ({ value: t.id, label: t.label }))}
                 values={obsTags}
                 onToggle={id =>
                   setObsTags(prev =>

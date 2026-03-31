@@ -24,6 +24,12 @@ import {
   DIAPER_PEE_COLOR_LABEL,
   DIAPER_POOP_COLOR_LABEL,
   DIAPER_TEXTURE_LABEL,
+  DIAPER_KIND_OPTIONS,
+  DIAPER_QUANTITY_OPTIONS,
+  DIAPER_PEE_COLOR_OPTIONS,
+  DIAPER_POOP_COLOR_OPTIONS,
+  DIAPER_TEXTURE_OPTIONS,
+  type DiaperKind,
 } from '@/lib/eventSystem';
 import {
   toRoutineRecord,
@@ -45,26 +51,14 @@ const CARD_BORDER = '#E5E0D8';
 const TXT = '#2C2C2C';
 const PAGE_BG = '#F8F5F0';
 
-type DiaperKind = 'pee' | 'poop' | 'both';
 
-const KIND_OPTIONS: { kind: DiaperKind; emoji: string; label: string }[] = [
-  { kind: 'pee', emoji: '💛', label: 'Xixi' },
-  { kind: 'poop', emoji: '💩', label: 'Cocô' },
-  { kind: 'both', emoji: '🔄', label: 'Xixi + Cocô' },
-];
 
-const QUANTITY_OPTIONS = Object.entries(DIAPER_QUANTITY_LABEL).map(
-  ([value, label]) => ({ value, label })
-);
-const PEE_COLOR_OPTIONS = Object.entries(DIAPER_PEE_COLOR_LABEL).map(
-  ([value, label]) => ({ value, label })
-);
-const POOP_COLOR_OPTIONS = Object.entries(DIAPER_POOP_COLOR_LABEL).map(
-  ([value, label]) => ({ value, label })
-);
-const TEXTURE_OPTIONS = Object.entries(DIAPER_TEXTURE_LABEL).map(
-  ([value, label]) => ({ value, label })
-);
+
+
+
+
+
+
 
 function inferKindFromPayload(payload: DiaperPayload): DiaperKind | null {
   const pee = payload.pee === true;
@@ -236,7 +230,7 @@ export default function DiaperScreen() {
             <SectionLabel>O que tinha na fralda?</SectionLabel>
 
             <div className="flex gap-3">
-              {KIND_OPTIONS.map(opt => {
+              {DIAPER_KIND_OPTIONS.map(opt => {
                 const isActive = kind === opt.kind;
 
                 return (
@@ -278,7 +272,7 @@ export default function DiaperScreen() {
                 <div>
                   <SectionLabel>Quantidade</SectionLabel>
                   <ChipGroup
-                    options={QUANTITY_OPTIONS}
+                    options={DIAPER_QUANTITY_OPTIONS}
                     value={quantity}
                     onToggle={v => setQuantity(prev => (prev === v ? '' : v))}
                     accentColor={DIAPER_COLOR}
@@ -289,7 +283,7 @@ export default function DiaperScreen() {
                   <div>
                     <SectionLabel>Cor do xixi</SectionLabel>
                     <ChipGroup
-                      options={PEE_COLOR_OPTIONS}
+                      options={DIAPER_PEE_COLOR_OPTIONS}
                       value={peeColor}
                       onToggle={v => setPeeColor(prev => (prev === v ? '' : v))}
                       accentColor={DIAPER_COLOR}
@@ -302,7 +296,7 @@ export default function DiaperScreen() {
                     <div>
                       <SectionLabel>Cor do cocô</SectionLabel>
                       <ChipGroup
-                        options={POOP_COLOR_OPTIONS}
+                        options={DIAPER_POOP_COLOR_OPTIONS}
                         value={poopColor}
                         onToggle={v =>
                           setPoopColor(prev => (prev === v ? '' : v))
@@ -314,7 +308,7 @@ export default function DiaperScreen() {
                     <div>
                       <SectionLabel>Consistência</SectionLabel>
                       <ChipGroup
-                        options={TEXTURE_OPTIONS}
+                        options={DIAPER_TEXTURE_OPTIONS}
                         value={texture}
                         onToggle={v => setTexture(prev => (prev === v ? '' : v))}
                         accentColor={DIAPER_COLOR}

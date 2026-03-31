@@ -15,6 +15,14 @@ import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { toast } from '@/hooks/use-toast';
 import { fmtTimer } from '@/lib/routineUtils';
 import {
+  SLEEP_LOCATION_OPTIONS,
+  SLEEP_HOW_OPTIONS,
+  AWAKENINGS_OPTIONS,
+  SLEEP_TYPE_OPTIONS,
+  SLEEP_POSITION_OPTIONS,
+  SLEEP_QUALITY_OPTIONS,
+} from '@/lib/eventSystem';
+import {
   ScreenHeader, StickyFooterCTA, SectionLabel,
   ChipGroup, ReportToggle, InlineStatusPill,
 } from '@/components/ds';
@@ -77,46 +85,17 @@ function nowTime(): string {
 }
 
 // ── Options ──
-const SLEEP_LOCATION_OPTIONS = [
-  { value: 'berco',    label: '🛏 Berço' },
-  { value: 'colo',     label: '🤱 Colo' },
-  { value: 'carrinho', label: '🛒 Carrinho' },
-  { value: 'cama',     label: '🛌 Cama' },
-  { value: 'outro',    label: '📦 Outro' },
-];
 
-const SLEEP_HOW_OPTIONS = [
-  { value: 'sozinho', label: 'Sozinho' },
-  { value: 'mamando', label: 'Mamando' },
-  { value: 'colo',    label: 'No colo' },
-  { value: 'embalo',  label: 'No embalo' },
-  { value: 'outro',   label: 'Outro' },
-];
 
-const AWAKENINGS_OPTIONS = [
-  { value: '0',  label: 'Nenhuma' },
-  { value: '1',  label: '1 vez' },
-  { value: '2',  label: '2 vezes' },
-  { value: '3+', label: '3 ou mais' },
-];
 
-// ── NOVO: campos baseados em AAP + BISQ ──
-const SLEEP_TYPE_OPTIONS = [
-  { value: 'noturno', label: '🌙 Noturno' },
-  { value: 'soneca',  label: '☀️ Soneca' },
-];
 
-const SLEEP_POSITION_OPTIONS = [
-  { value: 'costas', label: '↑ De costas' },
-  { value: 'lado',   label: '↔ De lado' },
-  { value: 'barriga', label: '↓ De barriga' },
-];
 
-const SLEEP_QUALITY_OPTIONS = [
-  { value: 'tranquilo',  label: '😌 Tranquilo' },
-  { value: 'agitado',    label: '😤 Agitado' },
-  { value: 'com_choro',  label: '😢 Com choro' },
-];
+
+
+
+
+
+
 
 // ── Discard sheet ──
 function DiscardReviewSheet({

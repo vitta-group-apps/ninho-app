@@ -594,4 +594,112 @@ export function getEventPresentation(log: RoutineLog): EventPresentation {
   }
 }
 
+
+// ─── UI options — Sleep ────────────────────────────────────────────────────
+
+export const SLEEP_LOCATION_OPTIONS = [
+  { value: 'berco',    label: '🛏 Berço' },
+  { value: 'colo',     label: '🤱 Colo' },
+  { value: 'carrinho', label: '🛒 Carrinho' },
+  { value: 'cama',     label: '🛌 Cama' },
+  { value: 'outro',    label: '📦 Outro' },
+];
+
+export const SLEEP_HOW_OPTIONS = [
+  { value: 'sozinho', label: 'Sozinho' },
+  { value: 'mamando', label: 'Mamando' },
+  { value: 'colo',    label: 'No colo' },
+  { value: 'embalo',  label: 'No embalo' },
+  { value: 'outro',   label: 'Outro' },
+];
+
+export const AWAKENINGS_OPTIONS = [
+  { value: '0',  label: 'Nenhuma' },
+  { value: '1',  label: '1 vez' },
+  { value: '2',  label: '2 vezes' },
+  { value: '3+', label: '3 ou mais' },
+];
+
+export const SLEEP_TYPE_OPTIONS = [
+  { value: 'noturno', label: '🌙 Noturno' },
+  { value: 'soneca',  label: '☀️ Soneca' },
+];
+
+export const SLEEP_POSITION_OPTIONS = [
+  { value: 'costas',  label: '↑ De costas' },
+  { value: 'lado',    label: '↔ De lado' },
+  { value: 'barriga', label: '↓ De barriga' },
+];
+
+export const SLEEP_QUALITY_OPTIONS = [
+  { value: 'tranquilo', label: '😌 Tranquilo' },
+  { value: 'agitado',   label: '😤 Agitado' },
+  { value: 'com_choro', label: '😢 Com choro' },
+];
+
+// ─── UI options — Bottle ───────────────────────────────────────────────────
+
+export const BOTTLE_TYPE_OPTIONS = [
+  { value: 'bottle',  label: '🍼 Leite materno ordenhado' },
+  { value: 'formula', label: '🥛 Fórmula' },
+];
+
+export const BOTTLE_AMOUNT_OPTIONS = [
+  { value: '30',  label: '30ml' },
+  { value: '60',  label: '60ml' },
+  { value: '90',  label: '90ml' },
+  { value: '120', label: '120ml' },
+  { value: '150', label: '150ml' },
+  { value: '180', label: '180ml' },
+  { value: '210', label: '210ml' },
+  { value: '240', label: '240ml' },
+];
+
+export const BOTTLE_TEMP_OPTIONS = [
+  { value: 'cold', label: '🧊 Fria' },
+  { value: 'warm', label: '☁️ Morna' },
+  { value: 'hot',  label: '🌡️ Quente' },
+];
+
+export const BOTTLE_REACTION_OPTIONS = [
+  { value: 'mamou_bem',  label: '😊 Aceitou bem' },
+  { value: 'rejeitou',   label: '😤 Recusou' },
+  { value: 'pouquinho',  label: '🥺 Mamou pouco' },
+  { value: 'arrotou',    label: '👍 Arrotou' },
+  { value: 'regurgitou', label: '😬 Regurgitou' },
+];
+
+// ─── UI options — Breastfeeding ────────────────────────────────────────────
+
+export const BREASTFEEDING_QUICK_TAGS = [
+  { id: 'mamou_bem',    label: '😊 Mamou bem' },
+  { id: 'inquieto',     label: '😟 Inquieto' },
+  { id: 'dormiu',       label: '😴 Dormiu durante' },
+  { id: 'pega_boa',     label: '👍 Pega boa' },
+  { id: 'rejeitou_lado', label: '↩️ Rejeitou lado' },
+];
+
+// ─── UI options — Diaper (derived from label dicts) ────────────────────────
+
+export type DiaperKind = 'pee' | 'poop' | 'both';
+
+export const DIAPER_KIND_OPTIONS: { kind: DiaperKind; emoji: string; label: string }[] = [
+  { kind: 'pee',  emoji: '💛', label: 'Xixi' },
+  { kind: 'poop', emoji: '💩', label: 'Cocô' },
+  { kind: 'both', emoji: '🔄', label: 'Xixi + Cocô' },
+];
+
+export const DIAPER_QUANTITY_OPTIONS = Object.entries(DIAPER_QUANTITY_LABEL).map(
+  ([value, label]) => ({ value, label })
+);
+export const DIAPER_PEE_COLOR_OPTIONS = Object.entries(DIAPER_PEE_COLOR_LABEL).map(
+  ([value, label]) => ({ value, label })
+);
+export const DIAPER_POOP_COLOR_OPTIONS = Object.entries(DIAPER_POOP_COLOR_LABEL).map(
+  ([value, label]) => ({ value, label })
+);
+export const DIAPER_TEXTURE_OPTIONS = Object.entries(DIAPER_TEXTURE_LABEL).map(
+  ([value, label]) => ({ value, label })
+);
+
 export { fmtTime };

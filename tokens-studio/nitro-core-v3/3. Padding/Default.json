@@ -1,0 +1,82 @@
+{
+  "padding-xxs": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.2}"
+  },
+  "padding-xs": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.4}"
+  },
+  "padding-sm": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.8}"
+  },
+  "padding-md": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.12}"
+  },
+  "padding-lg": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.16}"
+  },
+  "padding-xl": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.20}"
+  },
+  "padding-xxl": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.32}"
+  },
+  "padding-none": {
+    "$extensions": {
+      "com.figma.scopes": [
+        "GAP"
+      ],
+      "com.figma.hiddenFromPublishing": false
+    },
+    "$type": "number",
+    "$value": "{Units.0}"
+  }
+}

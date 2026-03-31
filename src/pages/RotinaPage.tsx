@@ -8,7 +8,8 @@
  *   - leitura direta via Tables<'routine_logs'>
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useRotinaData } from '@/hooks/useRotinaData';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -515,60 +516,21 @@ export default function RotinaPage() {
   const navigate = useNavigate();
   const { activeChild, loading: childLoading } = useActiveChild();
 
-  const [allLogs, setAllLogs] = useState<RoutineLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
   const [noteSheetOpen, setNoteSheetOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [todFilter, setTodFilter] = useState('');
-  const [period, setPeriod] = useState('today');
+  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
   const [showFilters, setShowFilters] = useState(false);
   const [groupByTod, setGroupByTod] = useState(true);
 
+  const { logs: allLogs, loading: logsLoading, reload: reloadLogs } = useRotinaData(activeChild?.id, period);
+
   const lastFeed = allLogs.find((l) => l.type === 'feed');
-
-  const loadLogs = useCallback(async () => {
-    if (!activeChild) return;
-
-    setLogsLoading(true);
-
-    try {
-      const now = new Date();
-      const from = new Date(now);
-
-      if (period === 'today') {
-        from.setHours(0, 0, 0, 0);
-      } else if (period === 'week') {
-        from.setDate(now.getDate() - 7);
-      } else {
-        from.setDate(now.getDate() - 30);
-      }
-
-      const { data, error } = await supabase
-        .from('routine_logs')
-        .select('*')
-        .eq('child_id', activeChild.id)
-        .gte('start_time', from.toISOString())
-        .order('start_time', { ascending: false });
-
-      if (error) throw error;
-
-      const normalizedLogs: RoutineLog[] = (data ?? []) as RoutineLog[];
-      setAllLogs(normalizedLogs);
-    } catch {
-      // manter silencioso por enquanto, seguindo padrão atual
-    } finally {
-      setLogsLoading(false);
-    }
-  }, [activeChild, period]);
-
-  useEffect(() => {
-    loadLogs();
-  }, [loadLogs]);
 
   function handleNoteClose() {
     setNoteSheetOpen(false);
-    loadLogs();
+    reloadLogs();
   }
 
   const filteredLogs = allLogs.filter((log) => {

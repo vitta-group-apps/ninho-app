@@ -13,11 +13,10 @@
  *   7. Recent activity: last 5 events (only if records exist)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useHomeData } from '@/hooks/useHomeData';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ExclamationCircleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
-import { supabase } from '@/integrations/supabase/client';
 import { useActiveChild } from '@/contexts/ActiveChildContext';
 import { useAuth } from '@/hooks/useAuth';
 import { ChildSwitcher } from '@/components/home/ChildSwitcher';
@@ -150,70 +149,16 @@ export default function HomePage() {
   const { profile } = useAuth();
   const { activeChild, loading: childLoading, error: childError } = useActiveChild();
 
-  const [logs, setLogs] = useState<RoutineLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [logsError, setLogsError] = useState<string | null>(null);
-  const [consultationCount, setConsultationCount] = useState(-1);
-  const [appliedVaccineCount, setAppliedVaccineCount] = useState(-1);
-  const [nextConsultDate, setNextConsultDate] = useState<string | null>(null);
-  const [hasConsultHistory, setHasConsultHistory] = useState(false);
-
-  const loadLogs = useCallback(async () => {
-    if (!activeChild) return;
-    setLogsLoading(true);
-    setLogsError(null);
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const { data, error } = await supabase
-        .from('routine_logs')
-        .select('*')
-        .eq('child_id', activeChild.id)
-        .gte('start_time', today.toISOString())
-        .order('start_time', { ascending: false });
-      if (error) throw error;
-      setLogs(data ?? []);
-    } catch {
-      setLogsError('Não foi possível carregar os eventos de hoje.');
-    } finally {
-      setLogsLoading(false);
-    }
-  }, [activeChild]);
-
-  useEffect(() => { loadLogs(); }, [loadLogs]);
-
-  useEffect(() => {
-    if (!activeChild) return;
-
-    // Consultas — child_consultations
-    supabase
-      .from('child_consultations')
-      .select('id, consultation_date', { count: 'exact' })
-      .eq('child_id', activeChild.id)
-      
-      .then(({ data, count }) => {
-        setConsultationCount(count ?? 0);
-        const today = new Date().toISOString().split('T')[0];
-        const consultDates = (data ?? [])
-          .map(r => {
-            
-            return typeof r.consultation_date === 'string' ? r.consultation_date : null;
-          })
-          .filter((d): d is string => d !== null);
-        const upcoming = consultDates.filter(d => d >= today).sort()[0] ?? null;
-        setNextConsultDate(upcoming);
-        setHasConsultHistory(consultDates.length > 0);
-      });
-
-    // Vacinas aplicadas — child_vaccines status='applied'
-    supabase
-      .from('child_vaccines')
-      .select('id', { count: 'exact', head: true })
-      .eq('child_id', activeChild.id)
-      .eq('status', 'applied')
-      .then(({ count }) => setAppliedVaccineCount(count ?? 0));
-
-  }, [activeChild]);
+  const {
+    logs,
+    logsLoading,
+    logsError,
+    consultationCount,
+    appliedVaccineCount,
+    nextConsultDate,
+    hasConsultHistory,
+    reload: reloadLogs,
+  } = useHomeData(activeChild?.id);
 
   const feedLogs    = logs.filter(l => l.type === 'feed');
   const feedCount   = feedLogs.length;

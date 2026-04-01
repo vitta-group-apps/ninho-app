@@ -32,3 +32,6 @@ export { LinkButton }   from './LinkButton';
 export type { SocialButtonProps, SocialProvider, SocialButtonSize } from './SocialButton';
 export type { IconButtonProps, IconButtonVariant, IconButtonSize }   from './IconButton';
 export type { LinkButtonProps, LinkButtonType }                       from './LinkButton';
+
+export { Switch } from './Switch';
+export type { SwitchProps, SwitchSize } from './Switch';

@@ -40,7 +40,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           htmlFor={inputId}
           className={cn(
             'font-body text-text-md font-medium',
-            disabled ? 'text-neutral-fg' : 'text-neutral-fg-strong',
+            disabled ? 'text-ds-neutral-fg' : 'text-ds-neutral-fg-strong',
           )}
         >
           {label}
@@ -51,16 +51,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       <div className={cn(
         'flex items-center gap-[var(--gap-xs)]',
         'px-[var(--padding-md)] h-12',
-        'rounded-[var(--radius-sm)] border bg-pure-white',
+        'rounded-[var(--radius-sm)] border bg-ds-pure-white',
         'transition-colors duration-150',
         // Estados
         hasError
-          ? 'border-error-border'
-          : 'border-neutral-border hover:border-neutral-border-hover focus-within:border-accent-tint focus-within:ring-1 focus-within:ring-accent-tint',
-        disabled && 'bg-neutral-bg-enabled border-neutral-border cursor-not-allowed',
+          ? 'border-ds-error-border'
+          : 'border-ds-neutral-border hover:border-ds-neutral-border-hover focus-within:border-accent-tint focus-within:ring-1 focus-within:ring-ds-accent-tint',
+        disabled && 'bg-ds-neutral-bg-enabled border-ds-neutral-border cursor-not-allowed',
       )}>
         {iconLeft && (
-          <span className="shrink-0 text-neutral-fg">{iconLeft}</span>
+          <span className="shrink-0 text-ds-neutral-fg">{iconLeft}</span>
         )}
 
         <input
@@ -70,15 +70,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           className={cn(
             'flex-1 bg-transparent outline-none',
             'font-body text-text-lg font-regular',
-            'text-neutral-fg-strong placeholder:text-neutral-fg',
-            'disabled:cursor-not-allowed disabled:text-neutral-fg',
+            'text-ds-neutral-fg-strong placeholder:text-ds-neutral-fg',
+            'disabled:cursor-not-allowed disabled:text-ds-neutral-fg',
             className,
           )}
           {...props}
         />
 
         {iconRight && (
-          <span className="shrink-0 text-neutral-fg">{iconRight}</span>
+          <span className="shrink-0 text-ds-neutral-fg">{iconRight}</span>
         )}
       </div>
 
@@ -86,7 +86,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       {(hint || error) && (
         <p className={cn(
           'font-body text-text-sm',
-          hasError ? 'text-error-fg' : 'text-neutral-fg',
+          hasError ? 'text-ds-error-fg' : 'text-ds-neutral-fg',
         )}>
           {error ?? hint}
         </p>

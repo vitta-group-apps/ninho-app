@@ -41,15 +41,15 @@ const variantClasses: Record<TextVariant, string> = {
 };
 
 const colorClasses: Record<TextColor, string> = {
-  default:   'text-neutral-fg-strong',
-  secondary: 'text-neutral-fg',
-  accent:    'text-accent-fg',
-  success:   'text-success-fg',
-  warning:   'text-warning-fg',
-  error:     'text-error-fg',
-  info:      'text-info-fg',
-  'on-tint': 'text-on-tint-white',
-  disabled:  'text-neutral-fg',
+  default:   'text-ds-neutral-fg-strong',
+  secondary: 'text-ds-neutral-fg',
+  accent:    'text-ds-accent-fg',
+  success:   'text-ds-success-fg',
+  warning:   'text-ds-warning-fg',
+  error:     'text-ds-error-fg',
+  info:      'text-ds-info-fg',
+  'on-tint': 'text-ds-on-tint-white',
+  disabled:  'text-ds-neutral-fg',
 };
 
 const defaultTag: Partial<Record<TextVariant, keyof JSX.IntrinsicElements>> = {

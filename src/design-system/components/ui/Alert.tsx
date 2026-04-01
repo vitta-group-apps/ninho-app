@@ -24,28 +24,28 @@ const variantClasses: Record<AlertVariant, {
   close:     string;
 }> = {
   success: {
-    container: 'bg-success-subtle border border-success-border',
-    title:     'text-success-fg-strong',
-    desc:      'text-success-fg',
-    close:     'text-success-fg hover:text-success-fg-strong',
+    container: 'bg-ds-success-subtle border border-ds-success-border',
+    title:     'text-ds-success-fg-strong',
+    desc:      'text-ds-success-fg',
+    close:     'text-ds-success-fg hover:text-ds-success-fg-strong',
   },
   warning: {
-    container: 'bg-warning-subtle border border-warning-border',
-    title:     'text-warning-fg-strong',
-    desc:      'text-warning-fg',
-    close:     'text-warning-fg hover:text-warning-fg-strong',
+    container: 'bg-ds-warning-subtle border border-ds-warning-border',
+    title:     'text-ds-warning-fg-strong',
+    desc:      'text-ds-warning-fg',
+    close:     'text-ds-warning-fg hover:text-ds-warning-fg-strong',
   },
   error: {
-    container: 'bg-error-subtle border border-error-border',
-    title:     'text-error-fg-strong',
-    desc:      'text-error-fg',
-    close:     'text-error-fg hover:text-error-fg-strong',
+    container: 'bg-ds-error-subtle border border-ds-error-border',
+    title:     'text-ds-error-fg-strong',
+    desc:      'text-ds-error-fg',
+    close:     'text-ds-error-fg hover:text-ds-error-fg-strong',
   },
   info: {
-    container: 'bg-info-subtle border border-info-border',
-    title:     'text-info-fg-strong',
-    desc:      'text-info-fg',
-    close:     'text-info-fg hover:text-info-fg-strong',
+    container: 'bg-ds-info-subtle border border-ds-info-border',
+    title:     'text-ds-info-fg-strong',
+    desc:      'text-ds-info-fg',
+    close:     'text-ds-info-fg hover:text-ds-info-fg-strong',
   },
 };
 

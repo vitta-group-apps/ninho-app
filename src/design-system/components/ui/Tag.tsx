@@ -16,13 +16,13 @@ export interface TagProps {
 }
 
 const variantClasses: Record<TagVariant, string> = {
-  accent:    'bg-accent-subtle    text-accent-fg-strong',
-  secondary: 'bg-secondary-subtle text-secondary-fg-strong',
-  success:   'bg-success-subtle   text-success-fg-strong',
-  warning:   'bg-warning-subtle   text-warning-fg-strong',
-  error:     'bg-error-subtle     text-error-fg-strong',
-  info:      'bg-info-subtle      text-info-fg-strong',
-  neutral:   'bg-neutral-subtle   text-neutral-fg-strong',
+  accent:    'bg-ds-accent-subtle    text-ds-accent-fg-strong',
+  secondary: 'bg-ds-secondary-subtle text-ds-secondary-fg-strong',
+  success:   'bg-ds-success-subtle   text-ds-success-fg-strong',
+  warning:   'bg-ds-warning-subtle   text-ds-warning-fg-strong',
+  error:     'bg-ds-error-subtle     text-ds-error-fg-strong',
+  info:      'bg-ds-info-subtle      text-ds-info-fg-strong',
+  neutral:   'bg-ds-neutral-subtle   text-ds-neutral-fg-strong',
 };
 
 export function Tag({ label, variant = 'neutral', icon, className }: TagProps) {

@@ -20,7 +20,7 @@ export function Divider({ label, vertical = false, className }: DividerProps) {
     return (
       <div className={cn('flex items-center gap-[var(--gap-sm)]', className)}>
         <div className="flex-1 h-px bg-neutral-border" />
-        <span className="font-body text-text-sm text-neutral-fg shrink-0">{label}</span>
+        <span className="font-body text-text-sm text-ds-neutral-fg shrink-0">{label}</span>
         <div className="flex-1 h-px bg-neutral-border" />
       </div>
     );

@@ -18,23 +18,23 @@ export interface BadgeProps {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  accent:    'bg-accent-subtle    text-accent-fg    border border-accent-border',
-  secondary: 'bg-secondary-subtle text-secondary-fg border border-secondary-border',
-  success:   'bg-success-subtle   text-success-fg   border border-success-border',
-  warning:   'bg-warning-subtle   text-warning-fg   border border-warning-border',
-  error:     'bg-error-subtle     text-error-fg     border border-error-border',
-  info:      'bg-info-subtle      text-info-fg      border border-info-border',
-  neutral:   'bg-neutral-subtle   text-neutral-fg   border border-neutral-border',
+  accent:    'bg-ds-accent-subtle    text-ds-accent-fg    border border-ds-accent-border',
+  secondary: 'bg-ds-secondary-subtle text-ds-secondary-fg border border-ds-secondary-border',
+  success:   'bg-ds-success-subtle   text-ds-success-fg   border border-ds-success-border',
+  warning:   'bg-ds-warning-subtle   text-ds-warning-fg   border border-ds-warning-border',
+  error:     'bg-ds-error-subtle     text-ds-error-fg     border border-ds-error-border',
+  info:      'bg-ds-info-subtle      text-ds-info-fg      border border-ds-info-border',
+  neutral:   'bg-ds-neutral-subtle   text-ds-neutral-fg   border border-ds-neutral-border',
 };
 
 const dotClasses: Record<BadgeVariant, string> = {
-  accent:    'bg-accent-tint',
-  secondary: 'bg-secondary-tint',
-  success:   'bg-success-tint',
-  warning:   'bg-warning-tint',
-  error:     'bg-error-tint',
-  info:      'bg-info-tint',
-  neutral:   'bg-neutral-tint',
+  accent:    'bg-ds-accent-tint',
+  secondary: 'bg-ds-secondary-tint',
+  success:   'bg-ds-success-tint',
+  warning:   'bg-ds-warning-tint',
+  error:     'bg-ds-error-tint',
+  info:      'bg-ds-info-tint',
+  neutral:   'bg-ds-neutral-tint',
 };
 
 export function Badge({
@@ -57,7 +57,7 @@ export function Badge({
 
   return (
     <span className={cn(
-      'inline-flex items-center justify-center rounded-pill font-body font-semibold leading-none',
+      'inline-flex items-center justify-center rounded-ds-pill font-body font-semibold leading-none',
       size === 'sm'
         ? 'px-[var(--padding-xs)] py-[2px] text-text-xs min-w-[18px]'
         : 'px-[var(--padding-sm)] py-[3px] text-text-sm min-w-[22px]',

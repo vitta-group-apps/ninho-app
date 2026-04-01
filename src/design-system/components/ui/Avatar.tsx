@@ -29,14 +29,14 @@ export function Avatar({ src, alt = '', initials, size = 'md', className }: Avat
   return (
     <div className={cn(
       'rounded-full overflow-hidden shrink-0',
-      'bg-accent-subtle flex items-center justify-center',
+      'bg-ds-accent-subtle flex items-center justify-center',
       outer,
       className,
     )}>
       {src ? (
         <img src={src} alt={alt} className="w-full h-full object-cover" />
       ) : (
-        <span className={cn('font-body font-semibold text-accent-fg', text)}>
+        <span className={cn('font-body font-semibold text-ds-accent-fg', text)}>
           {(initials ?? '?').substring(0, 2).toUpperCase()}
         </span>
       )}

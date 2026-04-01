@@ -1,0 +1,22 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { color-scheme: light; }
+  [data-theme="dark"] { color-scheme: dark; }
+
+  body {
+    font-family: var(--font-family-text);
+    color: var(--color-neutral-foreground-fg-high-contrast);
+    background-color: var(--color-neutral-background-bg-subtle-01);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-bold);
+  }
+}

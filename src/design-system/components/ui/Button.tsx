@@ -1,72 +1,177 @@
 /**
- * NINHO DS — Button
- * Fiel ao Figma: node 2115:3905
+ * NINHO DESIGN SYSTEM — Button
  *
- * Variantes:  primary | secondary | tertiary | danger
- * Tamanhos:   lg (56) | md (48) | sm (40) | xs (28)
- * Estados:    default | hover | focus | loading | disabled
+ * Implementado a partir do Figma Dev Mode
+ * Node: 2115:3905 | Arquivo: Nitro™ Core v3.0
+ *
+ * Tokens extraídos literalmente do Figma — nunca alterar os valores
+ * sem sincronizar com o Figma via Tokens Studio.
+ *
+ * Variantes:  Primary | Secondary | Tertiary | Danger
+ * Tamanhos:   Large (56) | Medium (48) | Small (40) | Extra Small (28)
+ * Estados:    Default | Hover | Focus | Loading | Disabled
  */
 
 import React from 'react';
 import { cn } from '../../lib/utils';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TIPOS
+// ─────────────────────────────────────────────────────────────────────────────
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger';
 export type ButtonSize    = 'lg' | 'md' | 'sm' | 'xs';
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  /** Texto do botão */
   label:       string;
+  /** Variante visual */
   variant?:    ButtonVariant;
+  /** Tamanho — lg=56px | md=48px | sm=40px | xs=28px */
   size?:       ButtonSize;
+  /** Estado de carregamento — substitui label por spinner */
   loading?:    boolean;
+  /** Ícone à esquerda do label */
   iconLeft?:   React.ReactNode;
+  /** Ícone à direita do label */
   iconRight?:  React.ReactNode;
+  /** Expande para 100% da largura do container */
   fullWidth?:  boolean;
 }
 
-// ─── Tokens do Figma mapeados para classes Tailwind ──────────
-// Primary:   bg=accent-tint  texto=on-tint-white  border=transparent
-// Secondary: bg=neutral-subtle borda=neutral-border texto=neutral-fg-strong
-// Tertiary:  bg=transparent   borda=neutral-border  texto=neutral-fg-strong
-// Danger:    bg=error-tint    texto=on-tint-white   border=transparent
+// ─────────────────────────────────────────────────────────────────────────────
+// TOKENS DO FIGMA → CLASSES TAILWIND
+// Fonte: Figma Dev Mode, node 2115:3905
+// Convenção: var(--token-name, fallback-hex)
+// ─────────────────────────────────────────────────────────────────────────────
 
-const variantClasses: Record<ButtonVariant, string> = {
-  primary: [
-    'bg-accent-tint text-on-tint-white border-transparent',
-    'hover:bg-accent-tint-dark',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-tint focus-visible:ring-offset-2',
-    'disabled:bg-[var(--color-accent-disabled-bg-disabled)] disabled:text-[var(--color-accent-disabled-fg-disabled)]',
-  ].join(' '),
+/**
+ * Classes base compartilhadas por todas as variantes e tamanhos.
+ * Extraídas do Figma: overflow-clip, flex, items-center, justify-center,
+ * gap-[var(--gap-xs,4px)], rounded-[6px], shadow-xs
+ */
+const BASE =
+  'inline-flex items-center justify-center overflow-hidden ' +
+  'gap-[var(--gap-xs,4px)] rounded-[6px] ' +
+  'shadow-[0px_1px_2px_0px_var(--overlays\\/overlay-black\\/50,rgba(13,13,13,0.04))] ' +
+  'transition-all duration-150 cursor-pointer ' +
+  'focus-visible:outline-none ' +
+  'disabled:cursor-not-allowed disabled:pointer-events-none';
 
-  secondary: [
-    'bg-neutral-subtle text-neutral-fg-strong border border-neutral-border',
-    'hover:bg-neutral-bg-hover hover:border-neutral-border-hover',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-border focus-visible:ring-offset-2',
-    'disabled:bg-[var(--color-neutral-disabled-bg-disabled)] disabled:text-[var(--color-neutral-disabled-fg-disabled)] disabled:border-transparent',
-  ].join(' '),
+/**
+ * Estilos por variante — tokens extraídos do Figma Dev Mode.
+ *
+ * Primary
+ *   Default:  bg=accent/background/bg-tint_01 (#8b5e96)  texto=static-neutral/white
+ *   Hover:    bg=accent/background/bg-tint_02 (#6e2880)
+ *   Focus:    bg=accent/background/bg-tint_02 + ring=accent-disabled/fg-disabled (rgba(103,32,121,0.32))
+ *   Disabled: bg=accent-disabled/bg-disabled (rgba(216,185,223,0.32))  texto=accent-disabled/fg-disabled
+ *
+ * Secondary
+ *   Default:  bg=neutral/background/bg-subtle_01 (#f8f7f7)  border=neutral/border/border-subtle_enabled (#a9a5a2)
+ *   Hover:    bg=neutral/background/bg-subtle_hover (#ceccca)
+ *   Focus:    border=accent/background/bg-tint_01 + ring
+ *
+ * Tertiary
+ *   Default:  bg=neutral/background/bg-subtle_01 (#f8f7f7)  texto=neutral/foreground/fg-high-contrast (#3a3836)
+ *   Hover:    bg=neutral/background/bg-subtle_hover (#ceccca)
+ *
+ * Danger
+ *   Default:  bg=error/background/bg-tint_01 (clay-800)  texto=static-neutral/white
+ *   Hover:    bg=error/background/bg-tint_02 (clay-900)
+ */
+const VARIANT: Record<ButtonVariant, string> = {
+  primary: cn(
+    // default
+    'bg-[var(--accent\\/background\\/bg-tint_01,#8b5e96)]',
+    'text-[color:var(--static-neutral\\/white,#fcfcfc)]',
+    // hover
+    'hover:bg-[var(--accent\\/background\\/bg-tint_02,#6e2880)]',
+    // focus
+    'focus-visible:bg-[var(--accent\\/background\\/bg-tint_02,#6e2880)]',
+    'focus-visible:shadow-[0px_0px_0px_4px_var(--accent-disabled\\/fg-disabled,rgba(103,32,121,0.32)),0px_1px_2px_0px_var(--overlays\\/overlay-black\\/50,rgba(13,13,13,0.04))]',
+    // disabled
+    'disabled:bg-[var(--accent-disabled\\/bg-disabled,rgba(216,185,223,0.32))]',
+    'disabled:text-[color:var(--accent-disabled\\/fg-disabled,rgba(103,32,121,0.32))]',
+    'disabled:shadow-none',
+  ),
 
-  tertiary: [
-    'bg-transparent text-neutral-fg-strong border border-neutral-border',
-    'hover:bg-neutral-subtle hover:border-neutral-border-hover',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-border focus-visible:ring-offset-2',
-    'disabled:text-[var(--color-neutral-disabled-fg-disabled)] disabled:border-[var(--color-neutral-disabled-bg-disabled)]',
-  ].join(' '),
+  secondary: cn(
+    // default — bg neutro + borda
+    'bg-[var(--neutral\\/background\\/bg-subtle_01,#f8f7f7)]',
+    'text-[color:var(--neutral\\/foreground\\/fg-high-contrast,#3a3836)]',
+    'border border-[var(--neutral\\/border\\/border-subtle_enabled,#a9a5a2)]',
+    // hover
+    'hover:bg-[var(--neutral\\/background\\/bg-subtle_hover,#ceccca)]',
+    // focus
+    'focus-visible:border-[var(--accent\\/background\\/bg-tint_01,#8b5e96)]',
+    'focus-visible:shadow-[0px_0px_0px_4px_var(--accent-disabled\\/fg-disabled,rgba(103,32,121,0.32)),0px_1px_2px_0px_var(--overlays\\/overlay-black\\/50,rgba(13,13,13,0.04))]',
+    // disabled
+    'disabled:bg-[var(--neutral-disabled\\/bg-disabled,rgba(206,204,202,0.32))]',
+    'disabled:text-[color:var(--neutral-disabled\\/fg-disabled,rgba(82,79,76,0.32))]',
+    'disabled:border-transparent disabled:shadow-none',
+  ),
 
-  danger: [
-    'bg-error-tint text-on-tint-white border-transparent',
-    'hover:bg-error-tint-dark',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-tint focus-visible:ring-offset-2',
-    'disabled:bg-[var(--color-error-disabled-bg-disabled)] disabled:text-[var(--color-error-disabled-fg-disabled)]',
-  ].join(' '),
+  tertiary: cn(
+    // default — bg neutro sutil, sem borda
+    'bg-[var(--neutral\\/background\\/bg-subtle_01,#f8f7f7)]',
+    'text-[color:var(--neutral\\/foreground\\/fg-high-contrast,#3a3836)]',
+    // hover
+    'hover:bg-[var(--neutral\\/background\\/bg-subtle_hover,#ceccca)]',
+    // focus
+    'focus-visible:shadow-[0px_0px_0px_4px_var(--accent-disabled\\/fg-disabled,rgba(103,32,121,0.32)),0px_1px_2px_0px_var(--overlays\\/overlay-black\\/50,rgba(13,13,13,0.04))]',
+    // disabled
+    'disabled:bg-[var(--neutral-disabled\\/bg-disabled,rgba(206,204,202,0.32))]',
+    'disabled:text-[color:var(--neutral-disabled\\/fg-disabled,rgba(82,79,76,0.32))]',
+    'disabled:shadow-none',
+  ),
+
+  danger: cn(
+    // default — clay-800
+    'bg-[var(--error\\/background\\/bg-tint_01,#671d14)]',
+    'text-[color:var(--static-neutral\\/white,#fcfcfc)]',
+    // hover — clay-900
+    'hover:bg-[var(--error\\/background\\/bg-tint_02,#43140e)]',
+    // focus
+    'focus-visible:bg-[var(--error\\/background\\/bg-tint_02,#43140e)]',
+    'focus-visible:shadow-[0px_0px_0px_4px_var(--error-disabled\\/fg-disabled,rgba(167,66,53,0.32)),0px_1px_2px_0px_var(--overlays\\/overlay-black\\/50,rgba(13,13,13,0.04))]',
+    // disabled
+    'disabled:bg-[var(--error-disabled\\/bg-disabled,rgba(223,185,180,0.32))]',
+    'disabled:text-[color:var(--error-disabled\\/fg-disabled,rgba(103,29,20,0.32))]',
+    'disabled:shadow-none',
+  ),
 };
 
-// Tamanhos — exatamente como no Figma (h=56/48/40/28, px=padding-xl, py=padding-lg)
-const sizeClasses: Record<ButtonSize, string> = {
-  lg: 'h-14 px-[var(--padding-xl)] py-[var(--padding-lg)] text-text-lg rounded-[var(--radius-xs)] gap-[var(--gap-xs)]',
-  md: 'h-12 px-[var(--padding-xl)] py-[var(--padding-md)] text-text-lg rounded-[var(--radius-xs)] gap-[var(--gap-xs)]',
-  sm: 'h-10 px-[var(--padding-lg)] py-[var(--padding-sm)] text-text-md rounded-[var(--radius-xs)] gap-[var(--gap-xs)]',
-  xs: 'h-7  px-[var(--padding-md)] py-[var(--padding-xxs)] text-text-sm rounded-[var(--radius-xxs)] gap-[var(--gap-xs)]',
+/**
+ * Tamanhos — alturas e paddings exatos do Figma:
+ * Large (56):      h=56  px=padding-xl(20px)  py=padding-lg(16px)
+ * Medium (48):     h=48  px=padding-xl(20px)  py=padding-md(12px)
+ * Small (40):      h=40  px=padding-lg(16px)  py=padding-sm(8px)
+ * Extra Small (28): h=28  px=padding-md(12px)  py=padding-xs(4px)
+ */
+const SIZE: Record<ButtonSize, string> = {
+  lg: 'h-14 px-[var(--padding-xl,20px)] py-[var(--padding-lg,16px)]',
+  md: 'h-12 px-[var(--padding-xl,20px)] py-[var(--padding-md,12px)]',
+  sm: 'h-10 px-[var(--padding-lg,16px)]  py-[var(--padding-sm,8px)]',
+  xs: 'h-7  px-[var(--padding-md,12px)]  py-[var(--padding-xs,4px)]',
 };
+
+/**
+ * Tamanho de fonte por size do botão:
+ * lg/md/sm → font-sizes/text/lg (16px) → Body 16/Semibold
+ * xs       → font-sizes/text/md (14px)
+ */
+const FONT_SIZE: Record<ButtonSize, string> = {
+  lg: 'text-[length:var(--font-sizes\\/text\\/lg,16px)]',
+  md: 'text-[length:var(--font-sizes\\/text\\/lg,16px)]',
+  sm: 'text-[length:var(--font-sizes\\/text\\/lg,16px)]',
+  xs: 'text-[length:var(--font-sizes\\/text\\/md,14px)]',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENTE
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function Button({
   label,
@@ -85,58 +190,88 @@ export function Button({
   return (
     <button
       disabled={isDisabled}
+      data-variant={variant}
+      data-size={size}
       className={cn(
-        // Base
-        'inline-flex items-center justify-center',
-        'font-body font-semibold whitespace-nowrap',
-        'transition-colors duration-150',
-        'shadow-xs',
-        'disabled:cursor-not-allowed disabled:opacity-60',
-        // Variante + Tamanho
-        variantClasses[variant],
-        sizeClasses[size],
-        // Largura
+        BASE,
+        VARIANT[variant],
+        SIZE[size],
         fullWidth && 'w-full',
         className,
       )}
       {...props}
     >
       {loading ? (
-        <Spinner variant={variant} />
+        <ButtonSpinner variant={variant} size={size} />
       ) : (
         <>
-          {iconLeft  && <span className="shrink-0">{iconLeft}</span>}
-          <span>{label}</span>
-          {iconRight && <span className="shrink-0">{iconRight}</span>}
+          {iconLeft && (
+            <span className="shrink-0 flex items-center" aria-hidden="true">
+              {iconLeft}
+            </span>
+          )}
+
+          {/* Label — tipografia exata do Figma: Nunito SemiBold, 1.5 line-height */}
+          <span className={cn(
+            'font-[family-name:var(--font-family\\/text,\'Nunito\',sans-serif)]',
+            'font-[var(--font-weight\\/semi-bold,600)]',
+            'leading-[1.5]',
+            'whitespace-nowrap text-center',
+            FONT_SIZE[size],
+          )}>
+            {label}
+          </span>
+
+          {iconRight && (
+            <span className="shrink-0 flex items-center" aria-hidden="true">
+              {iconRight}
+            </span>
+          )}
         </>
       )}
     </button>
   );
 }
 
-// Spinner interno — cor adapta à variante
-function Spinner({ variant }: { variant: ButtonVariant }) {
-  const color = variant === 'secondary' || variant === 'tertiary'
-    ? 'var(--color-neutral-foreground-fg-high-contrast)'
-    : 'var(--color-static-neutral-white)';
+// ─────────────────────────────────────────────────────────────────────────────
+// SPINNER INTERNO
+// Cor adapta à variante — branco em primary/danger, escuro em secondary/tertiary
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ButtonSpinner({
+  variant,
+  size,
+}: {
+  variant: ButtonVariant;
+  size: ButtonSize;
+}) {
+  const isLight = variant === 'primary' || variant === 'danger';
+  const color = isLight
+    ? 'var(--static-neutral\\/white, #fcfcfc)'
+    : 'var(--neutral\\/foreground\\/fg-high-contrast, #3a3836)';
+
+  const dim = size === 'xs' ? 14 : 16;
 
   return (
     <svg
-      className="animate-spin h-4 w-4"
+      width={dim}
+      height={dim}
+      viewBox="0 0 16 16"
       fill="none"
-      viewBox="0 0 24 24"
+      className="animate-spin"
       aria-hidden="true"
     >
       <circle
-        className="opacity-25"
-        cx="12" cy="12" r="10"
+        cx="8" cy="8" r="6.5"
         stroke={color}
-        strokeWidth="4"
+        strokeOpacity="0.25"
+        strokeWidth="2"
       />
       <path
-        className="opacity-75"
-        fill={color}
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        d="M8 1.5A6.5 6.5 0 0 1 14.5 8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
       />
     </svg>
   );

@@ -30,13 +30,13 @@ export function Chip({
       className={cn(
         'inline-flex items-center gap-[var(--gap-xs)]',
         'px-[var(--padding-md)] py-[var(--padding-xs)]',
-        'rounded-pill border font-body text-text-md font-medium',
+        'rounded-ds-pill border font-body text-text-md font-medium',
         'transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-tint focus-visible:ring-offset-2',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent-tint focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed disabled:opacity-50',
         selected
-          ? 'bg-accent-subtle-2 border-accent-tint text-accent-fg'
-          : 'bg-pure-white border-neutral-border text-neutral-fg-strong hover:bg-neutral-subtle hover:border-neutral-border-hover',
+          ? 'bg-ds-accent-subtle-2 border-accent-tint text-ds-accent-fg'
+          : 'bg-ds-pure-white border-ds-neutral-border text-ds-neutral-fg-strong hover:bg-ds-neutral-subtle hover:border-ds-neutral-border-hover',
         className,
       )}
       {...props}

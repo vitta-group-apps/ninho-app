@@ -17,9 +17,9 @@ export interface CardProps {
 }
 
 const variantClasses: Record<CardVariant, string> = {
-  elevated: 'bg-pure-white shadow-xs',
-  outlined: 'bg-pure-white border border-neutral-border',
-  filled:   'bg-neutral-subtle',
+  elevated: 'bg-ds-pure-white shadow-xs',
+  outlined: 'bg-ds-pure-white border border-ds-neutral-border',
+  filled:   'bg-ds-neutral-subtle',
   ghost:    'bg-transparent',
 };
 

@@ -8,7 +8,6 @@
  */
 
 export { Button }   from './components/ui/Button';
-export { Input }    from './components/ui/Input';
 export { Badge }    from './components/ui/Badge';
 export { Chip }     from './components/ui/Chip';
 export { Tag }      from './components/ui/Tag';
@@ -19,7 +18,6 @@ export { Avatar }   from './components/ui/Avatar';
 export { Alert }    from './components/ui/Alert';
 
 export type { ButtonProps, ButtonVariant, ButtonSize }    from './components/ui/Button';
-export type { InputProps }                                from './components/ui/Input';
 export type { BadgeProps, BadgeVariant, BadgeSize }       from './components/ui/Badge';
 export type { ChipProps }                                 from './components/ui/Chip';
 export type { TagProps, TagVariant }                      from './components/ui/Tag';

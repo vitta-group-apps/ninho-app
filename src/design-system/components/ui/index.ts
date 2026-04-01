@@ -25,3 +25,10 @@ export { TextInput } from './TextInput';
 export { TextArea }  from './TextArea';
 export type { TextInputProps, TextInputSize } from './TextInput';
 export type { TextAreaProps } from './TextArea';
+
+export { SocialButton } from './SocialButton';
+export { IconButton }   from './IconButton';
+export { LinkButton }   from './LinkButton';
+export type { SocialButtonProps, SocialProvider, SocialButtonSize } from './SocialButton';
+export type { IconButtonProps, IconButtonVariant, IconButtonSize }   from './IconButton';
+export type { LinkButtonProps, LinkButtonType }                       from './LinkButton';

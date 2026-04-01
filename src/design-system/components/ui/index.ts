@@ -20,3 +20,8 @@ export type { CardProps, CardVariant, CardPadding }       from './Card';
 export type { DividerProps }                              from './Divider';
 export type { AvatarProps, AvatarSize }                   from './Avatar';
 export type { AlertProps, AlertVariant }                  from './Alert';
+
+export { TextInput } from './TextInput';
+export { TextArea }  from './TextArea';
+export type { TextInputProps, TextInputSize } from './TextInput';
+export type { TextAreaProps } from './TextArea';

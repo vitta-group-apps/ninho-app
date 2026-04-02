@@ -40,3 +40,6 @@ export { ProgressBar }    from './ProgressBar';
 export { ProgressCircle } from './ProgressCircle';
 export type { ProgressBarProps, ProgressBarColor, ProgressBarLayout }          from './ProgressBar';
 export type { ProgressCircleProps, ProgressCircleLayout }                       from './ProgressCircle';
+
+export { BottomDock } from './BottomDock';
+export type { BottomDockProps, BottomDockAction, BottomDockBadge } from './BottomDock';

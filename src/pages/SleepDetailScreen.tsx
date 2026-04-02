@@ -16,6 +16,13 @@ import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { getUserNotes, fmtTime } from '@/lib/routineUtils';
 import {
+  isRecord,
+  asString,
+  asBoolean,
+  cleanPayload,
+  type PayloadRecord,
+} from '@/lib/eventPayload';
+import {
   ScreenHeader,
   StickyFooterCTA,
   SectionLabel,
@@ -26,7 +33,6 @@ import {
 // ── Types ───────────────────────────────────────────────────────────────────
 
 type RoutineLog = Tables<'routine_logs'>;
-type PayloadRecord = Record<string, unknown>;
 
 // ── Cores fixas ─────────────────────────────────────────────────────────────
 
@@ -126,24 +132,6 @@ const SLEEP_QUALITY_LABEL: Record<string, string> = {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function isRecord(value: unknown): value is PayloadRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true;
-}
-
-function cleanPayload(payload: PayloadRecord): PayloadRecord {
-  return Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined && value !== null && value !== '')
-  );
-}
-
 function fmtRangeDuration(startIso: string, endIso: string): string | null {
   const startMs = new Date(startIso).getTime();
   const endMs = new Date(endIso).getTime();
@@ -228,15 +216,15 @@ export default function SleepDetailScreen() {
   function loadFields(data: RoutineLog) {
     const p = isRecord(data.payload) ? data.payload : {};
 
-    setLocation(asString(p.location));
-    setHowFellAsleep(asString(p.how_fell_asleep));
-    setAwakenings(asString(p.awakenings));
-    setSleepType(asString(p.sleep_type));
-    setSleepPosition(asString(p.sleep_position));
-    setSleepQuality(asString(p.sleep_quality));
-    setUsedPacifier(asBoolean(p.used_pacifier));
+    setLocation(asString(p.location) ?? '');
+    setHowFellAsleep(asString(p.how_fell_asleep) ?? '');
+    setAwakenings(asString(p.awakenings) ?? '');
+    setSleepType(asString(p.sleep_type) ?? '');
+    setSleepPosition(asString(p.sleep_position) ?? '');
+    setSleepQuality(asString(p.sleep_quality) ?? '');
+    setUsedPacifier(asBoolean(p.used_pacifier) ?? false);
     setNotes(getUserNotes(data.notes) ?? '');
-    setIncludeInReport(asBoolean(p.include_in_report));
+    setIncludeInReport(asBoolean(p.include_in_report) ?? false);
   }
 
   async function reloadLog() {
@@ -273,7 +261,11 @@ export default function SleepDetailScreen() {
         include_in_report: includeInReport ? true : undefined,
       };
 
-      const cleanedPayload = cleanPayload(nextPayload);
+      const cleanedPayload = Object.fromEntries(
+        Object.entries(cleanPayload(nextPayload)).filter(
+          ([, value]) => value !== null && value !== ''
+        )
+      );
 
       const { error } = await supabase
         .from('routine_logs')

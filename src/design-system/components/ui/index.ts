@@ -52,3 +52,6 @@ export type { TabsProps, TabItem } from './Tabs';
 
 export { Rating } from './Rating';
 export type { RatingProps, RatingSize } from './Rating';
+
+export { Radio, RadioGroup, RadioGroupItem } from './Radio';
+export type { RadioProps, RadioGroupProps, RadioGroupItemProps, RadioSize } from './Radio';

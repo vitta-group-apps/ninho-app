@@ -305,17 +305,37 @@ export default function AuthPage() {
   }
 
   async function handleGoogle() {
-    const { lovable } = await import('@/integrations/lovable/index');
-    await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: `${window.location.origin}/onboarding`
-    });
+    try {
+      const { lovable } = await import('@/integrations/lovable/index');
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: `${window.location.origin}/onboarding`
+      });
+      if (result.error) {
+        setError('Não foi possível entrar com Google. Tente novamente.');
+        return;
+      }
+      if (result.redirected) return;
+      navigate('/onboarding');
+    } catch {
+      setError('Erro ao conectar com Google. Tente novamente.');
+    }
   }
 
   async function handleApple() {
-    const { lovable } = await import('@/integrations/lovable/index');
-    await lovable.auth.signInWithOAuth('apple', {
-      redirect_uri: `${window.location.origin}/onboarding`
-    });
+    try {
+      const { lovable } = await import('@/integrations/lovable/index');
+      const result = await lovable.auth.signInWithOAuth('apple', {
+        redirect_uri: `${window.location.origin}/onboarding`
+      });
+      if (result.error) {
+        setError('Não foi possível entrar com Apple. Tente novamente.');
+        return;
+      }
+      if (result.redirected) return;
+      navigate('/onboarding');
+    } catch {
+      setError('Erro ao conectar com Apple. Tente novamente.');
+    }
   }
 
   if (showOTP) {

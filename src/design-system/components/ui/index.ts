@@ -49,3 +49,6 @@ export type { CheckboxProps, CheckboxSize } from './Checkbox';
 
 export { Tabs } from './Tabs';
 export type { TabsProps, TabItem } from './Tabs';
+
+export { Rating } from './Rating';
+export type { RatingProps, RatingSize } from './Rating';

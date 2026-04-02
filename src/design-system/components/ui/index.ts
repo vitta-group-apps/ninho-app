@@ -67,3 +67,6 @@ export type { AccordionProps, AccordionGroupProps, AccordionItem, AccordionVaria
 
 export { Modal } from './Modal';
 export type { ModalProps, ModalAction, ModalType } from './Modal';
+
+export { AspectRatio } from './AspectRatio';
+export type { AspectRatioProps, AspectRatioProportion } from './AspectRatio';

@@ -43,3 +43,6 @@ export type { ProgressCircleProps, ProgressCircleLayout }                       
 
 export { BottomDock } from './BottomDock';
 export type { BottomDockProps, BottomDockAction, BottomDockBadge } from './BottomDock';
+
+export { Checkbox } from './Checkbox';
+export type { CheckboxProps, CheckboxSize } from './Checkbox';

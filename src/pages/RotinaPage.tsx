@@ -663,7 +663,7 @@ export default function RotinaPage() {
                 <ChipGroup
                   options={PERIOD_OPTIONS}
                   value={period}
-                  onToggle={(v) => setPeriod(v)}
+                  onToggle={(v) => setPeriod(v as 'today' | 'week' | 'month')}
                   accentColor={SLEEP_COLOR}
                 />
               </div>

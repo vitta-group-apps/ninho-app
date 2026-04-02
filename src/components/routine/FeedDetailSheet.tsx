@@ -19,6 +19,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { fmtDurationShort, fmtTime, getUserNotes } from '@/lib/routineUtils';
+import {
+  isRecord,
+  asNumber,
+  asBoolean,
+  asString,
+  asStringArray,
+  cleanPayload,
+  type PayloadRecord,
+} from '@/lib/eventPayload';
 import type { Tables } from '@/integrations/supabase/types';
 
 const TAG_LABELS: Record<string, string> = {
@@ -41,46 +50,6 @@ interface FeedDetailSheetProps {
   onUpdated?: () => void;
 }
 
-type PayloadRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is PayloadRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function asBoolean(value: unknown): boolean | null {
-  return typeof value === 'boolean' ? value : null;
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value : null;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter(
-      (item): item is string => typeof item === 'string' && item.trim().length > 0
-    );
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    return value
-      .split(',')
-      .map(v => v.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-}
-
-function cleanPayload(payload: PayloadRecord): PayloadRecord {
-  return Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined)
-  );
-}
 
 export function FeedDetailSheet({
   log,

@@ -64,3 +64,6 @@ export type { SelectProps, SelectOption, SelectSize } from './Select';
 
 export { Accordion, AccordionGroup } from './Accordion';
 export type { AccordionProps, AccordionGroupProps, AccordionItem, AccordionVariant } from './Accordion';
+
+export { Modal } from './Modal';
+export type { ModalProps, ModalAction, ModalType } from './Modal';

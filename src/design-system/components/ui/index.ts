@@ -76,3 +76,6 @@ export type { PaginationProps, PaginationVariant } from './Pagination';
 
 export { Breadcrumbs } from './Breadcrumbs';
 export type { BreadcrumbsProps, BreadcrumbItem, BreadcrumbsSeparator } from './Breadcrumbs';
+
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlProps, SegmentedItem } from './SegmentedControl';

@@ -18,6 +18,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { getUserNotes, fmtDurationShort, fmtTime } from '@/lib/routineUtils';
+import {
+  asObject,
+  asStringArray,
+  readBoolean,
+  type PayloadRecord,
+} from '@/lib/eventPayload';
 import type { Json } from '@/integrations/supabase/types';
 import type { RoutineLog } from '@/lib/eventSystem';
 import {
@@ -73,10 +79,6 @@ export default function FeedDetailScreen() {
   const [notes, setNotes]                   = useState('');
   const [includeInReport, setIncludeInReport] = useState(false);
 
-  function asPayload(raw: unknown): Record<string, unknown> {
-    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
-  }
-
   useEffect(() => {
     if (!logId) return;
     (async () => {
@@ -84,11 +86,10 @@ export default function FeedDetailScreen() {
         .from('routine_logs').select('*').eq('id', logId).maybeSingle();
       if (data) {
         setLog(data);
-        const p = asPayload(data.payload);
-        const rawTags = p.tags;
-        setTags(Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : String(rawTags ?? '').split(',').filter(Boolean));
+        const p = asObject(data.payload);
+        setTags(asStringArray(p.tags));
         setNotes(getUserNotes(data.notes) ?? '');
-        setIncludeInReport(Boolean(p.include_in_report));
+        setIncludeInReport(readBoolean(p, 'include_in_report', 'includeInReport') ?? false);
       }
       setLoading(false);
     })();
@@ -98,7 +99,7 @@ export default function FeedDetailScreen() {
     if (!log) return;
     setSaving(true);
     try {
-      const existing = asPayload(log.payload);
+      const existing = asObject(log.payload);
       const payload: Record<string, unknown> = { ...existing };
       if (tags.length > 0) payload.tags = tags.join(','); else delete payload.tags;
       if (includeInReport) payload.include_in_report = true; else delete payload.include_in_report;
@@ -138,7 +139,7 @@ export default function FeedDetailScreen() {
     );
   }
 
-  const p         = asPayload(log.payload);
+  const p         = asObject(log.payload);
   const totalSec  = Number(p.total_seconds ?? p.totalSeconds ?? 0);
   const leftSec   = Number(p.left_seconds ?? p.leftSeconds ?? 0);
   const rightSec  = Number(p.right_seconds ?? p.rightSeconds ?? 0);
@@ -265,7 +266,7 @@ export default function FeedDetailScreen() {
           secondaryLabel="Cancelar"
           onSecondary={() => {
             if (log) {
-              const pp = asPayload(log.payload);
+              const pp = asObject(log.payload);
               const rawTags = pp.tags;
               setTags(Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : String(rawTags ?? '').split(',').filter(Boolean));
               setNotes(getUserNotes(log.notes) ?? '');

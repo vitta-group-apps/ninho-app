@@ -92,6 +92,10 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 }
 
 function inferKindFromPayload(payload: DiaperPayload): DiaperKind | null {
+  if (payload.kind === 'pee' || payload.kind === 'poop' || payload.kind === 'both') {
+    return payload.kind;
+  }
+
   const pee = payload.pee === true;
   const poop = payload.poop === true;
 
@@ -148,11 +152,11 @@ export default function DiaperDetailScreen() {
 
     setKind(inferKindFromPayload(payload));
     setQuantity(payload.quantity ?? '');
-    setPeeColor(payload.peeColor ?? '');
-    setPoopColor(payload.poopColor ?? '');
-    setTexture(payload.poopTexture ?? '');
+    setPeeColor(payload.pee_color ?? payload.peeColor ?? '');
+    setPoopColor(payload.poop_color ?? payload.poopColor ?? '');
+    setTexture(payload.poop_texture ?? payload.poopTexture ?? '');
     setNotes(getUserNotes(logData.notes) ?? '');
-    setIncludeInReport(Boolean(payload.includeInReport));
+    setIncludeInReport(Boolean(payload.include_in_report ?? payload.includeInReport));
   }
 
   async function handleSave() {
@@ -168,14 +172,15 @@ export default function DiaperDetailScreen() {
 
     try {
       const nextPayload: DiaperPayload = {
+        kind,
         pee: kind === 'pee' || kind === 'both',
         poop: kind === 'poop' || kind === 'both',
         quantity: quantity || null,
-        peeColor: kind === 'pee' || kind === 'both' ? peeColor || null : null,
-        poopColor: kind === 'poop' || kind === 'both' ? poopColor || null : null,
-        poopTexture:
+        pee_color: kind === 'pee' || kind === 'both' ? peeColor || null : null,
+        poop_color: kind === 'poop' || kind === 'both' ? poopColor || null : null,
+        poop_texture:
           kind === 'poop' || kind === 'both' ? texture || null : null,
-        includeInReport: includeInReport || null,
+        include_in_report: includeInReport || null,
       };
 
       const { error } = await supabase
@@ -257,20 +262,25 @@ export default function DiaperDetailScreen() {
     ? DIAPER_QUANTITY_LABEL[payload.quantity] ?? payload.quantity
     : null;
 
-  const peeColorLabel = payload.peeColor
-    ? DIAPER_PEE_COLOR_LABEL[payload.peeColor] ?? payload.peeColor
+  const peeColorValue = payload.pee_color ?? payload.peeColor;
+  const poopColorValue = payload.poop_color ?? payload.poopColor;
+  const textureValue = payload.poop_texture ?? payload.poopTexture;
+  const includeValue = payload.include_in_report ?? payload.includeInReport;
+
+  const peeColorLabel = peeColorValue
+    ? DIAPER_PEE_COLOR_LABEL[peeColorValue] ?? peeColorValue
     : null;
 
-  const poopColorLabel = payload.poopColor
-    ? DIAPER_POOP_COLOR_LABEL[payload.poopColor] ?? payload.poopColor
+  const poopColorLabel = poopColorValue
+    ? DIAPER_POOP_COLOR_LABEL[poopColorValue] ?? poopColorValue
     : null;
 
-  const textureLabel = payload.poopTexture
-    ? DIAPER_TEXTURE_LABEL[payload.poopTexture] ?? payload.poopTexture
+  const textureLabel = textureValue
+    ? DIAPER_TEXTURE_LABEL[textureValue] ?? textureValue
     : null;
 
   const readNotes = getUserNotes(log.notes);
-  const readInclude = Boolean(payload.includeInReport);
+  const readInclude = Boolean(includeValue);
 
   const readShowPee = payload.pee === true;
   const readShowPoop = payload.poop === true;

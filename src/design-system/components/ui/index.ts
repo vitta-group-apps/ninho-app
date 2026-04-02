@@ -58,3 +58,6 @@ export type { RadioProps, RadioGroupProps, RadioGroupItemProps, RadioSize } from
 
 export { SpinnerRound, SpinnerDots } from './Spinner';
 export type { SpinnerRoundProps, SpinnerDotsProps, SpinnerSize } from './Spinner';
+
+export { Select } from './Select';
+export type { SelectProps, SelectOption, SelectSize } from './Select';

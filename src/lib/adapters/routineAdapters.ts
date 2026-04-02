@@ -29,10 +29,19 @@ function asStringArray(value: unknown): string[] | null {
   return onlyStrings;
 }
 
-function parsePayload<T extends RoutineLogType>(
+/**
+ * Normaliza o payload de routine_logs para o contrato transitório tipado do front.
+ *
+ * Regras:
+ * - payload é a fonte principal da estrutura do evento
+ * - notes não reconstrói estrutura do evento
+ * - notes só entra como fallback temporário para note.text
+ * - compatibilidades legadas existem apenas para transição e não devem ser ampliadas
+ */
+function normalizeRoutinePayload<T extends RoutineLogType>(
   type: T,
   rawPayload: unknown,
-  notes: string | null
+  notesText: string | null
 ): RoutinePayloadMap[T] {
   const raw = asObject(rawPayload);
 
@@ -104,7 +113,7 @@ function parsePayload<T extends RoutineLogType>(
 
     case 'note':
       return {
-        text: asString(raw.text) ?? notes,
+        text: asString(raw.text) ?? notesText,
         includeInReport: asBoolean(raw.includeInReport),
       } as RoutinePayloadMap[T];
 
@@ -124,7 +133,7 @@ export function toRoutineRecord<T extends RoutineLogType>(
     startTime: row.start_time,
     endTime: row.end_time,
     notes: row.notes,
-    payload: parsePayload(row.type, row.payload, row.notes),
+    payload: normalizeRoutinePayload(row.type, row.payload, row.notes),
     createdAt: row.created_at,
   };
 }

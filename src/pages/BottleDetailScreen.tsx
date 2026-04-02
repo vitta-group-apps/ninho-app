@@ -18,6 +18,18 @@ import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { getUserNotes, fmtTime } from '@/lib/routineUtils';
 import {
+  isRecord,
+  asString,
+  asNumber,
+  asBoolean,
+  asStringArray,
+  cleanPayload,
+  readString,
+  readNumber,
+  readBoolean,
+  type PayloadRecord,
+} from '@/lib/eventPayload';
+import {
   ScreenHeader,
   StickyFooterCTA,
   SectionLabel,
@@ -28,7 +40,6 @@ import {
 // ── Types ───────────────────────────────────────────────────────────────────
 
 type RoutineLog = Tables<'routine_logs'>;
-type PayloadRecord = Record<string, unknown>;
 type FeedType = 'bottle' | 'formula';
 
 // ── Cores fixas ─────────────────────────────────────────────────────────────
@@ -96,55 +107,6 @@ const REACTION_LABEL: Record<string, string> = {
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-function isRecord(value: unknown): value is PayloadRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function asBoolean(value: unknown): boolean | null {
-  return typeof value === 'boolean' ? value : null;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    return value
-      .split(',')
-      .map(v => v.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-}
-
-function cleanPayload(payload: PayloadRecord): PayloadRecord {
-  return Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined)
-  );
-}
-
-function readString(payload: PayloadRecord, snake: string, camel?: string): string | null {
-  return asString(payload[snake]) ?? (camel ? asString(payload[camel]) : null);
-}
-
-function readNumber(payload: PayloadRecord, snake: string, camel?: string): number | null {
-  return asNumber(payload[snake]) ?? (camel ? asNumber(payload[camel]) : null);
-}
-
-function readBoolean(payload: PayloadRecord, snake: string, camel?: string): boolean | null {
-  return asBoolean(payload[snake]) ?? (camel ? asBoolean(payload[camel]) : null);
-}
 
 function getFeedTypeFromPayload(payload: PayloadRecord): FeedType {
   const mode = readString(payload, 'mode');

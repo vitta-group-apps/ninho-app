@@ -142,12 +142,34 @@ export function DiaperDetailSheet({
 
       const payload = log.payload ?? {};
       setQuantity(typeof payload.quantity === 'string' ? payload.quantity : '');
-      setPeeColor(typeof payload.peeColor === 'string' ? payload.peeColor : '');
-      setPoopColor(typeof payload.poopColor === 'string' ? payload.poopColor : '');
-      setTexture(typeof payload.poopTexture === 'string' ? payload.poopTexture : '');
+      setPeeColor(
+        typeof payload.pee_color === 'string'
+          ? payload.pee_color
+          : typeof payload.peeColor === 'string'
+          ? payload.peeColor
+          : ''
+      );
+      setPoopColor(
+        typeof payload.poop_color === 'string'
+          ? payload.poop_color
+          : typeof payload.poopColor === 'string'
+          ? payload.poopColor
+          : ''
+      );
+      setTexture(
+        typeof payload.poop_texture === 'string'
+          ? payload.poop_texture
+          : typeof payload.poopTexture === 'string'
+          ? payload.poopTexture
+          : ''
+      );
       setNotes(getUserNotes(log.notes) ?? '');
       setIncludeInReport(
-        typeof payload.includeInReport === 'boolean' ? payload.includeInReport : false
+        typeof payload.include_in_report === 'boolean'
+          ? payload.include_in_report
+          : typeof payload.includeInReport === 'boolean'
+          ? payload.includeInReport
+          : false
       );
     }
   }, [open, log]);
@@ -156,7 +178,9 @@ export function DiaperDetailSheet({
 
   const payload = log.payload ?? {};
   const kind =
-    payload.pee === true && payload.poop === true
+    payload.kind === 'pee' || payload.kind === 'poop' || payload.kind === 'both'
+      ? payload.kind
+      : payload.pee === true && payload.poop === true
       ? 'both'
       : payload.poop === true
       ? 'poop'
@@ -213,6 +237,32 @@ export function DiaperDetailSheet({
   }
 
   const userNote = getUserNotes(log.notes);
+  const readQuantity =
+    typeof payload.quantity === 'string' ? payload.quantity : null;
+  const readPeeColor =
+    typeof payload.pee_color === 'string'
+      ? payload.pee_color
+      : typeof payload.peeColor === 'string'
+      ? payload.peeColor
+      : null;
+  const readPoopColor =
+    typeof payload.poop_color === 'string'
+      ? payload.poop_color
+      : typeof payload.poopColor === 'string'
+      ? payload.poopColor
+      : null;
+  const readTexture =
+    typeof payload.poop_texture === 'string'
+      ? payload.poop_texture
+      : typeof payload.poopTexture === 'string'
+      ? payload.poopTexture
+      : null;
+  const readInclude =
+    typeof payload.include_in_report === 'boolean'
+      ? payload.include_in_report
+      : typeof payload.includeInReport === 'boolean'
+      ? payload.includeInReport
+      : false;
 
   return (
     <Sheet
@@ -294,39 +344,39 @@ export function DiaperDetailSheet({
 
           {!editMode && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-0">
-              {typeof payload.quantity === 'string' && payload.quantity && (
+              {readQuantity && (
                 <DetailRow
                   label="Quantidade"
-                  value={DIAPER_QUANTITY_LABEL[payload.quantity] ?? payload.quantity}
+                  value={DIAPER_QUANTITY_LABEL[readQuantity] ?? readQuantity}
                 />
               )}
 
-              {typeof payload.peeColor === 'string' && payload.peeColor && (
+              {readPeeColor && (
                 <DetailRow
                   label="Cor do xixi"
-                  value={DIAPER_PEE_COLOR_LABEL[payload.peeColor] ?? payload.peeColor}
+                  value={DIAPER_PEE_COLOR_LABEL[readPeeColor] ?? readPeeColor}
                 />
               )}
 
-              {typeof payload.poopColor === 'string' && payload.poopColor && (
+              {readPoopColor && (
                 <DetailRow
                   label="Cor do cocô"
                   value={
-                    DIAPER_POOP_COLOR_LABEL[payload.poopColor] ?? payload.poopColor
+                    DIAPER_POOP_COLOR_LABEL[readPoopColor] ?? readPoopColor
                   }
                 />
               )}
 
-              {typeof payload.poopTexture === 'string' && payload.poopTexture && (
+              {readTexture && (
                 <DetailRow
                   label="Consistência"
                   value={
-                    DIAPER_TEXTURE_LABEL[payload.poopTexture] ?? payload.poopTexture
+                    DIAPER_TEXTURE_LABEL[readTexture] ?? readTexture
                   }
                 />
               )}
 
-              {payload.includeInReport === true && (
+              {readInclude === true && (
                 <DetailRow label="Relatório médico" value="Incluído ✓" />
               )}
 
@@ -350,12 +400,12 @@ export function DiaperDetailSheet({
                 </div>
               )}
 
-              {!payload.quantity &&
-                !payload.peeColor &&
-                !payload.poopColor &&
-                !payload.poopTexture &&
+              {!readQuantity &&
+                !readPeeColor &&
+                !readPoopColor &&
+                !readTexture &&
                 !userNote &&
-                !payload.includeInReport && (
+                !readInclude && (
                   <div className="py-4 text-center">
                     <p
                       className="text-xs"

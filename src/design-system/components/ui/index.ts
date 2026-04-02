@@ -55,3 +55,6 @@ export type { RatingProps, RatingSize } from './Rating';
 
 export { Radio, RadioGroup, RadioGroupItem } from './Radio';
 export type { RadioProps, RadioGroupProps, RadioGroupItemProps, RadioSize } from './Radio';
+
+export { SpinnerRound, SpinnerDots } from './Spinner';
+export type { SpinnerRoundProps, SpinnerDotsProps, SpinnerSize } from './Spinner';

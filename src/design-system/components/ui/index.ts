@@ -73,3 +73,6 @@ export type { AspectRatioProps, AspectRatioProportion } from './AspectRatio';
 
 export { Pagination } from './Pagination';
 export type { PaginationProps, PaginationVariant } from './Pagination';
+
+export { Breadcrumbs } from './Breadcrumbs';
+export type { BreadcrumbsProps, BreadcrumbItem, BreadcrumbsSeparator } from './Breadcrumbs';

@@ -70,3 +70,6 @@ export type { ModalProps, ModalAction, ModalType } from './Modal';
 
 export { AspectRatio } from './AspectRatio';
 export type { AspectRatioProps, AspectRatioProportion } from './AspectRatio';
+
+export { Pagination } from './Pagination';
+export type { PaginationProps, PaginationVariant } from './Pagination';

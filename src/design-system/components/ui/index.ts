@@ -61,3 +61,6 @@ export type { SpinnerRoundProps, SpinnerDotsProps, SpinnerSize } from './Spinner
 
 export { Select } from './Select';
 export type { SelectProps, SelectOption, SelectSize } from './Select';
+
+export { Accordion, AccordionGroup } from './Accordion';
+export type { AccordionProps, AccordionGroupProps, AccordionItem, AccordionVariant } from './Accordion';

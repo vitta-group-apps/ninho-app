@@ -46,3 +46,6 @@ export type { BottomDockProps, BottomDockAction, BottomDockBadge } from './Botto
 
 export { Checkbox } from './Checkbox';
 export type { CheckboxProps, CheckboxSize } from './Checkbox';
+
+export { Tabs } from './Tabs';
+export type { TabsProps, TabItem } from './Tabs';

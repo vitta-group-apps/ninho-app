@@ -116,7 +116,7 @@ function AuthedRoutes() {
 }
 
 function OnboardingGuard() {
-  const { user, isLoggedIn, loading } = useAuthContext();
+  const { user, isLoggedIn, loading, profile } = useAuthContext();
   const { loading: statusLoading, hasFamily, hasChild, familyId } = useOnboardingStatus(user?.id ?? null);
   const navigate = useNavigate();
 

@@ -518,12 +518,12 @@ export default function BreastfeedingScreen() {
             : finishedData.lastSide === 'L'
             ? 'left'
             : 'right',
-        leftSeconds: finishedData.leftSec,
-        rightSeconds: finishedData.rightSec,
-        totalSeconds: finishedData.totalSec,
+        left_seconds: finishedData.leftSec,
+        right_seconds: finishedData.rightSec,
+        total_seconds: finishedData.totalSec,
         switches: finishedData.switches,
         tags: obsTags.length > 0 ? obsTags : null,
-        includeInReport,
+        include_in_report: includeInReport,
       });
 
       const { error } = await supabase.from('routine_logs').insert([{
@@ -605,12 +605,12 @@ export default function BreastfeedingScreen() {
       const payload = serializeRoutinePayload('feed', {
         mode: 'manual',
         side,
-        leftSeconds: left,
-        rightSeconds: right,
-        totalSeconds,
+        left_seconds: left,
+        right_seconds: right,
+        total_seconds: totalSeconds,
         switches: manualSide === 'both' ? 1 : 0,
         tags: obsTags.length > 0 ? obsTags : null,
-        includeInReport,
+        include_in_report: includeInReport,
       });
 
       const { error } = await supabase.from('routine_logs').insert([{

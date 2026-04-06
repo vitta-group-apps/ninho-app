@@ -114,8 +114,15 @@ function loadSession(): PersistedSession | null {
 // ─── Insight engine ────────────────────────────────────────────────────────
 
 function getFeedTotalSeconds(log: FeedRoutineRecord): number {
-  if (typeof log.payload.totalSeconds === 'number' && Number.isFinite(log.payload.totalSeconds)) {
-    return log.payload.totalSeconds;
+  const total =
+    typeof log.payload.total_seconds === 'number' && Number.isFinite(log.payload.total_seconds)
+      ? log.payload.total_seconds
+      : typeof log.payload.totalSeconds === 'number' && Number.isFinite(log.payload.totalSeconds)
+      ? log.payload.totalSeconds
+      : null;
+
+  if (typeof total === 'number') {
+    return total;
   }
 
   if (log.endTime) {
@@ -689,7 +696,10 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
 
       if (records.length > 0) {
         const last = records[0];
-        const lastSide = last.payload.lastSide;
+        const lastSide =
+          last.payload.last_side === 'L' || last.payload.last_side === 'R'
+            ? last.payload.last_side
+            : last.payload.lastSide;
         const suggested: Side = lastSide === 'L' ? 'R' : 'L';
 
         setSuggestedSide(suggested);
@@ -899,15 +909,15 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
             : finishedData.leftSec > 0
             ? 'left'
             : 'right',
-        amountMl: null,
+        amount_ml: null,
         food: null,
-        totalSeconds: finishedData.totalSec,
-        leftSeconds: finishedData.leftSec,
-        rightSeconds: finishedData.rightSec,
+        total_seconds: finishedData.totalSec,
+        left_seconds: finishedData.leftSec,
+        right_seconds: finishedData.rightSec,
         switches: finishedData.switches,
-        lastSide: finishedData.lastSide,
+        last_side: finishedData.lastSide,
         tags: obsTags,
-        includeInReport,
+        include_in_report: includeInReport,
       });
 
       const { error } = await supabase.from('routine_logs').insert([{
@@ -946,10 +956,10 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
       const payload = serializeRoutinePayload('feed', {
         mode: 'bottle',
         side: null,
-        amountMl: bottleAmount ? Number(bottleAmount) : null,
+        amount_ml: bottleAmount ? Number(bottleAmount) : null,
         food: bottleMethod === 'formula' ? 'formula' : 'mamadeira',
         tags: [],
-        includeInReport: false,
+        include_in_report: false,
       });
 
       const { error } = await supabase.from('routine_logs').insert([{
@@ -1015,16 +1025,16 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
             : manualSide === 'L'
             ? 'left'
             : 'right',
-        amountMl: null,
+        amount_ml: null,
         food: null,
-        totalSeconds: totalSec,
-        leftSeconds: leftSec,
-        rightSeconds: rightSec,
+        total_seconds: totalSec,
+        left_seconds: leftSec,
+        right_seconds: rightSec,
         switches: manualSide === 'both' ? 1 : 0,
-        lastSide: manualSide === 'L' ? 'L' : 'R',
+        last_side: manualSide === 'L' ? 'L' : 'R',
         tags: [],
-        includeInReport: false,
-        isManual: true,
+        include_in_report: false,
+        is_manual: true,
       });
 
       const { error } = await supabase.from('routine_logs').insert([{

@@ -61,6 +61,10 @@ const PAGE_BG = '#F8F5F0';
 
 
 function inferKindFromPayload(payload: DiaperPayload): DiaperKind | null {
+  if (payload.kind === 'pee' || payload.kind === 'poop' || payload.kind === 'both') {
+    return payload.kind;
+  }
+
   const pee = payload.pee === true;
   const poop = payload.poop === true;
 
@@ -120,11 +124,11 @@ export default function DiaperScreen() {
 
     setKind(inferKindFromPayload(payload));
     setQuantity(payload.quantity ?? '');
-    setPeeColor(payload.peeColor ?? '');
-    setPoopColor(payload.poopColor ?? '');
-    setTexture(payload.poopTexture ?? '');
+    setPeeColor(payload.pee_color ?? payload.peeColor ?? '');
+    setPoopColor(payload.poop_color ?? payload.poopColor ?? '');
+    setTexture(payload.poop_texture ?? payload.poopTexture ?? '');
     setNotes(getUserNotes(logData.notes) ?? '');
-    setIncludeInReport(Boolean(payload.includeInReport));
+    setIncludeInReport(Boolean(payload.include_in_report ?? payload.includeInReport));
   }
 
   const showPee = kind === 'pee' || kind === 'both';
@@ -145,13 +149,14 @@ export default function DiaperScreen() {
 
     try {
       const nextPayload: DiaperPayload = {
+        kind,
         pee: kind === 'pee' || kind === 'both',
         poop: kind === 'poop' || kind === 'both',
         quantity: quantity || null,
-        peeColor: showPee ? peeColor || null : null,
-        poopColor: showPoop ? poopColor || null : null,
-        poopTexture: showPoop ? texture || null : null,
-        includeInReport: includeInReport || null,
+        pee_color: showPee ? peeColor || null : null,
+        poop_color: showPoop ? poopColor || null : null,
+        poop_texture: showPoop ? texture || null : null,
+        include_in_report: includeInReport || null,
       };
 
       if (isEdit && existingLog) {

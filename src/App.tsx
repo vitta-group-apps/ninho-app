@@ -116,7 +116,7 @@ function AuthedRoutes() {
 }
 
 function OnboardingGuard() {
-  const { user, isLoggedIn, loading } = useAuthContext();
+  const { user, isLoggedIn, loading, profile } = useAuthContext();
   const { loading: statusLoading, hasFamily, hasChild, familyId } = useOnboardingStatus(user?.id ?? null);
   const navigate = useNavigate();
 
@@ -127,8 +127,18 @@ function OnboardingGuard() {
     } else if (isLoggedIn && hasFamily && !hasChild) {
       if (familyId) sessionStorage.setItem('onboarding_family_id', familyId);
       navigate('/onboarding/child', { replace: true });
+    } else if (user && !isLoggedIn) {
+      // New user (signed up via OAuth) — send to name step
+      if (!profile?.full_name) {
+        navigate('/onboarding/nome', { replace: true });
+      } else if (!hasFamily) {
+        navigate('/onboarding/family', { replace: true });
+      } else if (!hasChild) {
+        if (familyId) sessionStorage.setItem('onboarding_family_id', familyId);
+        navigate('/onboarding/child', { replace: true });
+      }
     }
-  }, [loading, statusLoading, isLoggedIn, hasFamily, hasChild, familyId, navigate]);
+  }, [loading, statusLoading, isLoggedIn, hasFamily, hasChild, familyId, navigate, user]);
 
   if ((loading || statusLoading) && user) {
     return (

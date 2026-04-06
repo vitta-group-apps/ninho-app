@@ -129,7 +129,6 @@ function OnboardingGuard() {
       navigate('/onboarding/child', { replace: true });
     } else if (user && !isLoggedIn) {
       // New user (signed up via OAuth) — send to name step
-      const { profile } = auth;
       if (!profile?.full_name) {
         navigate('/onboarding/nome', { replace: true });
       } else if (!hasFamily) {

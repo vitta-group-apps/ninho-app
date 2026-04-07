@@ -14,6 +14,26 @@ export default {
       fontFamily: {
         quicksand: ["Quicksand", "system-ui", "sans-serif"],
         nunito: ["Nunito", "system-ui", "sans-serif"],
+        // DS aliases
+        heading: ["Quicksand", "system-ui", "sans-serif"],
+        body:    ["Nunito", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        "text-xs":     ["var(--font-size-text-xs)",     { lineHeight: "1.5" }],
+        "text-sm":     ["var(--font-size-text-sm)",     { lineHeight: "1.5" }],
+        "text-md":     ["var(--font-size-text-md)",     { lineHeight: "1.5" }],
+        "text-lg":     ["var(--font-size-text-lg)",     { lineHeight: "1.5" }],
+        "text-xl":     ["var(--font-size-text-xl)",     { lineHeight: "1.5" }],
+        "heading-xxs": ["var(--font-size-heading-xxs)", { lineHeight: "1.2" }],
+        "heading-xs":  ["var(--font-size-heading-xs)",  { lineHeight: "1.2" }],
+        "heading-sm":  ["var(--font-size-heading-sm)",  { lineHeight: "1.2" }],
+        "heading-md":  ["var(--font-size-heading-md)",  { lineHeight: "1.2" }],
+      },
+      fontWeight: {
+        regular:  "400",
+        medium:   "500",
+        semibold: "600",
+        bold:     "700",
       },
       colors: {
         border: "hsl(var(--border))",

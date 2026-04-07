@@ -14,6 +14,7 @@ interface NinhoState {
   setCurrentFamily: (family: Family | null) => void;
   setCurrentChild: (child: Child | null) => void;
   setAppState: (state: 'auth' | 'onboarding' | 'ready') => void;
+  signOut: () => Promise<void>;
 }
 
 export const useNinhoStore = create<NinhoState>()(
@@ -27,7 +28,12 @@ export const useNinhoStore = create<NinhoState>()(
       setCurrentFamily: (family) => set({ currentFamily: family }),
       setCurrentChild: (child) => set({ currentChild: child }),
       setAppState: (state) => set({ appState: state }),
+      signOut: async () => {
+        set({ profile: null, currentFamily: null, currentChild: null, appState: 'auth' });
+      },
     }),
     { name: 'ninho-storage' }
   )
 )
+
+export const getNinhoStore = () => useNinhoStore.getState();

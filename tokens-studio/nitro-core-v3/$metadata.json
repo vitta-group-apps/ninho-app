@@ -1,0 +1,16 @@
+{
+  "tokenSetOrder": [
+    "global",
+    "1. Color Mode/Default",
+    "_Color Primitives/Light",
+    "_Color Primitives/Dark",
+    "_Typography/Desktop",
+    "5. Grids/Desktop",
+    "5. Grids/Tablet",
+    "5. Grids/Mobile",
+    "_Units Primitives/Default",
+    "2. Radius/Default",
+    "3. Padding/Default",
+    "4. Gaps/Default"
+  ]
+}

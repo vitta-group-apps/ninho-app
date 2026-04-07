@@ -12,26 +12,26 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { Sheet, SheetContent } from '../components/ui/sheet';
+import { Button } from '../components/ui/button';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Input } from '../components/ui/input';
+import { Switch } from '../components/ui/switch';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { toast } from '@/hooks/use-toast';
-import { fmtTimer, fmtDurationShort, fmtTimeSince } from '@/lib/routineUtils';
-import { toRoutineRecord, serializeRoutinePayload } from '@/lib/adapters/routineAdapters';
-import type { RoutineRecord } from '@/lib/contracts/routine';
+} from '../components/ui/select';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { toast } from '../../hooks/use-toast';
+import { fmtTimer, fmtDurationShort, fmtTimeSince } from '../../lib/routineUtils';
+import { toRoutineRecord, serializeRoutinePayload } from '../../lib/adapters/routineAdapters';
+import type { RoutineRecord } from '../../lib/contracts/routine';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -927,7 +927,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         start_time: finishedData.start.toISOString(),
         end_time: finishedData.end.toISOString(),
         notes: notes.trim() || null,
-        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+        payload: payload as unknown as import('../integrations/supabase/types').Json,
       }]);
 
       if (error) throw error;
@@ -969,7 +969,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         start_time: new Date().toISOString(),
         end_time: null,
         notes: null,
-        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+        payload: payload as unknown as import('../integrations/supabase/types').Json,
       }]);
 
       if (error) throw error;
@@ -1044,7 +1044,7 @@ export function FeedSheet({ open, onClose, onSaved }: FeedSheetProps) {
         start_time: start.toISOString(),
         end_time: end?.toISOString() ?? null,
         notes: notes.trim() || null,
-        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+        payload: payload as unknown as import('../integrations/supabase/types').Json,
       }]);
 
       if (error) throw error;

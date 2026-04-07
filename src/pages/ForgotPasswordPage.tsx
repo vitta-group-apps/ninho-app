@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
-import simboloNinho from '@/assets/simbolo-ninho.png';
+import { supabase } from '../integrations/supabase/client';
+import simboloNinho from '../assets/simbolo-ninho.png';
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());

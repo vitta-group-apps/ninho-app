@@ -14,15 +14,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { getUserNotes, fmtDurationShort, fmtTime } from '@/lib/routineUtils';
-import type { Json } from '@/integrations/supabase/types';
-import type { RoutineLog } from '@/lib/eventSystem';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import { toast } from '../hooks/use-toast';
+import { getUserNotes, fmtDurationShort, fmtTime } from '../lib/routineUtils';
+import type { Json } from '../integrations/supabase/types';
+import type { RoutineLog } from '../lib/eventSystem';
 import {
   ScreenHeader, StickyFooterCTA, SectionLabel, ChipGroup, ReportToggle,
-} from '@/components/ds';
+} from '../components/ds';
 
 // ── Cores fixas ──
 const FEED_COLOR   = '#789687';

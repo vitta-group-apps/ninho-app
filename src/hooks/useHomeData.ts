@@ -10,8 +10,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { RoutineLog } from '@/lib/eventSystem';
+import { supabase } from '../integrations/supabase/client';
+import type { RoutineLog } from '../lib/eventSystem';
 
 export interface HomeData {
   logs: RoutineLog[];

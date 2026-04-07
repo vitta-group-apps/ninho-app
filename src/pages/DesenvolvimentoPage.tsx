@@ -8,14 +8,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { getAgeContext } from '@/lib/eventSystem';
-import { SectionLabel, InlineStatusPill } from '@/components/ds';
-import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from '@/hooks/use-toast';
-import { PaywallGate } from '@/components/PaywallGate';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { getAgeContext } from '../lib/eventSystem';
+import { SectionLabel, InlineStatusPill } from '../components/ds';
+import { Skeleton } from '../components/ui/skeleton';
+import { toast } from '../hooks/use-toast';
+import { PaywallGate } from '../components/PaywallGate';
 import {
   getJourneyPhase,
   getPhaseLabel,
@@ -24,7 +24,7 @@ import {
   type Milestone,
   type MilestoneDomain,
   type StimulationActivity,
-} from '@/lib/ageJourneys';
+} from '../lib/ageJourneys';
 
 // ── Cores fixas ──
 const MAUVE = '#806e84';

@@ -10,16 +10,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { ChildAvatar } from '@/components/home/ChildSwitcher';
-import { EventCard } from '@/components/events/EventCard';
-import { InlineStatusPill } from '@/components/ds';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PaywallGate } from '@/components/PaywallGate';
+import { supabase } from '../integrations/supabase/client';
+import type { Tables } from '../integrations/supabase/types';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { ChildAvatar } from '../components/home/ChildSwitcher';
+import { EventCard } from '../components/events/EventCard';
+import { InlineStatusPill } from '../components/ds';
+import { Skeleton } from '../components/ui/skeleton';
+import { PaywallGate } from '../components/PaywallGate';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '../hooks/useAuth';
 import {
   ChevronDownIcon,
   ChevronRightIcon,

@@ -13,8 +13,8 @@
  *  - snake_case como prioridade, camelCase apenas como fallback temporário
  */
 
-import type { Tables } from '@/integrations/supabase/types';
-import { fmtDurationShort, fmtTime, fmtRangeDuration } from '@/lib/routineUtils';
+import type { Tables } from '../integrations/supabase/types';
+import { fmtDurationShort, fmtTime, fmtRangeDuration } from '../lib/routineUtils';
 
 export type RoutineLog = Tables<'routine_logs'>;
 export type EventType = 'feed' | 'sleep' | 'diaper' | 'note';

@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import { useRotinaData } from '@/hooks/useRotinaData';
+import { useRotinaData } from '../hooks/useRotinaData';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -18,15 +18,15 @@ import {
   XMarkIcon,
   PencilSquareIcon,
 } from '@heroicons/react/24/outline';
-import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { EventCard } from '@/components/events/EventCard';
-import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
-import { Skeleton } from '@/components/ui/skeleton';
-import { fmtTimeSince } from '@/lib/routineUtils';
-import { SummaryMetricCard, SectionLabel } from '@/components/ds';
-import { ChipGroup } from '@/components/ds/ChipGroup';
+import { supabase } from '../integrations/supabase/client';
+import type { Tables } from '../integrations/supabase/types';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { EventCard } from '../components/events/EventCard';
+import { ActiveSessionBanner } from '../components/layout/ActiveSessionBanner';
+import { Skeleton } from '../components/ui/skeleton';
+import { fmtTimeSince } from '../lib/routineUtils';
+import { SummaryMetricCard, SectionLabel } from '../components/ds';
+import { ChipGroup } from '../components/ds/ChipGroup';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

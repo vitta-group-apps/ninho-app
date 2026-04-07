@@ -21,8 +21,8 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useSubscription } from '@/hooks/useSubscription';
-import { PaywallSheet } from '@/components/paywall/PaywallSheet';
+import { useSubscription } from '../../hooks/useSubscription';
+import { PaywallSheet } from '../components/paywall/PaywallSheet';
 
 export type PaywallFeature =
   | 'relatorio'

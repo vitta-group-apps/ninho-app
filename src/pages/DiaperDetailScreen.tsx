@@ -12,29 +12,29 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { getUserNotes, fmtTime } from '@/lib/routineUtils';
-import type { RoutineRecord, DiaperPayload } from '@/lib/contracts/routine';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import { toast } from '../hooks/use-toast';
+import { getUserNotes, fmtTime } from '../lib/routineUtils';
+import type { RoutineRecord, DiaperPayload } from '../lib/contracts/routine';
 import {
   DIAPER_KIND_LABEL,
   DIAPER_QUANTITY_LABEL,
   DIAPER_PEE_COLOR_LABEL,
   DIAPER_POOP_COLOR_LABEL,
   DIAPER_TEXTURE_LABEL,
-} from '@/lib/eventSystem';
+} from '../lib/eventSystem';
 import {
   toRoutineRecord,
   serializeRoutinePayload,
-} from '@/lib/adapters/routineAdapters';
+} from '../lib/adapters/routineAdapters';
 import {
   ScreenHeader,
   StickyFooterCTA,
   SectionLabel,
   ChipGroup,
   ReportToggle,
-} from '@/components/ds';
+} from '../components/ds';
 
 // ── Cores fixas ──
 const DIAPER_COLOR = '#C8894A';
@@ -181,7 +181,7 @@ export default function DiaperDetailScreen() {
       const { error } = await supabase
         .from('routine_logs')
         .update({
-          payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('@/integrations/supabase/types').Json,
+          payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('../integrations/supabase/types').Json,
           notes: notes.trim() || null,
         })
         .eq('id', log.id);

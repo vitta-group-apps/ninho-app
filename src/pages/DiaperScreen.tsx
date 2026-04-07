@@ -11,13 +11,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { toast } from '@/hooks/use-toast';
-import { getUserNotes } from '@/lib/routineUtils';
-import type { RoutineRecord, DiaperPayload } from '@/lib/contracts/routine';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { toast } from '../hooks/use-toast';
+import { getUserNotes } from '../lib/routineUtils';
+import type { RoutineRecord, DiaperPayload } from '../lib/contracts/routine';
 import {
   DIAPER_KIND_LABEL,
   DIAPER_QUANTITY_LABEL,
@@ -30,18 +30,18 @@ import {
   DIAPER_POOP_COLOR_OPTIONS,
   DIAPER_TEXTURE_OPTIONS,
   type DiaperKind,
-} from '@/lib/eventSystem';
+} from '../lib/eventSystem';
 import {
   toRoutineRecord,
   serializeRoutinePayload,
-} from '@/lib/adapters/routineAdapters';
+} from '../lib/adapters/routineAdapters';
 import {
   ScreenHeader,
   StickyFooterCTA,
   SectionLabel,
   ChipGroup,
   ReportToggle,
-} from '@/components/ds';
+} from '../components/ds';
 
 // ── Cores fixas ──
 const DIAPER_COLOR = '#C8894A';
@@ -163,7 +163,7 @@ export default function DiaperScreen() {
         const { error } = await supabase
           .from('routine_logs')
           .update({
-            payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('@/integrations/supabase/types').Json,
+            payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('../integrations/supabase/types').Json,
             notes: notes.trim() || null,
           })
           .eq('id', existingLog.id);
@@ -177,7 +177,7 @@ export default function DiaperScreen() {
           author_id: user.id,
           type: 'diaper' as const,
           start_time: new Date().toISOString(),
-          payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('@/integrations/supabase/types').Json,
+          payload: serializeRoutinePayload('diaper', nextPayload) as unknown as import('../integrations/supabase/types').Json,
           notes: notes.trim() || null,
         }]);
 

@@ -7,10 +7,10 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { ScreenHeader, StickyFooterCTA } from '@/components/ds';
-import { toast } from '@/hooks/use-toast';
+import { supabase } from '../integrations/supabase/client';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { ScreenHeader, StickyFooterCTA } from '../components/ds';
+import { toast } from '../hooks/use-toast';
 
 const MAUVE = '#806e84';
 const SAGE = '#789687';

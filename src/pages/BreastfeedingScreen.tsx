@@ -15,14 +15,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { toast } from '@/hooks/use-toast';
-import { fmtTimer, fmtDurationShort } from '@/lib/routineUtils';
-import { BREASTFEEDING_QUICK_TAGS } from '@/lib/eventSystem';
-import { serializeRoutinePayload } from '@/lib/adapters/routineAdapters';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { toast } from '../hooks/use-toast';
+import { fmtTimer, fmtDurationShort } from '../lib/routineUtils';
+import { BREASTFEEDING_QUICK_TAGS } from '../lib/eventSystem';
+import { serializeRoutinePayload } from '../lib/adapters/routineAdapters';
 import {
   ScreenHeader,
   StickyFooterCTA,
@@ -30,7 +30,7 @@ import {
   ChipGroup,
   ReportToggle,
   InlineStatusPill,
-} from '@/components/ds';
+} from '../components/ds';
 
 // ── Cores fixas ──
 const FEED_COLOR = '#789687';
@@ -533,7 +533,7 @@ export default function BreastfeedingScreen() {
         start_time: finishedData.start.toISOString(),
         end_time: finishedData.end.toISOString(),
         notes: notes.trim() || null,
-        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+        payload: payload as unknown as import('../integrations/supabase/types').Json,
       }]);
 
       if (error) throw error;
@@ -620,7 +620,7 @@ export default function BreastfeedingScreen() {
         start_time: startDate.toISOString(),
         end_time: endDate.toISOString(),
         notes: notes.trim() || null,
-        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+        payload: payload as unknown as import('../integrations/supabase/types').Json,
       }]);
 
       if (error) throw error;

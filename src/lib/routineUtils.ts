@@ -10,7 +10,7 @@
  * Snake_case é prioridade; camelCase fica só como fallback temporário.
  */
 
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables } from '../integrations/supabase/types';
 
 export type RoutineLog = Tables<'routine_logs'>;
 

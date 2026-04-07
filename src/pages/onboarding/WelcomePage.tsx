@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import heroPhoto from '@/assets/onboarding-hero.jpg';
-import simboloNinho from '@/assets/simbolo-ninho.png';
+import heroPhoto from '../assets/onboarding-hero.jpg';
+import simboloNinho from '../assets/simbolo-ninho.png';
 
 const slides = [
 {

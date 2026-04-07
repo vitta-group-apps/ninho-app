@@ -16,15 +16,15 @@ import {
   Dot,
 } from 'recharts';
 
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { InlineStatusPill, SectionLabel } from '@/components/ds';
-import { toast } from '@/hooks/use-toast';
-import { getAgeContext } from '@/lib/eventSystem';
-import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PaywallGate } from '@/components/PaywallGate';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { InlineStatusPill, SectionLabel } from '../components/ds';
+import { toast } from '../hooks/use-toast';
+import { getAgeContext } from '../lib/eventSystem';
+import { vaccineSchedule, type VaccineEntry } from '../data/vaccineSchedule';
+import { Skeleton } from '../components/ui/skeleton';
+import { PaywallGate } from '../components/PaywallGate';
 
 import type {
   ConsultationRecord,
@@ -33,7 +33,7 @@ import type {
   MedicalNoteRecord,
   MedicationRecord,
   VaccineRecord,
-} from '@/lib/contracts/health';
+} from '../lib/contracts/health';
 
 import {
   toConsultationRecord,
@@ -42,7 +42,7 @@ import {
   toMedicalNoteRecord,
   toMedicationRecord,
   toVaccineRecord,
-} from '@/lib/adapters/healthAdapters';
+} from '../lib/adapters/healthAdapters';
 
 import {
   isValidConsultationRecord,
@@ -51,7 +51,7 @@ import {
   isValidMedicalNoteRecord,
   isValidMedicationRecord,
   isValidVaccineRecord,
-} from '@/lib/validators/healthValidators';
+} from '../lib/validators/healthValidators';
 
 const SAGE = '#789687';
 const AMBER = '#C8894A';

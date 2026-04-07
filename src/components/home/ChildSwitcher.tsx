@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDownIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useActiveChild, type Child } from '@/contexts/ActiveChildContext';
-import { PaywallGate } from '@/components/PaywallGate';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { useActiveChild, type Child } from '../contexts/ActiveChildContext';
+import { PaywallGate } from '../components/PaywallGate';
 
 export function ChildSwitcher() {
   const navigate = useNavigate();

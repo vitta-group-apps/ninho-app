@@ -6,11 +6,11 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import type { ChildSexAtBirth } from '@/types/child';
-import { ScreenHeader, StickyFooterCTA } from '@/components/ds';
-import { toast } from '@/hooks/use-toast';
+import { supabase } from '../integrations/supabase/client';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import type { ChildSexAtBirth } from '../types/child';
+import { ScreenHeader, StickyFooterCTA } from '../components/ds';
+import { toast } from '../hooks/use-toast';
 
 const MAUVE = '#806e84';
 const MUTED_BG = '#E8E8E2';

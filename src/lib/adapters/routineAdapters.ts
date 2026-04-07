@@ -1,9 +1,9 @@
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables } from '../integrations/supabase/types';
 import type {
   RoutineLogType,
   RoutinePayloadMap,
   RoutineRecord,
-} from '@/lib/contracts/routine';
+} from '../lib/contracts/routine';
 
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)

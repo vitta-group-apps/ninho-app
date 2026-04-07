@@ -62,12 +62,12 @@
  *   Child Created                 (no extra props)
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client';
 
 // ─── Environment helpers ────────────────────────────────────────────────────
 
 const APP_VERSION = '1.0.0';
-const ENVIRONMENT = import.meta.env.MODE ?? 'development';
+const ENVIRONMENT = process.env.MODE ?? 'development';
 
 // Session ID — stable for the current browser session
 const SESSION_ID = (() => {
@@ -211,7 +211,7 @@ export async function track(
       author_id:  uid,
       event_type: event_name,
       severity:   'low',
-      payload:    payload as unknown as import('@/integrations/supabase/types').Json,
+      payload:    payload as unknown as import('../integrations/supabase/types').Json,
     };
     await supabase.from('health_events').insert(insertPayload);
   } catch {

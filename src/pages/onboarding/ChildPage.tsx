@@ -5,10 +5,10 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import simboloNinho from '@/assets/simbolo-ninho.png';
-import type { ChildSexAtBirth } from '@/types/child';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import simboloNinho from '../assets/simbolo-ninho.png';
+import type { ChildSexAtBirth } from '../types/child';
 
 const SEX_OPTIONS: { value: ChildSexAtBirth; label: string }[] = [
   { value: 'female', label: 'Menina 👧' },

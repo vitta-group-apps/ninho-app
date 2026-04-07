@@ -5,9 +5,9 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import simboloNinho from '@/assets/simbolo-ninho.png';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import simboloNinho from '../assets/simbolo-ninho.png';
 
 const WHO_OPTIONS = ['Só eu', 'Eu e meu parceiro(a)', 'Avós também', 'Temos babá'];
 

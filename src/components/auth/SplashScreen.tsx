@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import simboloNinho from '@/assets/simbolo-ninho.png';
+import simboloNinho from '../../assets/simbolo-ninho.png';
 
 interface SplashScreenProps {
   onFinish: () => void;

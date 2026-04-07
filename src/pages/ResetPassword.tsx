@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
-import simboloNinho from '@/assets/simbolo-ninho.png';
+import { supabase } from '../integrations/supabase/client';
+import simboloNinho from '../assets/simbolo-ninho.png';
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();

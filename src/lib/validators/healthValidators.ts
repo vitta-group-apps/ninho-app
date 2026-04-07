@@ -5,7 +5,7 @@ import type {
   MedicalNoteRecord,
   MedicationRecord,
   VaccineRecord,
-} from '@/lib/contracts/health';
+} from '../lib/contracts/health';
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;

@@ -8,12 +8,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { toast } from '@/hooks/use-toast';
-import { fmtTimer } from '@/lib/routineUtils';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { toast } from '../hooks/use-toast';
+import { fmtTimer } from '../lib/routineUtils';
 import {
   SLEEP_LOCATION_OPTIONS,
   SLEEP_HOW_OPTIONS,
@@ -21,11 +21,11 @@ import {
   SLEEP_TYPE_OPTIONS,
   SLEEP_POSITION_OPTIONS,
   SLEEP_QUALITY_OPTIONS,
-} from '@/lib/eventSystem';
+} from '../lib/eventSystem';
 import {
   ScreenHeader, StickyFooterCTA, SectionLabel,
   ChipGroup, ReportToggle, InlineStatusPill,
-} from '@/components/ds';
+} from '../components/ds';
 
 // ── Cores fixas ──
 const SLEEP_COLOR  = '#806e84';
@@ -373,7 +373,7 @@ export default function SleepScreen() {
         type: 'sleep' as const,
         start_time: startIso,
         end_time: endTime,
-        payload: Object.keys(payload).length > 0 ? payload as unknown as import('@/integrations/supabase/types').Json : null,
+        payload: Object.keys(payload).length > 0 ? payload as unknown as import('../integrations/supabase/types').Json : null,
         notes: notes.trim() || null,
       }]);
 
@@ -416,7 +416,7 @@ export default function SleepScreen() {
         type: 'sleep' as const,
         start_time: startDate.toISOString(),
         end_time: endDate.toISOString(),
-        payload: Object.keys(payload).length > 0 ? payload as unknown as import('@/integrations/supabase/types').Json : null,
+        payload: Object.keys(payload).length > 0 ? payload as unknown as import('../integrations/supabase/types').Json : null,
         notes: notes.trim() || null,
       }]);
 

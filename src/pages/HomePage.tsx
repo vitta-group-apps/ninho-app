@@ -13,22 +13,22 @@
  *   7. Recent activity: last 5 events (only if records exist)
  */
 
-import { useHomeData } from '@/hooks/useHomeData';
+import { useHomeData } from '../hooks/useHomeData';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ExclamationCircleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { useAuth } from '@/hooks/useAuth';
-import { ChildSwitcher } from '@/components/home/ChildSwitcher';
-import { fmtRangeDuration, fmtTimeSince } from '@/lib/routineUtils';
-import { EventCard } from '@/components/events/EventCard';
-import { ActiveSessionBanner } from '@/components/layout/ActiveSessionBanner';
-import { Skeleton } from '@/components/ui/skeleton';
-import { SummaryMetricCard, QuickActionTile } from '@/components/ds';
-import type { RoutineLog } from '@/lib/eventSystem';
-import { analyzeDayPatterns, getAgeContext } from '@/lib/eventSystem';
-import { getOrderedQuickActions } from '@/config/quickActions';
-import { runPriorityEngine } from '@/lib/priorityEngine';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { useAuth } from '../hooks/useAuth';
+import { ChildSwitcher } from '../components/home/ChildSwitcher';
+import { fmtRangeDuration, fmtTimeSince } from '../lib/routineUtils';
+import { EventCard } from '../components/events/EventCard';
+import { ActiveSessionBanner } from '../components/layout/ActiveSessionBanner';
+import { Skeleton } from '../components/ui/skeleton';
+import { SummaryMetricCard, QuickActionTile } from '../components/ds';
+import type { RoutineLog } from '../lib/eventSystem';
+import { analyzeDayPatterns, getAgeContext } from '../lib/eventSystem';
+import { getOrderedQuickActions } from '../config/quickActions';
+import { runPriorityEngine } from '../lib/priorityEngine';
 
 const FEED_COLOR   = '#789687';
 const SLEEP_COLOR  = '#806e84';

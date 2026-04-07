@@ -1,22 +1,22 @@
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Toaster as Sonner } from '@/components/ui/sonner';
-import { Toaster } from '@/components/ui/toaster';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { SplashScreen } from '@/components/auth/SplashScreen';
-import { AppShell } from '@/components/layout/AppShell';
-import { useAuth } from '@/hooks/useAuth';
-import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
-import { ActiveChildProvider } from '@/contexts/ActiveChildContext';
+import { Toaster as Sonner } from './components/ui/sonner';
+import { Toaster } from './components/ui/toaster';
+import { TooltipProvider } from './components/ui/tooltip';
+import { SplashScreen } from './components/auth/SplashScreen';
+import { AppShell } from './components/layout/AppShell';
+import { useAuth } from './hooks/useAuth';
+import { useOnboardingStatus } from './hooks/useOnboardingStatus';
+import { ActiveChildProvider } from './contexts/ActiveChildContext';
 
 // Pages — main app
-import HomePage from '@/pages/HomePage';
-import RotinaPage from '@/pages/RotinaPage';
-import SaudePage from '@/pages/SaudePage';
-import SettingsPage from '@/pages/SettingsPage';
+import HomePage from './pages/HomePage';
+import RotinaPage from './pages/RotinaPage';
+import SaudePage from './pages/SaudePage';
+import SettingsPage from './pages/SettingsPage';
 import SettingsAccountPage from './pages/SettingsAccountPage';
 import SettingsLanguagePage from './pages/SettingsLanguagePage';
 import SettingsUnitsPage from './pages/SettingsUnitsPage';
@@ -24,32 +24,32 @@ import SettingsExportPage from './pages/SettingsExportPage';
 import SettingsImportPage from './pages/SettingsImportPage';
 import SettingsPlanPage from './pages/SettingsPlanPage';
 import SettingsHelpPage from './pages/SettingsHelpPage';
-import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
-import FamiliaPage from '@/pages/FamiliaPage';
-import DiaperScreen from '@/pages/DiaperScreen';
-import DiaperDetailScreen from '@/pages/DiaperDetailScreen';
-import SleepScreen from '@/pages/SleepScreen';
-import SleepDetailScreen from '@/pages/SleepDetailScreen';
-import FeedDetailScreen from '@/pages/FeedDetailScreen';
-import BreastfeedingScreen from '@/pages/BreastfeedingScreen';
-import BottleScreen from '@/pages/BottleScreen';
-import BottleDetailScreen from '@/pages/BottleDetailScreen';
-import { ResetPasswordPage } from '@/pages/ResetPassword';
-import NotFound from '@/pages/NotFound';
+import DesenvolvimentoPage from './pages/DesenvolvimentoPage';
+import FamiliaPage from './pages/FamiliaPage';
+import DiaperScreen from './pages/DiaperScreen';
+import DiaperDetailScreen from './pages/DiaperDetailScreen';
+import SleepScreen from './pages/SleepScreen';
+import SleepDetailScreen from './pages/SleepDetailScreen';
+import FeedDetailScreen from './pages/FeedDetailScreen';
+import BreastfeedingScreen from './pages/BreastfeedingScreen';
+import BottleScreen from './pages/BottleScreen';
+import BottleDetailScreen from './pages/BottleDetailScreen';
+import { ResetPasswordPage } from './pages/ResetPassword';
+import NotFound from './pages/NotFound';
 
 // Pages — família e filhos (produto — separado do onboarding)
-import ChildCreatePage from '@/pages/children/ChildCreatePage';
-import ChildEditPage from '@/pages/children/ChildEditPage';
-import FamilyEditPage from '@/pages/family/FamilyEditPage';
-import InviteMemberPage from '@/pages/family/InviteMemberPage';
+import ChildCreatePage from './pages/children/ChildCreatePage';
+import ChildEditPage from './pages/children/ChildEditPage';
+import FamilyEditPage from './pages/family/FamilyEditPage';
+import InviteMemberPage from './pages/family/InviteMemberPage';
 
 // Pages — onboarding
-import WelcomePage from '@/pages/onboarding/WelcomePage';
-import AuthPage from '@/pages/onboarding/AuthPage';
-import NomePage from '@/pages/onboarding/NomePage';
-import FamilyPage from '@/pages/onboarding/FamilyPage';
-import ChildPage from '@/pages/onboarding/ChildPage';
-import CompletePage from '@/pages/onboarding/CompletePage';
+import WelcomePage from './pages/onboarding/WelcomePage';
+import AuthPage from './pages/onboarding/AuthPage';
+import NomePage from './pages/onboarding/NomePage';
+import FamilyPage from './pages/onboarding/FamilyPage';
+import ChildPage from './pages/onboarding/ChildPage';
+import CompletePage from './pages/onboarding/CompletePage';
 
 const queryClient = new QueryClient();
 
@@ -199,9 +199,9 @@ export default function App() {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <MemoryRouter>
           <NinhoApp />
-        </BrowserRouter>
+        </MemoryRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );

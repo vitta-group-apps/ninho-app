@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { InlineStatusPill } from '@/components/ds';
-import { ChildAvatar } from '@/components/home/ChildSwitcher';
-import { PaywallGate } from '@/components/PaywallGate';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { InlineStatusPill } from '../components/ds';
+import { ChildAvatar } from '../components/home/ChildSwitcher';
+import { PaywallGate } from '../components/PaywallGate';
 import {
   ChevronRightIcon,
   UserCircleIcon,
@@ -17,7 +17,7 @@ import {
   ArrowRightOnRectangleIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client';
 
 // ── Cores fixas ──
 const SAGE = '#789687';

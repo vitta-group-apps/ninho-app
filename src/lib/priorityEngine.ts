@@ -10,9 +10,9 @@
  *   - notes humano
  */
 
-import type { Tables } from '@/integrations/supabase/types';
-import { getAgeContext } from '@/lib/eventSystem';
-import { vaccineSchedule } from '@/data/vaccineSchedule';
+import type { Tables } from '../integrations/supabase/types';
+import { getAgeContext } from '../lib/eventSystem';
+import { vaccineSchedule } from '../data/vaccineSchedule';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 

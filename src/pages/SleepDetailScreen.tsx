@@ -10,18 +10,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
-import { toast } from '@/hooks/use-toast';
-import { getUserNotes, fmtTime } from '@/lib/routineUtils';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import type { Tables } from '../integrations/supabase/types';
+import { toast } from '../hooks/use-toast';
+import { getUserNotes, fmtTime } from '../lib/routineUtils';
 import {
   ScreenHeader,
   StickyFooterCTA,
   SectionLabel,
   ChipGroup,
   ReportToggle,
-} from '@/components/ds';
+} from '../components/ds';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -279,7 +279,7 @@ export default function SleepDetailScreen() {
         .from('routine_logs')
         .update({
           notes: notes.trim() || null,
-          payload: cleanedPayload as unknown as import('@/integrations/supabase/types').Json,
+          payload: cleanedPayload as unknown as import('../integrations/supabase/types').Json,
         })
         .eq('id', log.id);
 

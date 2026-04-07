@@ -1,4 +1,4 @@
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables } from '../integrations/supabase/types';
 import type {
   ConsultationRecord,
   GrowthRecord,
@@ -6,7 +6,7 @@ import type {
   MedicalNoteRecord,
   MedicationRecord,
   VaccineRecord,
-} from '@/lib/contracts/health';
+} from '../lib/contracts/health';
 
 export function toConsultationRecord(
   row: Tables<'child_consultations'>

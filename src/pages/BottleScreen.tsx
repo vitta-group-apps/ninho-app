@@ -12,24 +12,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { toast } from '@/hooks/use-toast';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { toast } from '../hooks/use-toast';
 import {
   ScreenHeader,
   StickyFooterCTA,
   SectionLabel,
   ChipGroup,
   ReportToggle,
-} from '@/components/ds';
+} from '../components/ds';
 import {
   BOTTLE_TYPE_OPTIONS,
   BOTTLE_AMOUNT_OPTIONS,
   BOTTLE_TEMP_OPTIONS,
   BOTTLE_REACTION_OPTIONS,
-} from '@/lib/eventSystem';
+} from '../lib/eventSystem';
 
 // ── Cores fixas ──
 const BOTTLE_COLOR = '#C8894A';

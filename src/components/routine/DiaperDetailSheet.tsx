@@ -9,15 +9,15 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { getUserNotes, fmtTime } from '@/lib/eventSystem';
-import type { RoutineRecord } from '@/lib/contracts/routine';
+import { Textarea } from '../components/ui/textarea';
+import { Switch } from '../components/ui/switch';
+import { Label } from '../components/ui/label';
+import { supabase } from '../integrations/supabase/client';
+import { toast } from '../../hooks/use-toast';
+import { getUserNotes, fmtTime } from '../../lib/eventSystem';
+import type { RoutineRecord } from '../../lib/contracts/routine';
 import {
   DIAPER_KIND_LABEL,
   DIAPER_QUANTITY_LABEL,
@@ -25,7 +25,7 @@ import {
   DIAPER_POOP_COLOR_LABEL,
   DIAPER_TEXTURE_LABEL,
   isDiaperSignificant,
-} from '@/lib/eventSystem';
+} from '../../lib/eventSystem';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -192,7 +192,7 @@ export function DiaperDetailSheet({
         .from('routine_logs')
         .update({
           notes: notes.trim() || null,
-          payload: updatedPayload as unknown as import('@/integrations/supabase/types').Json,
+          payload: updatedPayload as unknown as import('../integrations/supabase/types').Json,
         })
         .eq('id', log.id);
 

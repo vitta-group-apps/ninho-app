@@ -17,21 +17,21 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { toast } from '@/hooks/use-toast';
+import { Sheet, SheetContent } from '../components/ui/sheet';
+import { Textarea } from '../components/ui/textarea';
+import { Switch } from '../components/ui/switch';
+import { Label } from '../components/ui/label';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { toast } from '../../hooks/use-toast';
 import {
   DIAPER_KIND_LABEL,
   DIAPER_QUANTITY_LABEL,
   DIAPER_POOP_COLOR_LABEL,
   DIAPER_PEE_COLOR_LABEL,
   DIAPER_TEXTURE_LABEL,
-} from '@/lib/eventSystem';
+} from '../../lib/eventSystem';
 
 type DiaperKind = 'pee' | 'poop' | 'both';
 
@@ -161,7 +161,7 @@ export function DiaperSheet({ open, onClose, onSaved }: DiaperSheetProps) {
         author_id: user.id,
         type: 'diaper' as const,
         start_time: new Date().toISOString(),
-        payload: payload as unknown as import('@/integrations/supabase/types').Json,
+        payload: payload as unknown as import('../integrations/supabase/types').Json,
         notes: withEnrich ? notes.trim() || null : null,
       }]);
 

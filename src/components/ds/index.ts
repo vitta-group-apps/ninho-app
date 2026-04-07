@@ -1,6 +1,6 @@
 /**
  * Ninho Design System v2 — Component exports
- * Import from '@/components/ds' in all screens.
+ * Import from '../components/ds' in all screens.
  */
 export { ScreenHeader } from './ScreenHeader';
 export { StickyFooterCTA } from './StickyFooterCTA';

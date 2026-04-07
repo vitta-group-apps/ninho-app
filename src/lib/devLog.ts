@@ -1,7 +1,7 @@
 /**
  * devLog — logs only in development. Never exposes data in production builds.
  */
-const isDev = import.meta.env.DEV;
+const isDev = process.env.DEV;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function devLog(...args: any[]) {

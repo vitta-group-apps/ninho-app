@@ -14,14 +14,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client';
 import {
   EyeIcon,
   EyeSlashIcon,
   CheckCircleIcon } from
 '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
-import simboloNinho from '@/assets/simbolo-ninho.png';
+import simboloNinho from '../assets/simbolo-ninho.png';
 
 type Tab = 'signup' | 'login';
 
@@ -306,7 +306,7 @@ export default function AuthPage() {
 
   async function handleGoogle() {
     try {
-      const { lovable } = await import('@/integrations/lovable/index');
+      const { lovable } = await import('../integrations/lovable/index');
       const result = await lovable.auth.signInWithOAuth('google', {
         redirect_uri: `${window.location.origin}/onboarding`
       });
@@ -323,7 +323,7 @@ export default function AuthPage() {
 
   async function handleApple() {
     try {
-      const { lovable } = await import('@/integrations/lovable/index');
+      const { lovable } = await import('../integrations/lovable/index');
       const result = await lovable.auth.signInWithOAuth('apple', {
         redirect_uri: `${window.location.origin}/onboarding`
       });

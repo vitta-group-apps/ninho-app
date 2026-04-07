@@ -14,8 +14,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
+import { supabase } from '../integrations/supabase/client';
+import { useActiveChild } from '../contexts/ActiveChildContext';
 
 interface Subscription {
   status: string;

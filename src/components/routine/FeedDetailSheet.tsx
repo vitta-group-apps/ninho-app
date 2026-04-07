@@ -12,14 +12,14 @@
 
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { fmtDurationShort, fmtTime, getUserNotes } from '@/lib/routineUtils';
-import type { Tables } from '@/integrations/supabase/types';
+import { Switch } from '../components/ui/switch';
+import { Textarea } from '../components/ui/textarea';
+import { supabase } from '../integrations/supabase/client';
+import { toast } from '../../hooks/use-toast';
+import { fmtDurationShort, fmtTime, getUserNotes } from '../../lib/routineUtils';
+import type { Tables } from '../integrations/supabase/types';
 
 const TAG_LABELS: Record<string, string> = {
   mamou_bem: '😊 Mamou bem',
@@ -178,7 +178,7 @@ export function FeedDetailSheet({
         .from('routine_logs')
         .update({
           notes: editNotes.trim() || null,
-          payload: newPayload as unknown as import('@/integrations/supabase/types').Json,
+          payload: newPayload as unknown as import('../integrations/supabase/types').Json,
         })
         .eq('id', log.id);
 

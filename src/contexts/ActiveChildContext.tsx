@@ -6,11 +6,11 @@ import {
   ReactNode,
   useCallback,
 } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import type { Tables } from '@/integrations/supabase/types';
-import type { ChildSexAtBirth } from '@/types/child';
-import { normalizeChildSexAtBirth } from '@/types/child';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
+import type { Tables } from '../integrations/supabase/types';
+import type { ChildSexAtBirth } from '../types/child';
+import { normalizeChildSexAtBirth } from '../types/child';
 
 type DbChild = Tables<'children'>;
 

@@ -9,11 +9,11 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import type { RoutineLog } from '@/lib/eventSystem';
-import { getEventPresentation } from '@/lib/eventSystem';
-import { fmtTime } from '@/lib/routineUtils';
+import type { RoutineLog } from '../../lib/eventSystem';
+import { getEventPresentation } from '../../lib/eventSystem';
+import { fmtTime } from '../../lib/routineUtils';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
-import { InlineStatusPill } from '@/components/ds/InlineStatusPill';
+import { InlineStatusPill } from '../components/ds/InlineStatusPill';
 
 interface EventCardProps {
   log: RoutineLog;

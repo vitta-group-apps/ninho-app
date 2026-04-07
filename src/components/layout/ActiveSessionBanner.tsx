@@ -12,8 +12,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
-import { fmtTimer } from '@/lib/routineUtils';
-import { loadSleepSession } from '@/pages/SleepScreen';
+import { fmtTimer } from '../../lib/routineUtils';
+import { loadSleepSession } from '../pages/SleepScreen';
 
 const FEED_SESSION_KEY = 'ninho_feed_session_v7';
 const SLEEP_COLOR = 'hsl(270,12%,42%)';

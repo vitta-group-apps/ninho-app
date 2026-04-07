@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '../components/ui/switch';
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 
 interface ReportToggleProps {

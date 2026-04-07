@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useActiveChild } from '@/contexts/ActiveChildContext';
-import { toast } from '@/hooks/use-toast';
-import { fmtTimer } from '@/lib/routineUtils';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { Button } from '../components/ui/button';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../../hooks/useAuth';
+import { useActiveChild } from '../contexts/ActiveChildContext';
+import { toast } from '../../hooks/use-toast';
+import { fmtTimer } from '../../lib/routineUtils';
 
-export { FeedSheet } from '@/components/routine/FeedSheet';
-export { DiaperSheet } from '@/components/routine/DiaperSheet';
+export { FeedSheet } from '../components/routine/FeedSheet';
+export { DiaperSheet } from '../components/routine/DiaperSheet';
 
 function ChildSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { children } = useActiveChild();

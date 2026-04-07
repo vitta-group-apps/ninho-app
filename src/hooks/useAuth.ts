@@ -59,23 +59,34 @@ export function useAuth(): AuthState {
     }
 
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      let profile: Profile | null = null;
-      if (session?.user) {
-        profile = await fetchProfile(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        let profile: Profile | null = null;
+        if (session?.user) {
+          profile = await fetchProfile(session.user.id);
+        }
+        setState(buildState(session, profile));
+      } catch (err) {
+        // Supabase não inicializado (env vars ausentes) — sai do loading sem travar
+        console.error('[useAuth] Falha ao inicializar sessão Supabase:', err);
+        setState(buildState(null, null));
       }
-      setState(buildState(session, profile));
     }
 
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        let profile: Profile | null = null;
-        if (session?.user) {
-          profile = await fetchProfile(session.user.id);
+        try {
+          let profile: Profile | null = null;
+          if (session?.user) {
+            profile = await fetchProfile(session.user.id);
+          }
+          setState(buildState(session, profile));
+        } catch (err) {
+          console.error('[useAuth] onAuthStateChange error:', err);
+          setState(buildState(null, null));
         }
-        setState(buildState(session, profile));
       }
     );
 

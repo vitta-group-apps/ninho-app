@@ -33,7 +33,7 @@ export function useAuth(): AuthState {
     async function fetchProfile(userId: string): Promise<Profile | null> {
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, onboarding_complete, avatar_url')
+        .select('id, full_name, onboarding_complete, avatar_url')  // onboarding_complete added via migration
         .eq('id', userId)  // ← profiles.id = auth.users.id (sem coluna user_id separada)
         .maybeSingle();
       return data as Profile | null;

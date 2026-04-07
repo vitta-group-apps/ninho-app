@@ -34,29 +34,15 @@ export default function FamilyPage() {
     setLoading(true);
 
     try {
-      const { data: family, error: familyError } = await supabase
-        .from('families')
-        .insert({
-          name: familyName.trim(),
-          owner_user_id: user.id,
-        })
-        .select('id')
-        .single();
+      // Atomic RPC: creates family + inserts owner with joined_at in one SECURITY DEFINER tx
+      // Avoids RLS chicken-and-egg (is_family_member requires joined_at IS NOT NULL)
+      const { data: familyId, error: rpcError } = await supabase
+        .rpc('create_family_with_owner', { p_name: familyName.trim() });
 
-      if (familyError) throw familyError;
+      if (rpcError) throw rpcError;
+      if (!familyId) throw new Error('Família não retornou ID');
 
-      const { error: familyMemberError } = await supabase
-        .from('family_members')
-        .insert({
-          family_id: family.id,
-          user_id: user.id,
-          role: 'owner',
-          invited_by: null,
-        });
-
-      if (familyMemberError) throw familyMemberError;
-
-      sessionStorage.setItem('onboarding_family_id', family.id);
+      sessionStorage.setItem('onboarding_family_id', familyId);
       navigate('/onboarding/child');
     } catch {
       setError('Não conseguimos criar sua família agora. Tente novamente.');

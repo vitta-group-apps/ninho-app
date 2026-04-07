@@ -45,15 +45,14 @@ export default function AuthCallback() {
           .eq('id', userId)
           .maybeSingle();
 
-        // Decision tree:
-        if (profile?.onboarding_complete && profile?.full_name) {
-          // Fully onboarded → go to app
+        // Decision tree based on schema v2 data
+        if (profile?.onboarding_complete) {
           navigate('/home', { replace: true });
           return;
         }
 
         if (profile?.full_name) {
-          // Has name but onboarding not complete → check family
+          // Has name — check family (uses families_select_owner policy)
           const { data: families } = await supabase
             .from('families')
             .select('id')
@@ -61,17 +60,14 @@ export default function AuthCallback() {
             .limit(1);
 
           if (families && families.length > 0) {
-            // Has family → add child
             sessionStorage.setItem('onboarding_family_id', families[0].id);
             navigate('/onboarding/child', { replace: true });
           } else {
-            // No family yet → create family
             navigate('/onboarding/family', { replace: true });
           }
           return;
         }
 
-        // No profile name → first onboarding step
         navigate('/onboarding/nome', { replace: true });
       } catch (err) {
         console.error('[AuthCallback] Erro ao processar sessão:', err);

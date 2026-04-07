@@ -34,7 +34,7 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
         const { data: ownedFamilies } = await supabase
           .from('families')
           .select('id')
-          .eq('owner_id', userId)
+          .eq('owner_user_id', userId)   // schema v2: owner_user_id (families_select_owner policy)
           .limit(1);
 
         let familyId = ownedFamilies?.[0]?.id ?? null;
@@ -44,7 +44,7 @@ export function useOnboardingStatus(userId: string | null): OnboardingStatus {
             .from('family_members')
             .select('family_id')
             .eq('user_id', userId)
-            .eq('status', 'active')
+            .not('joined_at', 'is', null)  // schema v2: no status column; joined_at = active
             .limit(1);
 
           familyId = memberFamilies?.[0]?.family_id ?? null;

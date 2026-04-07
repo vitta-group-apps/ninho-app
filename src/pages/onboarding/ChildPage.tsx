@@ -51,10 +51,13 @@ export default function ChildPage() {
 
       if (childError) throw childError;
 
-      await supabase
+      // Mark onboarding complete — column added via migration add_onboarding_complete_and_family_owner_policy
+      const { error: profileErr } = await supabase
         .from('profiles')
-        .update({ onboarding_complete: true } as Record<string, unknown>)
+        .update({ onboarding_complete: true })
         .eq('id', user.id);
+
+      if (profileErr) console.warn('[ChildPage] onboarding_complete update failed:', profileErr);
 
       sessionStorage.setItem('onboarding_child_name', childName.trim());
       navigate('/onboarding/complete');

@@ -53,7 +53,7 @@ export function ActiveChildProvider({ children: reactChildren }: { children: Rea
       const { data: ownedFamilies, error: fErr } = await supabase
         .from('families')
         .select('id')
-        .eq('owner_id', user.id)
+        .eq('owner_user_id', user.id)
         .limit(1);
 
       if (fErr) throw fErr;
@@ -65,7 +65,6 @@ export function ActiveChildProvider({ children: reactChildren }: { children: Rea
     .from('family_members')
     .select('family_id')
     .eq('user_id', user.id)
-    .eq('status', 'active')
     .limit(1);
 
   if (mErr) throw mErr;

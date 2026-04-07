@@ -3,8 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
-  id: string;
-  user_id: string;
+  id: string;  // profiles.id = auth.users.id
   full_name: string | null;
   onboarding_complete: boolean | null;
   avatar_url: string | null;
@@ -30,12 +29,12 @@ export function useAuth(): AuthState {
   });
 
   useEffect(() => {
-    // profiles.user_id = auth.users.id — NÃO usar profiles.id aqui
+    // profiles.id = auth.users.id — chave primária compartilhada (sem coluna user_id separada)
     async function fetchProfile(userId: string): Promise<Profile | null> {
       const { data } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, onboarding_complete, avatar_url')
-        .eq('user_id', userId)  // ← correto: user_id referencia auth.users.id
+        .select('id, full_name, onboarding_complete, avatar_url')
+        .eq('id', userId)  // ← profiles.id = auth.users.id (sem coluna user_id separada)
         .maybeSingle();
       return data as Profile | null;
     }

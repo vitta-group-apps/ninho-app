@@ -43,6 +43,9 @@ import ChildEditPage from '@/pages/children/ChildEditPage';
 import FamilyEditPage from '@/pages/family/FamilyEditPage';
 import InviteMemberPage from '@/pages/family/InviteMemberPage';
 
+// Auth callback — Magic Link landing
+import AuthCallback from '@/pages/AuthCallback';
+
 // Pages — onboarding
 import WelcomePage from '@/pages/onboarding/WelcomePage';
 import AuthPage from '@/pages/onboarding/AuthPage';
@@ -165,6 +168,8 @@ function AppRouter() {
 
   return (
     <Routes>
+      {/* Auth callback must be reachable before session is established */}
+      <Route path="/auth/callback"   element={<AuthCallback />} />
       <Route path="/reset-password"  element={<ResetPasswordPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/onboarding/*"    element={<OnboardingGuard />} />

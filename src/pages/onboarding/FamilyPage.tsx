@@ -38,7 +38,7 @@ export default function FamilyPage() {
         .from('families')
         .insert({
           name: familyName.trim(),
-          owner_id: user.id,
+          owner_user_id: user.id,
         })
         .select('id')
         .single();
@@ -51,7 +51,6 @@ export default function FamilyPage() {
           family_id: family.id,
           user_id: user.id,
           role: 'owner',
-          status: 'active',
           invited_by: null,
         });
 

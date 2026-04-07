@@ -44,7 +44,7 @@ export default function ChildPage() {
     try {
       const { error: childError } = await supabase.from('children').insert({
         family_id: familyId,
-        name: childName.trim(),
+        preferred_name: childName.trim(),
         birth_date: birthDate,
         sex_at_birth: sexAtBirth,
       });
@@ -54,7 +54,7 @@ export default function ChildPage() {
       await supabase
         .from('profiles')
         .update({ onboarding_complete: true } as Record<string, unknown>)
-        .eq('user_id', user.id);
+        .eq('id', user.id);
 
       sessionStorage.setItem('onboarding_child_name', childName.trim());
       navigate('/onboarding/complete');

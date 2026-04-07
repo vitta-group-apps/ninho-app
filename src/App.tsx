@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AuthPage from "./pages/onboarding/AuthPage";
 import FamilyPage from "./pages/onboarding/FamilyPage";
 import ChildPage from "./pages/onboarding/ChildPage";
-import DashboardPage from "./pages/DashboardPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { useNinhoStore } from "./store/useNinhoStore";
 
 function App() {

@@ -68,11 +68,11 @@ export function DashboardPage() {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-sage-100 flex items-center justify-center">
                 <span className="text-sage-600 font-serif text-lg">
-                  {child.preferred_name[0]?.toUpperCase()}
+                  {child.preferred_name ?? ""[0]?.toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="font-medium text-stone-800">{child.preferred_name}</p>
+                <p className="font-medium text-stone-800">{child.preferred_name ?? ""}</p>
                 {child.birth_date && (
                   <p className="text-xs text-stone-400">
                     Nasceu em {new Date(child.birth_date).toLocaleDateString('pt-PT')}

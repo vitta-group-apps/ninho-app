@@ -1,6 +1,5 @@
 // components/ui/index.ts
 export { Button }  from './Button';
-export { Input }   from './Input';
 export { Badge }   from './Badge';
 export { Chip }    from './Chip';
 export { Tag }     from './Tag';
@@ -11,7 +10,6 @@ export { Avatar }  from './Avatar';
 export { Alert }   from './Alert';
 
 export type { ButtonProps, ButtonVariant, ButtonSize }    from './Button';
-export type { InputProps }                                from './Input';
 export type { BadgeProps, BadgeVariant, BadgeSize }       from './Badge';
 export type { ChipProps }                                 from './Chip';
 export type { TagProps, TagVariant }                      from './Tag';

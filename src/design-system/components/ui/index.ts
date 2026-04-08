@@ -77,3 +77,11 @@ export type { BreadcrumbsProps, BreadcrumbItem, BreadcrumbsSeparator } from './B
 
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedItem } from './SegmentedControl';
+
+// ── Phase 6 molecules ─────────────────────────────────────────────────────────
+export { InvitationCard }     from './InvitationCard';
+export { NotificationToggle } from './NotificationToggle';
+export { SuccessCheckmark }   from './SuccessCheckmark';
+export type { InvitationCardProps, InvitationStatus, InvitationRole } from './InvitationCard';
+export type { NotificationToggleProps }                                from './NotificationToggle';
+export type { SuccessCheckmarkProps }                                  from './SuccessCheckmark';

@@ -1,10 +1,10 @@
 /**
  * NINHO — useDailyRoutine
  * Lê routine_logs de qualquer dia para um filho, com paginação incremental.
- * Evolução de useTodayRoutine — aceita uma data ISO (YYYY-MM-DD).
+ * Phase 6: subscreve Supabase Realtime para sincronização multi-cuidador.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { RoutineType, TypedRoutineLog } from '../types/routine';
 
@@ -30,6 +30,9 @@ export function useDailyRoutine<T extends RoutineType>(
   const [page,    setPage]    = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [tick,    setTick]    = useState(0);
+
+  // Stable refetch ref for realtime handler
+  const refetchRef = useRef<() => void>(() => {});
 
   // Reset pagination whenever key params change
   useEffect(() => {
@@ -67,13 +70,9 @@ export function useDailyRoutine<T extends RoutineType>(
 
       setLoading(false);
 
-      if (sbError) {
-        setError(new Error(sbError.message));
-        return;
-      }
+      if (sbError) { setError(new Error(sbError.message)); return; }
 
       const rows = (data ?? []) as unknown as TypedRoutineLog<T>[];
-
       setLogs(prev => page === 0 ? rows : [...prev, ...rows]);
       setHasMore(rows.length === PAGE_SIZE);
     }
@@ -84,9 +83,37 @@ export function useDailyRoutine<T extends RoutineType>(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [childId, routineType, date, page, tick]);
 
-  const loadMore = useCallback(() => {
-    if (!loading && hasMore) setPage(p => p + 1);
-  }, [loading, hasMore]);
+  // ── Supabase Realtime — sincronização multi-cuidador ──────────────────────
+  // Subscreve INSERT/UPDATE/DELETE na tabela routine_logs para este filho+tipo.
+  // Quando outro cuidador regista um evento, a timeline actualiza automaticamente.
+  useEffect(() => {
+    if (!childId) return;
+
+    const channel = supabase
+      .channel(`routine_logs:${childId}:${routineType}`)
+      .on(
+        'postgres_changes',
+        {
+          event:  '*',
+          schema: 'public',
+          table:  'routine_logs',
+          filter: `child_id=eq.${childId}`,
+        },
+        (payload) => {
+          // Only react to the right routine_type
+          const changed = payload.new as { routine_type?: string } | undefined;
+          const deleted = payload.old as { routine_type?: string } | undefined;
+          const type    = changed?.routine_type ?? deleted?.routine_type;
+          if (type !== routineType) return;
+
+          // Trigger a page-0 refetch
+          refetchRef.current();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [childId, routineType]);
 
   const refetch = useCallback(() => {
     setLogs([]);
@@ -94,6 +121,13 @@ export function useDailyRoutine<T extends RoutineType>(
     setHasMore(true);
     setTick(t => t + 1);
   }, []);
+
+  // Keep ref in sync
+  useEffect(() => { refetchRef.current = refetch; }, [refetch]);
+
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) setPage(p => p + 1);
+  }, [loading, hasMore]);
 
   return { logs, loading, error, hasMore, loadMore, refetch };
 }

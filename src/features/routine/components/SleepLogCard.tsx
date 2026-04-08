@@ -10,7 +10,8 @@ import { Button }      from '@/design-system/components/ui/Button';
 import { Text }        from '@/design-system/components/ui/Text';
 import { Tag }         from '@/design-system/components/ui/Tag';
 import { SpinnerRound } from '@/design-system/components/ui/Spinner';
-import { useRoutineLog } from '../hooks/useRoutineLog';
+import { useRoutineLog }   from '../hooks/useRoutineLog';
+import { SuccessCheckmark } from '@/design-system/components/ui/SuccessCheckmark';
 import type { SleepPayload } from '@/types/database.types';
 import { cn } from '@/design-system/lib/utils';
 
@@ -96,6 +97,7 @@ export function SleepLogCard({ childId, onSaved }: SleepLogCardProps) {
   const [endedAt,   setEndedAt]   = useState('');
   const [location,  setLocation]  = useState<SleepPayload['location']>();
   const [quality,   setQuality]   = useState<SleepPayload['quality']>();
+  const [saved,     setSaved]     = useState(false);
 
   async function handleSave() {
     try {
@@ -111,6 +113,8 @@ export function SleepLogCard({ childId, onSaved }: SleepLogCardProps) {
       setLocation(undefined);
       setQuality(undefined);
       setStartedAt(nowLocalISO());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1400);
       onSaved?.();
     } catch {
       toast.error('Erro ao salvar sono.');
@@ -125,7 +129,10 @@ export function SleepLogCard({ childId, onSaved }: SleepLogCardProps) {
           <span className="text-xl" aria-hidden="true">🌙</span>
           <Text variant="body-lg-semibold">Sono</Text>
         </div>
-        <Tag label="Fase 1" variant="accent" />
+        <div className="flex items-center gap-[var(--gap-sm)]">
+          <SuccessCheckmark visible={saved} size={28} />
+          <Tag label="Fase 1" variant="accent" />
+        </div>
       </div>
 
       <div className="flex flex-col gap-[var(--gap-md)]">

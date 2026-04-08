@@ -3,16 +3,20 @@
  * Configurações no estilo Apple Settings — grupos via Card, chevrons, DS tokens.
  */
 
-import React from 'react';
-import { toast }     from 'sonner';
-import { Text }      from '@/design-system/components/ui/Text';
-import { Card }      from '@/design-system/components/ui/Card';
-import { Button }    from '@/design-system/components/ui/Button';
-import { Avatar }    from '@/design-system/components/ui/Avatar';
-import { Divider }   from '@/design-system/components/ui/Divider';
-import { supabase }  from '@/lib/supabase';
-import { useNinhoStore } from '@/store/useNinhoStore';
-import { cn }        from '@/design-system/lib/utils';
+import React, { useState } from 'react';
+import { toast }               from 'sonner';
+import { Text }                from '@/design-system/components/ui/Text';
+import { Card }                from '@/design-system/components/ui/Card';
+import { Button }              from '@/design-system/components/ui/Button';
+import { Avatar }              from '@/design-system/components/ui/Avatar';
+import { Divider }             from '@/design-system/components/ui/Divider';
+import { TextInput }           from '@/design-system/components/ui/TextInput';
+import { InvitationCard }      from '@/design-system/components/ui/InvitationCard';
+import { NotificationToggle }  from '@/design-system/components/ui/NotificationToggle';
+import { supabase }            from '@/lib/supabase';
+import { useNinhoStore }       from '@/store/useNinhoStore';
+import { useFamilyInvitations } from '@/features/family/useFamilyInvitations';
+import { cn }                  from '@/design-system/lib/utils';
 
 // ─── icon helpers ─────────────────────────────────────────────────────────────
 
@@ -109,6 +113,21 @@ function SettingsSection({ title, items }: SettingsSectionProps) {
 
 export function ProfilePage() {
   const { profile, currentFamily, currentChild, children, reset } = useNinhoStore();
+  const { invitations, loading: invLoading, invite, revoke } = useFamilyInvitations(currentFamily?.id ?? null);
+
+  const [inviteEmail, setInviteEmail] = useState('');
+
+  async function handleInvite() {
+    const email = inviteEmail.trim();
+    if (!email) return;
+    try {
+      await invite(email, 'caregiver');
+      setInviteEmail('');
+      toast.success(`Convite enviado para ${email}`);
+    } catch {
+      toast.error('Erro ao enviar convite.');
+    }
+  }
 
   async function handleSignOut() {
     try {
@@ -179,13 +198,77 @@ export function ProfilePage() {
           ]}
         />
 
-        <SettingsSection
-          title="App"
-          items={[
-            { icon: <BellIcon />, label: 'Notificações', detail: 'Em breve' },
-            { icon: <LockIcon />, label: 'Privacidade',  detail: 'Em breve' },
-          ]}
-        />
+        {/* ── family sharing ─────────────────────────────────────────── */}
+        {currentFamily && (
+          <div>
+            <Text variant="caption-medium" color="secondary" as="p" className="px-1 mb-[var(--gap-xs)] uppercase tracking-wider">
+              Partilha da Família
+            </Text>
+            <Card variant="outlined" padding="md" className="flex flex-col gap-[var(--gap-md)]">
+              <div className="flex gap-[var(--gap-sm)]">
+                <div className="flex-1">
+                  <TextInput
+                    label="Convidar por email"
+                    placeholder="email@exemplo.com"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleInvite()}
+                  />
+                </div>
+                <div className="self-end">
+                  <Button
+                    label="Convidar"
+                    variant="primary"
+                    size="sm"
+                    disabled={invLoading || !inviteEmail.trim()}
+                    onClick={handleInvite}
+                  />
+                </div>
+              </div>
+
+              {invitations.length > 0 && (
+                <div className="flex flex-col gap-[var(--gap-sm)]">
+                  {invitations.map(inv => (
+                    <InvitationCard
+                      key={inv.id}
+                      email={inv.invited_email}
+                      role={inv.role as any}
+                      status={inv.status as any}
+                      sentAt={inv.created_at}
+                      loading={invLoading}
+                      onRevoke={inv.status === 'pending' ? () => revoke(inv.id) : undefined}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {invitations.length === 0 && !invLoading && (
+                <Text variant="caption-regular" color="secondary" className="text-center py-2">
+                  Nenhum convite enviado ainda.
+                </Text>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* ── App settings ───────────────────────────────────────────── */}
+        <div>
+          <Text variant="caption-medium" color="secondary" as="p" className="px-1 mb-[var(--gap-xs)] uppercase tracking-wider">
+            App
+          </Text>
+          <Card variant="outlined" padding="none" className="overflow-hidden">
+            <div className="px-[var(--padding-md)] py-[14px]">
+              <NotificationToggle label="Notificações push" description="Lembretes de medicação e alertas" />
+            </div>
+            <Divider />
+            <SettingsRow
+              icon={<LockIcon />}
+              label="Privacidade"
+              detail="Em breve"
+              isLast
+            />
+          </Card>
+        </div>
 
         <SettingsSection
           title="Suporte"

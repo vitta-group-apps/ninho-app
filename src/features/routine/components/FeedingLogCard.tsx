@@ -10,7 +10,8 @@ import { Button }       from '@/design-system/components/ui/Button';
 import { Text }         from '@/design-system/components/ui/Text';
 import { Tag }          from '@/design-system/components/ui/Tag';
 import { SpinnerRound } from '@/design-system/components/ui/Spinner';
-import { useRoutineLog } from '../hooks/useRoutineLog';
+import { useRoutineLog }   from '../hooks/useRoutineLog';
+import { SuccessCheckmark } from '@/design-system/components/ui/SuccessCheckmark';
 import type { FeedingPayload } from '@/types/database.types';
 import { cn } from '@/design-system/lib/utils';
 
@@ -131,6 +132,7 @@ export function FeedingLogCard({ childId, onSaved }: FeedingLogCardProps) {
   const [side,        setSide]        = useState<FeedingPayload['side']>();
   const [durationMin, setDurationMin] = useState(0);
   const [volumeMl,    setVolumeMl]    = useState(0);
+  const [saved,       setSaved]       = useState(false);
 
   const canSave = !!method;
 
@@ -139,10 +141,10 @@ export function FeedingLogCard({ childId, onSaved }: FeedingLogCardProps) {
 
     const payload: FeedingPayload = { method };
     if (method === 'breast') {
-      if (side)         payload.side         = side;
+      if (side)            payload.side         = side;
       if (durationMin > 0) payload.duration_min = durationMin;
     } else {
-      if (volumeMl > 0) payload.volume_ml = volumeMl;
+      if (volumeMl > 0)    payload.volume_ml    = volumeMl;
     }
 
     try {
@@ -157,6 +159,8 @@ export function FeedingLogCard({ childId, onSaved }: FeedingLogCardProps) {
       setSide(undefined);
       setDurationMin(0);
       setVolumeMl(0);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1400);
       onSaved?.();
     } catch {
       toast.error('Erro ao salvar alimentação.');
@@ -171,7 +175,10 @@ export function FeedingLogCard({ childId, onSaved }: FeedingLogCardProps) {
           <span className="text-xl" aria-hidden="true">🍼</span>
           <Text variant="body-lg-semibold">Alimentação</Text>
         </div>
-        <Tag label="Fase 1" variant="success" />
+        <div className="flex items-center gap-[var(--gap-sm)]">
+          <SuccessCheckmark visible={saved} size={28} />
+          <Tag label="Fase 1" variant="success" />
+        </div>
       </div>
 
       <div className="flex flex-col gap-[var(--gap-md)]">

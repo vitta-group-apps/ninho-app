@@ -15,8 +15,9 @@ import { LinkButton }      from '@/design-system/components/ui/LinkButton';
 import { IconButton }      from '@/design-system/components/ui/IconButton';
 import { SpinnerRound }    from '@/design-system/components/ui/Spinner';
 import { SleepLogCard, DiaperLogCard, FeedingLogCard } from '@/features/routine/components';
-import { DaySelector }     from '@/features/routine/components/DaySelector';
-import { EditLogModal }    from '@/features/routine/components/EditLogModal';
+import { DaySelector }       from '@/features/routine/components/DaySelector';
+import { EditLogModal }      from '@/features/routine/components/EditLogModal';
+import { InsightsSummary }   from '@/features/insights/InsightsSummary';
 import { useDailyRoutine } from '@/features/routine/hooks/useDailyRoutine';
 import { useRoutineLog }   from '@/features/routine/hooks/useRoutineLog';
 import { useNinhoStore }   from '@/store/useNinhoStore';
@@ -369,6 +370,14 @@ export function RoutineDashboard() {
           <EmptyState />
         ) : (
           <>
+            {/* insights — só hoje */}
+            {isToday && (
+              <section>
+                <SectionLabel>Resumo do dia</SectionLabel>
+                <InsightsSummary childId={currentChild.id} />
+              </section>
+            )}
+
             {/* log entry cards — só no dia de hoje */}
             {isToday && (
               <section>

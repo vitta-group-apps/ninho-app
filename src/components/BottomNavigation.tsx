@@ -59,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
     icon:  (a) => <HealthIcon active={a} />,
   },
   {
-    to:    '/dashboard',
+    to:    '/profile',
     label: 'Perfil',
     icon:  (a) => <ProfileIcon active={a} />,
   },

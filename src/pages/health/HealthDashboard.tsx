@@ -11,6 +11,7 @@ import { LinkButton }    from '@/design-system/components/ui/LinkButton';
 import { FeverLogCard }       from '@/features/health/components/FeverLogCard';
 import { SymptomsLogCard }    from '@/features/health/components/SymptomsLogCard';
 import { GrowthLogCard }      from '@/features/health/components/GrowthLogCard';
+import { GrowthChart }        from '@/features/health/components/GrowthChart';
 import { useNinhoStore }      from '@/store/useNinhoStore';
 import { cn }                 from '@/design-system/lib/utils';
 
@@ -121,7 +122,8 @@ export function HealthDashboard() {
           </>
         ) : (
           <>
-            <SectionLabel>Medição antropométrica</SectionLabel>
+            <GrowthChart   childId={currentChild.id} />
+            <SectionLabel>Nova medição</SectionLabel>
             <GrowthLogCard childId={currentChild.id} />
           </>
         )}

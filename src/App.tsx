@@ -7,12 +7,13 @@ import ChildPage              from "./pages/onboarding/ChildPage";
 import { DashboardPage }      from "./pages/DashboardPage";
 import { RoutineDashboard }   from "./pages/routine/RoutineDashboard";
 import { HealthDashboard }    from "./pages/health/HealthDashboard";
+import { ProfilePage }        from "./pages/profile/ProfilePage";
 import { BottomNavigation }   from "./components/BottomNavigation";
 import { SpinnerRound }       from "./design-system/components/ui/Spinner";
 
 // ─── rotas que mostram a BottomNavigation ─────────────────────────────────────
 
-const NAV_ROUTES = ['/routine', '/health', '/dashboard'];
+const NAV_ROUTES = ['/routine', '/health', '/dashboard', '/profile'];
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
@@ -69,6 +70,7 @@ function App() {
           <Route path="/dashboard"          element={profile ? <DashboardPage />    : <Navigate to="/auth" replace />} />
           <Route path="/routine"            element={profile ? <RoutineDashboard /> : <Navigate to="/auth" replace />} />
           <Route path="/health"             element={profile ? <HealthDashboard />  : <Navigate to="/auth" replace />} />
+          <Route path="/profile"            element={profile ? <ProfilePage />      : <Navigate to="/auth" replace />} />
           <Route path="/"                   element={<AppRoot appState={appState} />} />
           <Route path="*"                   element={<Navigate to="/" replace />} />
         </Routes>

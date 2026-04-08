@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@/types/database.types';
 import type { RoutineType, RoutineLogInput, TypedRoutineLog } from '../types/routine';
 
 interface UseRoutineLogReturn<T extends RoutineType> {
@@ -27,7 +28,7 @@ export function useRoutineLog<T extends RoutineType>(): UseRoutineLogReturn<T> {
       .insert({
         child_id:     input.child_id,
         routine_type: input.routine_type,
-        payload:      input.payload,
+        payload:      input.payload as unknown as Json,
         started_at:   input.started_at ?? new Date().toISOString(),
         ended_at:     input.ended_at   ?? null,
         notes:        input.notes      ?? null,
@@ -44,7 +45,7 @@ export function useRoutineLog<T extends RoutineType>(): UseRoutineLogReturn<T> {
       throw err;
     }
 
-    return data as TypedRoutineLog<T>;
+    return data as unknown as TypedRoutineLog<T>;
   }
 
   async function removeLog(id: string): Promise<void> {

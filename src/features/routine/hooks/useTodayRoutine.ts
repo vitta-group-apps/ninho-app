@@ -56,7 +56,7 @@ export function useTodayRoutine<T extends RoutineType>(
         return;
       }
 
-      setLogs((data ?? []) as TypedRoutineLog<T>[]);
+      setLogs((data ?? []) as unknown as TypedRoutineLog<T>[]);
     }
 
     fetchLogs();

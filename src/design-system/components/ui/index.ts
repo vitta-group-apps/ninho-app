@@ -88,3 +88,11 @@ export type { SuccessCheckmarkProps }                                  from './S
 
 // ── Phase 7 molecules ─────────────────────────────────────────────────────────
 export { OfflineAlert } from './OfflineAlert';
+
+// ── Phase 8 molecules ─────────────────────────────────────────────────────────
+export { EmptyState }                                                from './EmptyState';
+export { Skeleton, SkeletonText, SkeletonAvatar,
+         SkeletonTimelineItem, SkeletonTimeline,
+         SkeletonChart, SkeletonCard }                               from './Skeleton';
+export type { EmptyStateProps, EmptyStateCta }                       from './EmptyState';
+export type { SkeletonProps }                                        from './Skeleton';

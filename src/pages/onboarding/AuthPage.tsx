@@ -27,32 +27,63 @@ type AuthMode = 'login' | 'signup';
 
 // ─── AuthForm molecule ────────────────────────────────────────────────────────
 
+// ─── validation helpers ───────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateEmail(v: string) {
+  if (!v.trim()) return 'E-mail obrigatório';
+  if (!EMAIL_RE.test(v.trim())) return 'E-mail inválido';
+  return null;
+}
+
+function validatePassword(v: string) {
+  if (!v) return 'Palavra-passe obrigatória';
+  if (v.length < 6) return 'Mínimo de 6 caracteres';
+  return null;
+}
+
+// ─── AuthForm molecule ────────────────────────────────────────────────────────
+
 function AuthForm() {
   const [mode,     setMode]     = useState<AuthMode>('login');
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [name,     setName]     = useState('');
   const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [success,  setSuccess]  = useState<string | null>(null);
+
+  // per-field errors shown after first blur
+  const [emailTouched,    setEmailTouched]    = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
+  const emailError    = emailTouched    ? validateEmail(email)       : null;
+  const passwordError = passwordTouched ? validatePassword(password) : null;
 
   function toggleMode() {
     setMode(m => m === 'login' ? 'signup' : 'login');
-    setError(null);
+    setApiError(null);
     setSuccess(null);
+    setEmailTouched(false);
+    setPasswordTouched(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    // Force validation display on submit
+    setEmailTouched(true);
+    setPasswordTouched(true);
+    if (validateEmail(email) || validatePassword(password)) return;
+
+    setApiError(null);
     setSuccess(null);
     setLoading(true);
 
     try {
       if (mode === 'login') {
         const { error: sbErr } = await supabase.auth.signInWithPassword({ email, password });
-        if (sbErr) setError(translateSupabaseError(sbErr));
-        // On success: onAuthStateChange in useSession handles navigation
+        if (sbErr) setApiError(translateSupabaseError(sbErr));
       } else {
         const { error: sbErr } = await supabase.auth.signUp({
           email,
@@ -60,12 +91,14 @@ function AuthForm() {
           options: { data: { full_name: name } },
         });
         if (sbErr) {
-          setError(translateSupabaseError(sbErr));
+          setApiError(translateSupabaseError(sbErr));
         } else {
           setSuccess('Confirma o teu e-mail para activar a conta. Depois volta aqui e entra.');
           setEmail('');
           setPassword('');
           setName('');
+          setEmailTouched(false);
+          setPasswordTouched(false);
           setMode('login');
         }
       }
@@ -75,7 +108,7 @@ function AuthForm() {
   }
 
   const isLogin  = mode === 'login';
-  const canSubmit = email.trim().length > 0 && password.length >= 6;
+  const canSubmit = !emailError && !passwordError && email.trim() && password;
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[var(--gap-md)]">
@@ -109,7 +142,9 @@ function AuthForm() {
         type="email"
         placeholder="o.teu@email.com"
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={e => { setEmail(e.target.value); setApiError(null); }}
+        onBlur={() => setEmailTouched(true)}
+        error={emailError ?? undefined}
         autoComplete={isLogin ? 'email' : 'username'}
         size="md"
         fullWidth
@@ -120,16 +155,17 @@ function AuthForm() {
         type="password"
         placeholder={isLogin ? '••••••••' : 'Mínimo 6 caracteres'}
         value={password}
-        onChange={e => setPassword(e.target.value)}
+        onChange={e => { setPassword(e.target.value); setApiError(null); }}
+        onBlur={() => setPasswordTouched(true)}
+        error={passwordError ?? undefined}
         autoComplete={isLogin ? 'current-password' : 'new-password'}
-        hint={!isLogin ? 'Mínimo de 6 caracteres' : undefined}
         size="md"
         fullWidth
       />
 
-      {/* error / success feedback */}
+      {/* API error / success feedback */}
       <AnimatePresence mode="wait">
-        {error && (
+        {apiError && (
           <motion.div
             key="error"
             initial={{ opacity: 0, y: -4 }}
@@ -138,7 +174,7 @@ function AuthForm() {
             className="rounded-[var(--radius-sm)] bg-ds-error-subtle border border-ds-error-border px-[var(--padding-md)] py-[var(--padding-sm)]"
             role="alert"
           >
-            <Text variant="caption-medium" className="text-ds-error-fg-strong">{error}</Text>
+            <Text variant="caption-medium" className="text-ds-error-fg-strong">{apiError}</Text>
           </motion.div>
         )}
         {success && (

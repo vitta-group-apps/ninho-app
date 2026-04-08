@@ -10,9 +10,11 @@ import {
   XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
-import { Text }  from '@/design-system/components/ui/Text';
-import { Card }  from '@/design-system/components/ui/Card';
-import { cn }    from '@/design-system/lib/utils';
+import { Text }         from '@/design-system/components/ui/Text';
+import { Card }         from '@/design-system/components/ui/Card';
+import { EmptyState }   from '@/design-system/components/ui/EmptyState';
+import { SkeletonChart } from '@/design-system/components/ui/Skeleton';
+import { cn }           from '@/design-system/lib/utils';
 import { useGrowthLog } from '../hooks/useGrowthLog';
 import type { GrowthRow } from '../types/health';
 
@@ -128,16 +130,14 @@ export function GrowthChart({ childId }: GrowthChartProps) {
 
       {/* chart */}
       {loading ? (
-        <div className="h-40 flex items-center justify-center">
-          <Text variant="caption-regular" color="secondary">A carregar…</Text>
-        </div>
+        <SkeletonChart />
       ) : points.length < 2 ? (
-        <div className="h-40 flex flex-col items-center justify-center gap-2">
-          <span className="text-3xl" aria-hidden="true">📈</span>
-          <Text variant="caption-regular" color="secondary">
-            Adiciona pelo menos 2 medições para ver o gráfico.
-          </Text>
-        </div>
+        <EmptyState
+          icon="📈"
+          title="Sem dados suficientes"
+          description="Adiciona pelo menos 2 medições para ver o gráfico de crescimento."
+          compact
+        />
       ) : (
         <ResponsiveContainer width="100%" height={160}>
           <AreaChart data={points} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>

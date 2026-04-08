@@ -13,7 +13,8 @@ import { Badge }           from '@/design-system/components/ui/Badge';
 import { Button }          from '@/design-system/components/ui/Button';
 import { LinkButton }      from '@/design-system/components/ui/LinkButton';
 import { IconButton }      from '@/design-system/components/ui/IconButton';
-import { SpinnerRound }    from '@/design-system/components/ui/Spinner';
+import { EmptyState }      from '@/design-system/components/ui/EmptyState';
+import { SkeletonTimeline } from '@/design-system/components/ui/Skeleton';
 import { SleepLogCard, DiaperLogCard, FeedingLogCard } from '@/features/routine/components';
 import { DaySelector }       from '@/features/routine/components/DaySelector';
 import { EditLogModal }      from '@/features/routine/components/EditLogModal';
@@ -129,24 +130,17 @@ function ChildChip({ child, active, onClick }: { child: Child; active: boolean; 
   );
 }
 
-// ─── empty state ──────────────────────────────────────────────────────────────
+// ─── no-child empty state (local wrapper) ────────────────────────────────────
 
-function EmptyState() {
+function NoChildEmptyState() {
   const navigate = useNavigate();
   return (
-    <div className="flex flex-col items-center justify-center gap-[var(--gap-md)] py-16 px-8 text-center">
-      <span className="text-5xl" aria-hidden="true">🪺</span>
-      <Text variant="h3">Nenhuma criança selecionada</Text>
-      <Text variant="body-md-regular" color="secondary">
-        Regista primeiro uma criança no teu perfil para acompanhar a rotina diária.
-      </Text>
-      <LinkButton
-        label="Adicionar criança →"
-        linkType="interactive"
-        className="mt-2"
-        onClick={() => navigate('/onboarding/child')}
-      />
-    </div>
+    <EmptyState
+      icon="🪺"
+      title="Nenhuma criança selecionada"
+      description="Regista primeiro uma criança para acompanhar a rotina diária."
+      cta={{ label: 'Adicionar criança →', onClick: () => navigate('/onboarding/child') }}
+    />
   );
 }
 
@@ -194,22 +188,18 @@ function DailyTimeline({
   }
 
   if (loading && merged.length === 0) {
-    return (
-      <div className="flex justify-center py-8">
-        <SpinnerRound size="md" />
-      </div>
-    );
+    return <SkeletonTimeline rows={4} />;
   }
 
   if (!loading && merged.length === 0) {
     return (
-      <Card variant="outlined" padding="md">
-        <div className="flex flex-col items-center gap-[var(--gap-sm)] py-4 text-center">
-          <span className="text-3xl" aria-hidden="true">📋</span>
-          <Text variant="body-md-regular" color="secondary">
-            Nenhum registo neste dia.
-          </Text>
-        </div>
+      <Card variant="outlined" padding="none">
+        <EmptyState
+          icon="📋"
+          title="Sem registos"
+          description="Nenhum evento registado neste dia."
+          compact
+        />
       </Card>
     );
   }
@@ -367,7 +357,7 @@ export function RoutineDashboard() {
         <DaySelector value={selectedDate} onChange={setSelectedDate} />
 
         {!currentChild ? (
-          <EmptyState />
+          <NoChildEmptyState />
         ) : (
           <>
             {/* insights — só hoje */}

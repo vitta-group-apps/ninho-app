@@ -4,6 +4,7 @@ import AuthPage from "./pages/onboarding/AuthPage";
 import FamilyPage from "./pages/onboarding/FamilyPage";
 import ChildPage from "./pages/onboarding/ChildPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { RoutineDashboard } from "./pages/routine/RoutineDashboard";
 import { useNinhoStore } from "./store/useNinhoStore";
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Route path="/onboarding/family" element={<FamilyPage />} />
         <Route path="/onboarding/child" element={<ChildPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/routine"   element={<RoutineDashboard />} />
         <Route path="/" element={profile ? <Navigate to="/dashboard" /> : <Navigate to="/auth" />} />
       </Routes>
     </BrowserRouter>

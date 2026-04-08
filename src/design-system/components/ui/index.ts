@@ -85,3 +85,6 @@ export { SuccessCheckmark }   from './SuccessCheckmark';
 export type { InvitationCardProps, InvitationStatus, InvitationRole } from './InvitationCard';
 export type { NotificationToggleProps }                                from './NotificationToggle';
 export type { SuccessCheckmarkProps }                                  from './SuccessCheckmark';
+
+// ── Phase 7 molecules ─────────────────────────────────────────────────────────
+export { OfflineAlert } from './OfflineAlert';

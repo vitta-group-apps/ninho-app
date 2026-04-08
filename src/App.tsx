@@ -10,6 +10,7 @@ import { HealthDashboard }    from "./pages/health/HealthDashboard";
 import { ProfilePage }        from "./pages/profile/ProfilePage";
 import { BottomNavigation }   from "./components/BottomNavigation";
 import { SpinnerRound }       from "./design-system/components/ui/Spinner";
+import { OfflineAlert }       from "./design-system/components/ui/OfflineAlert";
 
 // ─── rotas que mostram a BottomNavigation ─────────────────────────────────────
 
@@ -61,6 +62,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <OfflineAlert />
       <Toaster position="top-center" richColors />
       <AppShell>
         <Routes>

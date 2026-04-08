@@ -10,7 +10,22 @@ export default defineConfig({
     },
   },
   build: {
-    // Framer Motion é pesado; silencia o aviso acima de 500 kB
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor: React + Router
+          'vendor-react':   ['react', 'react-dom', 'react-router-dom'],
+          // Animation
+          'vendor-motion':  ['framer-motion'],
+          // Charts
+          'vendor-charts':  ['recharts'],
+          // Supabase
+          'vendor-supabase': ['@supabase/supabase-js'],
+          // State
+          'vendor-state':   ['zustand'],
+        },
+      },
+    },
   },
 });

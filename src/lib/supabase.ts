@@ -2,13 +2,23 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Accept both naming conventions: VITE_SUPABASE_ANON_KEY (standard) and
+// VITE_SUPABASE_PUBLISHABLE_KEY (used by the Supabase MCP project scaffolding)
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ??
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase env vars. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.')
+  // Use console.error instead of throw so the app doesn't white-screen in environments
+  // where env vars haven't been configured yet (CI, preview builds, etc.)
+  console.error(
+    '[Ninho] Supabase env vars missing. ' +
+    'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY) ' +
+    'in your .env or Vercel project settings.'
+  )
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl ?? '', supabaseAnonKey ?? '', {
   auth: {
     persistSession: true,
     autoRefreshToken: true,

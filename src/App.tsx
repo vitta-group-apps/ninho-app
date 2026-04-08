@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import AuthPage from "./pages/onboarding/AuthPage";
 import FamilyPage from "./pages/onboarding/FamilyPage";
 import ChildPage from "./pages/onboarding/ChildPage";
@@ -10,6 +11,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-center" richColors />
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/onboarding/family" element={<FamilyPage />} />

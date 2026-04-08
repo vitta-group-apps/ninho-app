@@ -58,6 +58,16 @@ export type SleepLog    = TypedRoutineLog<'sleep'>;
 export type DiaperLog   = TypedRoutineLog<'diaper'>;
 export type FeedingLog  = TypedRoutineLog<'feeding'>;
 
+// Union de todos os logs tipados (usado no dashboard e modais)
+export type AnyRoutineLog =
+  | TypedRoutineLog<'sleep'>
+  | TypedRoutineLog<'diaper'>
+  | TypedRoutineLog<'feeding'>
+  | TypedRoutineLog<'pumping'>
+  | TypedRoutineLog<'medication'>
+  | TypedRoutineLog<'food_intro'>
+  | TypedRoutineLog<'activity'>;
+
 // ─── Input para inserção tipada ────────────────────────────────────────────
 
 export type RoutineLogInput<T extends RoutineType = RoutineType> = {

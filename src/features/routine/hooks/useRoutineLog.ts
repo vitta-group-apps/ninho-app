@@ -1,6 +1,6 @@
 /**
  * NINHO — useRoutineLog
- * Mutações tipadas para routine_logs: inserir e remover.
+ * Mutações tipadas para routine_logs: inserir, atualizar e remover.
  */
 
 import { useState } from 'react';
@@ -8,8 +8,15 @@ import { supabase } from '@/lib/supabase';
 import type { Json } from '@/types/database.types';
 import type { RoutineType, RoutineLogInput, TypedRoutineLog } from '../types/routine';
 
+export interface LogPatch {
+  notes?:      string | null;
+  started_at?: string | null;
+  ended_at?:   string | null;
+}
+
 interface UseRoutineLogReturn<T extends RoutineType> {
   addLog:    (input: RoutineLogInput<T>) => Promise<TypedRoutineLog<T>>;
+  updateLog: (id: string, patch: LogPatch) => Promise<void>;
   removeLog: (id: string) => Promise<void>;
   loading:   boolean;
   error:     Error | null;
@@ -48,6 +55,28 @@ export function useRoutineLog<T extends RoutineType>(): UseRoutineLogReturn<T> {
     return data as unknown as TypedRoutineLog<T>;
   }
 
+  async function updateLog(id: string, patch: LogPatch): Promise<void> {
+    setLoading(true);
+    setError(null);
+
+    const { error: sbError } = await supabase
+      .from('routine_logs')
+      .update({
+        ...(patch.notes      !== undefined && { notes:      patch.notes }),
+        ...(patch.started_at !== undefined && { started_at: patch.started_at }),
+        ...(patch.ended_at   !== undefined && { ended_at:   patch.ended_at }),
+      })
+      .eq('id', id);
+
+    setLoading(false);
+
+    if (sbError) {
+      const err = new Error(sbError.message);
+      setError(err);
+      throw err;
+    }
+  }
+
   async function removeLog(id: string): Promise<void> {
     setLoading(true);
     setError(null);
@@ -66,5 +95,5 @@ export function useRoutineLog<T extends RoutineType>(): UseRoutineLogReturn<T> {
     }
   }
 
-  return { addLog, removeLog, loading, error };
+  return { addLog, updateLog, removeLog, loading, error };
 }

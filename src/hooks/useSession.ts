@@ -44,6 +44,12 @@ async function resolveSession(): Promise<void> {
     }
 
     store.setChildren(children)
+
+    // Preserva currentChild persistido se ainda estiver na lista; caso contrário, seleciona o primeiro
+    const persisted  = store.currentChild
+    const stillValid = persisted && children.some((c: any) => c.id === persisted.id)
+    store.setCurrentChild(stillValid ? persisted : (children[0] as any))
+
     store.setAppState('dashboard')
 
   } catch (error) {

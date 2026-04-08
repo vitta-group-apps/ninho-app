@@ -76,7 +76,16 @@ export const useNinhoStore = create<NinhoState>()(
         set({ profile: null, currentFamily: null, currentChild: null, children: [], appState: 'auth' });
       }
     }),
-    { name: 'ninho-storage' }
+    {
+      name: 'ninho-storage',
+      // Nunca persistir estado transitório — evita appState:'loading' sobreviver ao refresh
+      partialize: (state) => ({
+        profile:       state.profile,
+        currentFamily: state.currentFamily,
+        currentChild:  state.currentChild,
+        children:      state.children,
+      }),
+    }
   )
 )
 

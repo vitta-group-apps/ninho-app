@@ -10,6 +10,10 @@ export default {
   ],
   prefix: "",
   theme: {
+    // font-sans → Nunito a nível global (fora do extend para override total)
+    fontFamily: {
+      sans:     ["Nunito", "system-ui", "sans-serif"],
+    },
     container: {
       center: true,
       padding: "2rem",
@@ -18,10 +22,10 @@ export default {
     extend: {
       fontFamily: {
         quicksand: ["Quicksand", "system-ui", "sans-serif"],
-        nunito: ["Nunito", "system-ui", "sans-serif"],
+        nunito:    ["Nunito", "system-ui", "sans-serif"],
         // DS aliases
-        heading: ["Quicksand", "system-ui", "sans-serif"],
-        body:    ["Nunito", "system-ui", "sans-serif"],
+        heading:   ["Quicksand", "system-ui", "sans-serif"],
+        body:      ["Nunito", "system-ui", "sans-serif"],
       },
       fontSize: {
         "text-xs":     ["var(--font-size-text-xs)",     { lineHeight: "1.5" }],

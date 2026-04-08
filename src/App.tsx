@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useSession }         from "./hooks/useSession";
 import AuthPage               from "./pages/onboarding/AuthPage";
@@ -6,7 +6,25 @@ import FamilyPage             from "./pages/onboarding/FamilyPage";
 import ChildPage              from "./pages/onboarding/ChildPage";
 import { DashboardPage }      from "./pages/DashboardPage";
 import { RoutineDashboard }   from "./pages/routine/RoutineDashboard";
+import { HealthDashboard }    from "./pages/health/HealthDashboard";
+import { BottomNavigation }   from "./components/BottomNavigation";
 import { SpinnerRound }       from "./design-system/components/ui/Spinner";
+
+// ─── rotas que mostram a BottomNavigation ─────────────────────────────────────
+
+const NAV_ROUTES = ['/routine', '/health', '/dashboard'];
+
+function AppShell({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const showNav = NAV_ROUTES.some(r => pathname.startsWith(r));
+
+  return (
+    <>
+      {children}
+      {showNav && <BottomNavigation />}
+    </>
+  );
+}
 
 // ─── loading screen ───────────────────────────────────────────────────────────
 
@@ -24,11 +42,11 @@ function LoadingScreen() {
 function AppRoot({ appState }: { appState: string }) {
   switch (appState) {
     case 'unauthenticated':
-    case 'auth':             return <Navigate to="/auth"               replace />;
+    case 'auth':              return <Navigate to="/auth"               replace />;
     case 'onboarding_family': return <Navigate to="/onboarding/family"  replace />;
     case 'onboarding_child':  return <Navigate to="/onboarding/child"   replace />;
     case 'dashboard':
-    case 'ready':             return <Navigate to="/dashboard"          replace />;
+    case 'ready':             return <Navigate to="/routine"            replace />;
     default:                  return <Navigate to="/auth"               replace />;
   }
 }
@@ -36,22 +54,25 @@ function AppRoot({ appState }: { appState: string }) {
 // ─── app ──────────────────────────────────────────────────────────────────────
 
 function App() {
-  const { appState, profile } = useSession();   // ← inicia a máquina de sessão
+  const { appState, profile } = useSession();
 
   if (appState === 'loading') return <LoadingScreen />;
 
   return (
     <BrowserRouter>
       <Toaster position="top-center" richColors />
-      <Routes>
-        <Route path="/auth"               element={<AuthPage />} />
-        <Route path="/onboarding/family"  element={<FamilyPage />} />
-        <Route path="/onboarding/child"   element={<ChildPage />} />
-        <Route path="/dashboard"          element={profile ? <DashboardPage />    : <Navigate to="/auth" replace />} />
-        <Route path="/routine"            element={profile ? <RoutineDashboard /> : <Navigate to="/auth" replace />} />
-        <Route path="/"                   element={<AppRoot appState={appState} />} />
-        <Route path="*"                   element={<Navigate to="/" replace />} />
-      </Routes>
+      <AppShell>
+        <Routes>
+          <Route path="/auth"               element={<AuthPage />} />
+          <Route path="/onboarding/family"  element={<FamilyPage />} />
+          <Route path="/onboarding/child"   element={<ChildPage />} />
+          <Route path="/dashboard"          element={profile ? <DashboardPage />    : <Navigate to="/auth" replace />} />
+          <Route path="/routine"            element={profile ? <RoutineDashboard /> : <Navigate to="/auth" replace />} />
+          <Route path="/health"             element={profile ? <HealthDashboard />  : <Navigate to="/auth" replace />} />
+          <Route path="/"                   element={<AppRoot appState={appState} />} />
+          <Route path="*"                   element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppShell>
     </BrowserRouter>
   );
 }

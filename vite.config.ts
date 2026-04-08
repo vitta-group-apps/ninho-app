@@ -9,4 +9,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Framer Motion é pesado; silencia o aviso acima de 500 kB
+    chunkSizeWarningLimit: 1000,
+  },
 });

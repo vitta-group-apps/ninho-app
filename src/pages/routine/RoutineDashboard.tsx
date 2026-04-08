@@ -4,13 +4,15 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Link }            from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast }           from 'sonner';
 import { Text }            from '@/design-system/components/ui/Text';
 import { Card }            from '@/design-system/components/ui/Card';
 import { Badge }           from '@/design-system/components/ui/Badge';
 import { Button }          from '@/design-system/components/ui/Button';
+import { LinkButton }      from '@/design-system/components/ui/LinkButton';
+import { IconButton }      from '@/design-system/components/ui/IconButton';
 import { SpinnerRound }    from '@/design-system/components/ui/Spinner';
 import { SleepLogCard, DiaperLogCard, FeedingLogCard } from '@/features/routine/components';
 import { DaySelector }     from '@/features/routine/components/DaySelector';
@@ -129,6 +131,7 @@ function ChildChip({ child, active, onClick }: { child: Child; active: boolean; 
 // ─── empty state ──────────────────────────────────────────────────────────────
 
 function EmptyState() {
+  const navigate = useNavigate();
   return (
     <div className="flex flex-col items-center justify-center gap-[var(--gap-md)] py-16 px-8 text-center">
       <span className="text-5xl" aria-hidden="true">🪺</span>
@@ -136,12 +139,12 @@ function EmptyState() {
       <Text variant="body-md-regular" color="secondary">
         Regista primeiro uma criança no teu perfil para acompanhar a rotina diária.
       </Text>
-      <Link
-        to="/onboarding/child"
-        className="mt-2 text-ds-accent-fg font-body font-semibold text-text-md underline-offset-2 hover:underline"
-      >
-        Adicionar criança →
-      </Link>
+      <LinkButton
+        label="Adicionar criança →"
+        linkType="interactive"
+        className="mt-2"
+        onClick={() => navigate('/onboarding/child')}
+      />
     </div>
   );
 }
@@ -245,22 +248,20 @@ function DailyTimeline({
 
                   {/* actions */}
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
+                    <IconButton
+                      variant="tertiary"
+                      size="xs"
+                      icon={<EditIcon />}
+                      aria-label="Editar registo"
                       onClick={() => onEdit(log)}
-                      title="Editar"
-                      className="flex items-center justify-center w-6 h-6 rounded text-ds-neutral-fg hover:bg-ds-neutral-subtle hover:text-ds-accent-fg transition-colors"
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <IconButton
+                      variant="tertiary"
+                      size="xs"
+                      icon={<TrashIcon />}
+                      aria-label="Eliminar registo"
                       onClick={() => handleDelete(log)}
-                      title="Eliminar"
-                      className="flex items-center justify-center w-6 h-6 rounded text-ds-neutral-fg hover:bg-ds-error-subtle hover:text-ds-error-fg transition-colors"
-                    >
-                      <TrashIcon />
-                    </button>
+                    />
                   </div>
                 </div>
 
@@ -311,7 +312,7 @@ export function RoutineDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
 
       {/* ── sticky header ─────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 bg-ds-pure-white border-b border-ds-neutral-border px-4 py-3">

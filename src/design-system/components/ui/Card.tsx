@@ -17,7 +17,7 @@ export interface CardProps {
 }
 
 const variantClasses: Record<CardVariant, string> = {
-  elevated: 'bg-ds-pure-white shadow-xs',
+  elevated: 'bg-ds-pure-white shadow-ds-xs',
   outlined: 'bg-ds-pure-white border border-ds-neutral-border',
   filled:   'bg-ds-neutral-subtle',
   ghost:    'bg-transparent',
@@ -41,7 +41,7 @@ export function Card({
     'rounded-[var(--radius-xl)] overflow-hidden',
     variantClasses[variant],
     paddingClasses[padding],
-    onClick && 'cursor-pointer transition-shadow hover:shadow-sm active:shadow-xs',
+    onClick && 'cursor-pointer transition-shadow hover:shadow-ds-sm active:shadow-ds-xs',
     className,
   );
 

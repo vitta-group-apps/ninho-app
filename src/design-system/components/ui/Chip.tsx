@@ -35,7 +35,7 @@ export function Chip({
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent-tint focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed disabled:opacity-50',
         selected
-          ? 'bg-ds-accent-subtle-2 border-accent-tint text-ds-accent-fg'
+          ? 'bg-ds-accent-subtle-2 border-ds-accent-tint text-ds-accent-fg'
           : 'bg-ds-pure-white border-ds-neutral-border text-ds-neutral-fg-strong hover:bg-ds-neutral-subtle hover:border-ds-neutral-border-hover',
         className,
       )}

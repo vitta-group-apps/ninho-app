@@ -10,12 +10,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import {
-  ClipboardDocumentListIcon,
-  HeartIcon,
-  SparklesIcon,
-  ChevronRightIcon,
-} from '@heroicons/react/24/outline';
+import { ClipboardList, Heart, Sparkles, ChevronRight } from 'lucide-react';
 import { Text }  from '@/design-system/components/ui/Text';
 import { Card }  from '@/design-system/components/ui/Card';
 import { useNinhoStore } from '@/store/useNinhoStore';
@@ -141,7 +136,7 @@ export function DashboardPage() {
             <div className="flex items-center gap-[var(--gap-lg)] px-[var(--padding-xl)] py-[var(--padding-xl)] bg-ds-accent-subtle rounded-[var(--radius-xl)]">
               {/* ícone */}
               <div className="w-14 h-14 rounded-[var(--radius-xl)] bg-ds-accent-tint flex items-center justify-center shrink-0">
-                <SparklesIcon
+                <Sparkles
                   className="w-7 h-7 text-ds-on-tint-white"
                   strokeWidth={2}
                   aria-hidden="true"
@@ -158,7 +153,7 @@ export function DashboardPage() {
                     : 'Sono, fraldas e alimentação'}
                 </Text>
               </div>
-              <ChevronRightIcon
+              <ChevronRight
                 className="w-5 h-5 text-ds-accent-fg shrink-0"
                 strokeWidth={2}
                 aria-hidden="true"
@@ -170,7 +165,7 @@ export function DashboardPage() {
         {/* cards secundários lado a lado */}
         <div className="flex gap-[var(--gap-md)]">
           <QuickAction
-            icon={<ClipboardDocumentListIcon strokeWidth={1.5} />}
+            icon={<ClipboardList strokeWidth={1.5} />}
             label="Registros"
             sub={childName ? `Histórico de ${childName}` : 'Logs do dia'}
             iconBg="bg-ds-neutral-subtle"
@@ -179,7 +174,7 @@ export function DashboardPage() {
             onClick={() => navigate('/routine')}
           />
           <QuickAction
-            icon={<HeartIcon strokeWidth={1.5} />}
+            icon={<Heart strokeWidth={1.5} />}
             label="Saúde"
             sub="Febre e crescimento"
             iconBg="bg-ds-success-subtle"

@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { SparklesIcon, HomeModernIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { Sparkles, Home, ChevronRight } from 'lucide-react';
 import { Text }  from '@/design-system/components/ui/Text';
 import { Card }  from '@/design-system/components/ui/Card';
 import { useNinhoStore } from '@/store/useNinhoStore';
@@ -65,7 +65,7 @@ function ModeOption({ icon, iconBg, iconColor, title, description, delay, onClic
           </div>
 
           {/* chevron */}
-          <ChevronRightIcon
+          <ChevronRight
             className="shrink-0 w-5 h-5 text-ds-neutral-fg"
             aria-hidden="true"
           />
@@ -121,7 +121,7 @@ export default function ModePage() {
       <main className="flex-1 flex flex-col px-[var(--padding-xl)] gap-[var(--gap-md)] pb-[var(--padding-xxl)]">
 
         <ModeOption
-          icon={<SparklesIcon strokeWidth={1.5} />}
+          icon={<Sparkles strokeWidth={1.5} />}
           iconBg="bg-ds-secondary-subtle"
           iconColor="text-ds-secondary-fg"
           title="Ainda na gestação"
@@ -131,7 +131,7 @@ export default function ModePage() {
         />
 
         <ModeOption
-          icon={<HomeModernIcon strokeWidth={1.5} />}
+          icon={<Home strokeWidth={1.5} />}
           iconBg="bg-ds-accent-subtle"
           iconColor="text-ds-accent-fg"
           title="Bebê já chegou"

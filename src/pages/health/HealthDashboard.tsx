@@ -38,10 +38,11 @@ function EmptyState() {
   const navigate = useNavigate();
   return (
     <div className="flex flex-col items-center justify-center gap-[var(--gap-md)] py-16 px-8 text-center">
-      <span className="text-5xl" aria-hidden="true">🪺</span>
-      <Text variant="h3">Pronto para cuidar da saúde</Text>
+      <span className="text-5xl" aria-hidden="true">🌿</span>
+      <Text variant="h3" className="font-heading">Aqui fica o histórico de saúde</Text>
       <Text variant="body-md-regular" color="secondary">
-        Adicione seu bebê na rotina e acompanhe febre, sintomas e crescimento aqui.
+        Quando você registrar o primeiro cuidado — febre, sintoma ou medição — ele aparece aqui,
+        organizado e fácil de consultar.
       </Text>
       <LinkButton
         label="Ir para Rotina →"
@@ -116,7 +117,7 @@ export function HealthDashboard() {
           <EmptyState />
         ) : tab === 'illness' ? (
           <>
-            <SectionLabel>Registar agora</SectionLabel>
+            <SectionLabel>Registrar agora</SectionLabel>
             <FeverLogCard    childId={currentChild.id} />
             <SymptomsLogCard childId={currentChild.id} />
           </>

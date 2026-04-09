@@ -1,7 +1,7 @@
 /**
  * NINHO — FamilyPage (Onboarding Passo 1 de 2)
- * Agentes: ZEUS (Pure White) · LUMEN (copy acolhedor) · MINERVA (zero atrito)
- *          LEX (RLS: family criada com owner_user_id do utilizador autenticado)
+ * Agentes: ZEUS (Pure White) · LUMEN (copy PT-BR acolhedor) · MINERVA (zero atrito)
+ *          LEX (RLS: family criada com owner_user_id do usuário autenticado)
  */
 
 import React, { useState } from 'react';
@@ -51,7 +51,7 @@ export default function FamilyPage() {
   const [loading,    setLoading]    = useState(false);
 
   const nameError = touched && familyName.trim().length < 2
-    ? 'Escolhe um nome com pelo menos 2 letras'
+    ? 'Escolha um nome com pelo menos 2 letras'
     : null;
 
   async function handleCreate(e: React.FormEvent) {
@@ -62,9 +62,9 @@ export default function FamilyPage() {
     setLoading(true);
     try {
       const userId = store.profile?.id;
-      if (!userId) throw new Error('Sessão expirada. Entra novamente.');
+      if (!userId) throw new Error('Sessão expirada. Entre novamente.');
 
-      // LEX: owner_user_id garante que o RLS associa a família ao utilizador certo
+      // LEX: owner_user_id garante que o RLS associa a família ao usuário correto
       const { data: family, error: famErr } = await supabase
         .from('families')
         .insert({ name: familyName.trim(), owner_user_id: userId })
@@ -81,47 +81,59 @@ export default function FamilyPage() {
       store.setCurrentFamily({ id: family.id, name: family.name });
       store.setAppState('onboarding_child');
     } catch (err: any) {
-      toast.error(err?.message ?? 'Não foi possível criar a família. Tenta de novo.');
+      toast.error(err?.message ?? 'Não foi possível criar a família. Tente novamente.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-ds-pure-white flex flex-col">
+    <div
+      className="min-h-screen bg-ds-pure-white flex flex-col"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 20px)' }}
+    >
 
-      {/* ── header com progress ───────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-[var(--padding-lg)] pt-[var(--padding-xl)] pb-[var(--padding-md)]">
+      {/* ── header: só os dots, sem texto de "Passo N de N" ─────────────── */}
+      <header className="flex items-center px-[var(--padding-lg)] pb-[var(--padding-md)]">
         <StepDots current={1} total={2} />
-        <Text variant="caption-regular" color="secondary" as="span">Passo 1 de 2</Text>
       </header>
 
-      {/* ── hero ──────────────────────────────────────────────────────── */}
+      {/* ── hero ──────────────────────────────────────────────────────────── */}
       <motion.section
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="flex flex-col gap-[var(--gap-sm)] px-[var(--padding-lg)] pb-[var(--padding-xl)]"
+        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="flex flex-col gap-[var(--gap-md)] px-[var(--padding-lg)] pb-[var(--padding-xl)]"
       >
-        <span className="text-5xl leading-none select-none" aria-hidden="true">🏡</span>
-        <div className="flex flex-col gap-[var(--gap-xs)]">
-          <Text variant="h2" className="font-heading">O vosso espaço</Text>
+        {/* emoji âncora — 6xl conforme spec Apple Health */}
+        <span
+          className="text-6xl leading-none select-none"
+          aria-hidden="true"
+          style={{ fontSize: '4rem', lineHeight: 1 }}
+        >
+          🏡
+        </span>
+
+        <div className="flex flex-col gap-[var(--gap-sm)]">
+          <Text variant="h1" className="font-heading tracking-tight">
+            Vamos criar o lar do nosso bebê
+          </Text>
           <Text variant="body-md-regular" color="secondary">
-            Deem um nome ao vosso lar digital.{' '}
-            Pode ser o apelido da família, um apelido carinhoso — o que fizer sentido para vocês.
+            Escolha um nome para a família. Pode ser o sobrenome, um apelido carinhoso — o que
+            parecer mais com vocês.
           </Text>
         </div>
       </motion.section>
 
-      {/* ── divisor ───────────────────────────────────────────────────── */}
+      {/* ── divisor ───────────────────────────────────────────────────────── */}
       <div className="h-px bg-ds-neutral-border mx-[var(--padding-lg)]" aria-hidden="true" />
 
-      {/* ── form ──────────────────────────────────────────────────────── */}
+      {/* ── form ──────────────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col px-[var(--padding-lg)] py-[var(--padding-xl)] max-w-sm w-full mx-auto gap-[var(--gap-md)]">
         <form onSubmit={handleCreate} noValidate className="flex flex-col gap-[var(--gap-md)]">
           <TextInput
             label="Nome da família"
-            placeholder="Ex: Família Silva · Clã dos Fonseca · Casa Mágica…"
+            placeholder="Família Silva, Casa dos Rocha..."
             value={familyName}
             onChange={e => { setFamilyName(e.target.value); setTouched(false); }}
             onBlur={() => setTouched(true)}
@@ -129,14 +141,14 @@ export default function FamilyPage() {
             size="md"
             fullWidth
             autoFocus
-            hint="Podem mudar isto mais tarde nas definições."
+            hint="Você pode mudar isso depois nas configurações."
           />
 
           <Button
             type="submit"
-            label="Criar o nosso lar"
+            label="Criar nossa família →"
             variant="primary"
-            size="md"
+            size="lg"
             fullWidth
             loading={loading}
             disabled={loading}
@@ -145,7 +157,7 @@ export default function FamilyPage() {
 
         {/* MINERVA: reassurance copy para reduzir ansiedade de decisão */}
         <Text variant="caption-regular" color="secondary" className="text-center">
-          🔒 Só vocês e os cuidadores que convidarem terão acesso.
+          🔒 Só você e os cuidadores que convidar terão acesso.
         </Text>
       </main>
     </div>

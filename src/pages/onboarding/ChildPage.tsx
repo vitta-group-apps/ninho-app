@@ -1,6 +1,6 @@
 /**
  * NINHO — ChildPage (Onboarding Passo 2 de 2)
- * Agentes: ZEUS (Pure White) · LUMEN (copy afetivo) · MINERVA (só o essencial)
+ * Agentes: ZEUS (Pure White) · LUMEN (copy PT-BR afetivo) · MINERVA (só o essencial)
  *          ATLAS: birth_date é o ponto de partida dos insights de crescimento
  */
 
@@ -57,7 +57,8 @@ function SexPicker({ value, onChange }: { value?: Sex; onChange: (v: Sex) => voi
   return (
     <div className="flex flex-col gap-[var(--gap-xs)]">
       <Text variant="caption-medium" color="secondary" as="label">
-        Sexo <Text variant="caption-regular" color="secondary" as="span">(opcional)</Text>
+        Sexo{' '}
+        <Text variant="caption-regular" color="secondary" as="span">(opcional)</Text>
       </Text>
       <div className="flex gap-[var(--gap-sm)]">
         {SEX_OPTIONS.map(o => (
@@ -98,7 +99,7 @@ export default function ChildPage() {
   const [loading,   setLoading]   = useState(false);
 
   const nameError = touched && name.trim().length < 1
-    ? 'O nome é necessário para personalizarmos a experiência'
+    ? 'O nome é necessário para personalizar a experiência'
     : null;
 
   async function handleCreate(e: React.FormEvent) {
@@ -108,7 +109,7 @@ export default function ChildPage() {
 
     const familyId = store.currentFamily?.id;
     if (!familyId) {
-      toast.error('Família não encontrada. Reinicia o processo.');
+      toast.error('Família não encontrada. Reinicie o processo.');
       return;
     }
 
@@ -117,10 +118,10 @@ export default function ChildPage() {
       const { data: child, error: sbErr } = await supabase
         .from('children')
         .insert({
-          family_id:     familyId,
+          family_id:      familyId,
           preferred_name: name.trim(),
-          birth_date:    birthDate || null,
-          sex_at_birth:  sex ?? 'other',
+          birth_date:     birthDate || null,
+          sex_at_birth:   sex ?? 'other',
         })
         .select()
         .single();
@@ -131,47 +132,60 @@ export default function ChildPage() {
       store.setCurrentChild(child as any);
       store.setAppState('dashboard');
     } catch (err: any) {
-      toast.error(err?.message ?? 'Não foi possível registar o bebé. Tenta de novo.');
+      toast.error(err?.message ?? 'Não foi possível registrar o bebê. Tente novamente.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-ds-pure-white flex flex-col">
+    <div
+      className="min-h-screen bg-ds-pure-white flex flex-col"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 20px)' }}
+    >
 
-      {/* ── header com progress ───────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-[var(--padding-lg)] pt-[var(--padding-xl)] pb-[var(--padding-md)]">
+      {/* ── header: só os dots ────────────────────────────────────────────── */}
+      <header className="flex items-center px-[var(--padding-lg)] pb-[var(--padding-md)]">
         <StepDots current={2} total={2} />
-        <Text variant="caption-regular" color="secondary" as="span">Passo 2 de 2</Text>
       </header>
 
-      {/* ── hero ──────────────────────────────────────────────────────── */}
+      {/* ── hero ──────────────────────────────────────────────────────────── */}
       <motion.section
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="flex flex-col gap-[var(--gap-sm)] px-[var(--padding-lg)] pb-[var(--padding-xl)]"
+        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="flex flex-col gap-[var(--gap-md)] px-[var(--padding-lg)] pb-[var(--padding-xl)]"
       >
-        <span className="text-5xl leading-none select-none" aria-hidden="true">🍼</span>
-        <div className="flex flex-col gap-[var(--gap-xs)]">
-          <Text variant="h2" className="font-heading">Apresenta-nos ao bebé</Text>
+        {/* emoji âncora — 6xl conforme spec Apple Health */}
+        <span
+          className="text-6xl leading-none select-none"
+          aria-hidden="true"
+          style={{ fontSize: '4rem', lineHeight: 1 }}
+        >
+          🍼
+        </span>
+
+        <div className="flex flex-col gap-[var(--gap-sm)]">
+          <Text variant="h1" className="font-heading tracking-tight">
+            Como se chama seu bebê?
+          </Text>
           <Text variant="body-md-regular" color="secondary">
-            Só precisamos do nome e a data de nascimento — o resto podes preencher depois, ao teu ritmo.
+            Só precisamos do nome e a data de nascimento — o resto você preenche depois, no seu
+            tempo.
           </Text>
         </div>
       </motion.section>
 
-      {/* ── divisor ───────────────────────────────────────────────────── */}
+      {/* ── divisor ───────────────────────────────────────────────────────── */}
       <div className="h-px bg-ds-neutral-border mx-[var(--padding-lg)]" aria-hidden="true" />
 
-      {/* ── form ──────────────────────────────────────────────────────── */}
+      {/* ── form ──────────────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col px-[var(--padding-lg)] py-[var(--padding-xl)] max-w-sm w-full mx-auto gap-[var(--gap-md)]">
         <form onSubmit={handleCreate} noValidate className="flex flex-col gap-[var(--gap-md)]">
 
           <TextInput
-            label="Como se chama?"
-            placeholder="Mateus, Lara, Bebé Silva…"
+            label="Nome do bebê"
+            placeholder="Mateus, Lara, Sofia..."
             value={name}
             onChange={e => { setName(e.target.value); setTouched(false); }}
             onBlur={() => setTouched(true)}
@@ -188,7 +202,7 @@ export default function ChildPage() {
             onChange={e => setBirthDate(e.target.value)}
             size="md"
             fullWidth
-            hint="Usamos isto para os insights de crescimento e desenvolvimento."
+            hint="Usamos isso para os insights de crescimento."
           />
 
           <SexPicker value={sex} onChange={setSex} />
@@ -206,7 +220,7 @@ export default function ChildPage() {
 
         {/* ATLAS: prepara expectativa dos insights */}
         <Text variant="caption-regular" color="secondary" className="text-center">
-          ✨ Em segundos, o teu dashboard de cuidados estará pronto.
+          ✨ Em segundos, seu painel de cuidados estará pronto.
         </Text>
       </main>
     </div>

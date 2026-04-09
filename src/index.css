@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+@import './design-system/tokens/tokens.css';
 
 @tailwind base;
 @tailwind components;
@@ -6,33 +7,40 @@
 
 @layer base {
   :root {
-    --background: 60 11% 91%;       /* stone-200 #E8E8E2 */
-    --foreground: 30 15% 20%;       /* dark brown */
+    /* ── patch: primitive-white/black-900 não existem no tokens.css gerado ── */
+    /* tokens.css usa --primitive-white-static-* e --primitive-black-static-* */
+    /* mas os semantic tokens referenciam --primitive-white-900 e --primitive-black-900 */
+    --primitive-white-900: #ffffff;
+    --primitive-black-900: #0d0d0d;
+
+    /* ── background branco puro (Apple Health) ── */
+    --background: 0 0% 100%;        /* #ffffff — branco puro */
+    --foreground: 0 0% 11%;         /* #1c1c1e — quase preto iOS */
 
     --card: 0 0% 100%;
-    --card-foreground: 30 15% 20%;
+    --card-foreground: 0 0% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 30 15% 20%;
+    --popover-foreground: 0 0% 11%;
 
-    --primary: 152 14% 65%;         /* sage-500 #99b4a7 */
+    --primary: 291 9% 47%;          /* mauve-700 #806e84 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 60 11% 91%;        /* stone-200 */
-    --secondary-foreground: 30 15% 35%;
+    --secondary: 291 18% 95%;       /* mauve-50 */
+    --secondary-foreground: 0 0% 11%;
 
-    --muted: 60 8% 94%;
-    --muted-foreground: 30 8% 50%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 27 22% 45%;           /* earth-500 #906d57 */
-    --accent-foreground: 0 0% 100%;
+    --accent: 291 18% 95%;
+    --accent-foreground: 0 0% 11%;
 
     --destructive: 355 72% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 60 8% 84%;
-    --input: 60 8% 84%;
-    --ring: 152 14% 65%;
+    --border: 0 0% 90%;             /* cinza suave, quase invisível */
+    --input: 0 0% 96%;
+    --ring: 291 9% 47%;
 
     --radius: 0.75rem;
   }
@@ -42,13 +50,15 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Nunito', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
   }
 
-  h1, h2, h3 {
-    @apply font-serif;
+  h1, h2, h3, h4 {
+    font-family: 'Quicksand', system-ui, sans-serif;
   }
 }
 

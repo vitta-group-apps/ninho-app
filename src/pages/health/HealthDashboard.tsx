@@ -39,9 +39,9 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center gap-[var(--gap-md)] py-16 px-8 text-center">
       <span className="text-5xl" aria-hidden="true">🪺</span>
-      <Text variant="h3">Nenhuma criança selecionada</Text>
+      <Text variant="h3">Pronto para cuidar da saúde</Text>
       <Text variant="body-md-regular" color="secondary">
-        Seleciona uma criança no painel de rotina para acompanhar a saúde.
+        Adicione seu bebê na rotina e acompanhe febre, sintomas e crescimento aqui.
       </Text>
       <LinkButton
         label="Ir para Rotina →"

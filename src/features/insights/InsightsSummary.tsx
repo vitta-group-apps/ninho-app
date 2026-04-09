@@ -21,8 +21,7 @@ function MetricTile({
   return (
     <div className={cn(
       'flex flex-col gap-[var(--gap-xxs)]',
-      'bg-ds-pure-white rounded-[var(--radius-lg)] p-[var(--padding-sm)]',
-      'border border-ds-neutral-border',
+      'bg-ds-neutral-subtle rounded-[var(--radius-lg)] p-[var(--padding-sm)]',
     )}>
       <span className="text-xl" aria-hidden="true">{emoji}</span>
       <Text variant="caption-medium" color="secondary" as="span">{label}</Text>

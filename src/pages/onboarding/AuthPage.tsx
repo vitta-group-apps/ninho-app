@@ -1,16 +1,11 @@
 /**
- * NINHO — AuthPage  ·  Molecule: AuthForm + MagicLinkForm
- * Nitro™ Core v3.0 — Arquitetura Atômica
+ * NINHO — AuthPage
+ * Fluxo principal: Magic Link (sem senha) como caminho primário.
+ * Senha como opção secundária expandível.
  *
- * Agentes: ZEUS (layout Pure White) · LUMEN (copy emocional) · MINERVA (zero atrito)
- *          LUKE (Magic Link como caminho principal) · LEX (privacy consent)
- *
- * Átomos: TextInput · Button · Text · LinkButton
- * Fundo:  bg-ds-pure-white — sem fundos escuros, sem cards flutuantes
- * Fluxo:
- *   login    → email + password  OU  Magic Link (signInWithOtp)
- *   signup   → name + email + password + consent
- *   otp-sent → ecrã de confirmação ("Verifica o teu e-mail")
+ * Zeus: layout branco, hierarquia clara
+ * Lumen: copy PT-BR, empático, sem "palavra-passe"
+ * Luke: Magic Link primeiro → menos atrito → mais conversão
  */
 
 import React, { useState } from 'react';
@@ -21,27 +16,21 @@ import { TextInput }  from '@/design-system/components/ui/TextInput';
 import { LinkButton } from '@/design-system/components/ui/LinkButton';
 import { supabase, translateSupabaseError } from '@/lib/supabase';
 
-// ─── tipos ────────────────────────────────────────────────────────────────────
-
 type Screen = 'login' | 'signup' | 'otp-sent';
-
-// ─── validação ────────────────────────────────────────────────────────────────
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validateEmail(v: string): string | null {
-  if (!v.trim())            return 'E-mail obrigatório';
-  if (!EMAIL_RE.test(v))    return 'Formato de e-mail inválido';
+  if (!v.trim())         return 'Digite seu e-mail para continuar';
+  if (!EMAIL_RE.test(v)) return 'E-mail parece incorreto. Confere aí?';
   return null;
 }
 
 function validatePassword(v: string): string | null {
-  if (!v)         return 'Palavra-passe obrigatória';
-  if (v.length < 6) return 'A palavra-passe precisa de ter pelo menos 6 caracteres';
+  if (!v)           return 'A senha não pode ficar em branco';
+  if (v.length < 6) return 'A senha precisa ter pelo menos 6 caracteres';
   return null;
 }
-
-// ─── feedback inline ──────────────────────────────────────────────────────────
 
 function InlineFeedback({ type, message }: { type: 'error' | 'success'; message: string }) {
   const isError = type === 'error';
@@ -69,41 +58,7 @@ function InlineFeedback({ type, message }: { type: 'error' | 'success'; message:
   );
 }
 
-// ─── divider ornamental ───────────────────────────────────────────────────────
-
-function OrDivider() {
-  return (
-    <div className="flex items-center gap-[var(--gap-sm)]" aria-hidden="true">
-      <div className="flex-1 h-px bg-ds-neutral-border" />
-      <Text variant="caption-regular" color="secondary" as="span">ou</Text>
-      <div className="flex-1 h-px bg-ds-neutral-border" />
-    </div>
-  );
-}
-
-// ─── stepper de progresso (visual dots) ───────────────────────────────────────
-
-function StepDots({ current, total }: { current: number; total: number }) {
-  return (
-    <div className="flex items-center gap-[var(--gap-xs)]" aria-label={`Passo ${current} de ${total}`}>
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={[
-            'rounded-full transition-all duration-300',
-            i + 1 === current
-              ? 'w-[var(--gap-md)] h-[var(--gap-xs)] bg-ds-accent-tint'
-              : i + 1 < current
-              ? 'w-[var(--gap-xs)] h-[var(--gap-xs)] bg-ds-accent-fg'
-              : 'w-[var(--gap-xs)] h-[var(--gap-xs)] bg-ds-neutral-border',
-          ].join(' ')}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── ecrã: link mágico enviado ────────────────────────────────────────────────
+// ─── tela: link mágico enviado ────────────────────────────────────────────────
 
 function OtpSentScreen({ email, onBack }: { email: string; onBack: () => void }) {
   return (
@@ -115,24 +70,22 @@ function OtpSentScreen({ email, onBack }: { email: string; onBack: () => void })
       className="flex flex-col items-center gap-[var(--gap-lg)] text-center px-[var(--padding-lg)] py-[var(--padding-xl)]"
     >
       <span className="text-5xl leading-none select-none" aria-hidden="true">📬</span>
-
       <div className="flex flex-col gap-[var(--gap-sm)]">
-        <Text variant="h2" className="font-heading">Verifica o teu e-mail</Text>
+        <Text variant="h2" className="font-heading">Confere seu e-mail</Text>
         <Text variant="body-md-regular" color="secondary">
-          Enviámos um link mágico para
+          Enviamos um link mágico para
         </Text>
         <Text variant="body-md-semibold">{email}</Text>
         <Text variant="body-md-regular" color="secondary">
-          Clica no link para entrar instantaneamente — sem palavra-passe.
+          Clique no link para entrar — sem precisar de senha.
         </Text>
       </div>
-
       <div className="flex flex-col gap-[var(--gap-sm)] w-full">
         <Text variant="caption-regular" color="secondary">
-          Não recebeste nada? Verifica o spam ou tenta novamente.
+          Não recebeu? Confere a caixa de spam ou tenta novamente.
         </Text>
         <LinkButton
-          label="← Voltar e tentar novamente"
+          label="← Voltar e tentar de novo"
           linkType="gray"
           onClick={onBack}
         />
@@ -141,36 +94,20 @@ function OtpSentScreen({ email, onBack }: { email: string; onBack: () => void })
   );
 }
 
-// ─── ecrã: login ──────────────────────────────────────────────────────────────
+// ─── tela: login ──────────────────────────────────────────────────────────────
 
 function LoginForm({ onSuccess, onSignup }: { onSuccess: (email: string) => void; onSignup: () => void }) {
-  const [email,          setEmail]          = useState('');
-  const [password,       setPassword]       = useState('');
-  const [loading,        setLoading]        = useState(false);
-  const [magicLoading,   setMagicLoading]   = useState(false);
-  const [apiError,       setApiError]       = useState<string | null>(null);
-  const [emailTouched,   setEmailTouched]   = useState(false);
-  const [passTouched,    setPassTouched]    = useState(false);
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [magicLoading, setMagicLoading] = useState(false);
+  const [apiError,     setApiError]     = useState<string | null>(null);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passTouched,  setPassTouched]  = useState(false);
 
-  const emailErr = emailTouched    ? validateEmail(email)    : null;
-  const passErr  = passTouched     ? validatePassword(password) : null;
-
-  async function handlePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setEmailTouched(true);
-    setPassTouched(true);
-    if (validateEmail(email) || validatePassword(password)) return;
-
-    setApiError(null);
-    setLoading(true);
-    try {
-      const { error: sbErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (sbErr) setApiError(translateSupabaseError(sbErr));
-      // sucesso → onAuthStateChange em useSession trata a navegação
-    } finally {
-      setLoading(false);
-    }
-  }
+  const emailErr = emailTouched               ? validateEmail(email)    : null;
+  const passErr  = passTouched && showPassword ? validatePassword(password) : null;
 
   async function handleMagicLink() {
     setEmailTouched(true);
@@ -196,6 +133,22 @@ function LoginForm({ onSuccess, onSignup }: { onSuccess: (email: string) => void
     }
   }
 
+  async function handlePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailTouched(true);
+    setPassTouched(true);
+    if (validateEmail(email) || validatePassword(password)) return;
+
+    setApiError(null);
+    setLoading(true);
+    try {
+      const { error: sbErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (sbErr) setApiError(translateSupabaseError(sbErr));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <motion.div
       key="login"
@@ -204,54 +157,24 @@ function LoginForm({ onSuccess, onSignup }: { onSuccess: (email: string) => void
       exit={{ opacity: 0, x: 16 }}
       className="flex flex-col gap-[var(--gap-md)]"
     >
-      <form onSubmit={handlePassword} noValidate className="flex flex-col gap-[var(--gap-md)]">
-        <TextInput
-          label="E-mail"
-          type="email"
-          placeholder="o.teu@email.com"
-          value={email}
-          onChange={e => { setEmail(e.target.value); setApiError(null); }}
-          onBlur={() => setEmailTouched(true)}
-          error={emailErr ?? undefined}
-          autoComplete="email"
-          size="md"
-          fullWidth
-        />
+      {/* campo de e-mail — compartilhado entre magic link e senha */}
+      <TextInput
+        label="E-mail"
+        type="email"
+        placeholder="seu@email.com"
+        value={email}
+        onChange={e => { setEmail(e.target.value); setApiError(null); }}
+        onBlur={() => setEmailTouched(true)}
+        error={emailErr ?? undefined}
+        autoComplete="email"
+        size="md"
+        fullWidth
+      />
 
-        <TextInput
-          label="Palavra-passe"
-          type="password"
-          placeholder="••••••••"
-          value={password}
-          onChange={e => { setPassword(e.target.value); setApiError(null); }}
-          onBlur={() => setPassTouched(true)}
-          error={passErr ?? undefined}
-          autoComplete="current-password"
-          size="md"
-          fullWidth
-        />
-
-        <AnimatePresence mode="wait">
-          {apiError && <InlineFeedback key="err" type="error" message={apiError} />}
-        </AnimatePresence>
-
-        <Button
-          type="submit"
-          label="Entrar"
-          variant="primary"
-          size="md"
-          fullWidth
-          loading={loading}
-          disabled={loading || magicLoading}
-        />
-      </form>
-
-      <OrDivider />
-
-      {/* Magic Link — caminho sem atrito */}
+      {/* ── caminho primário: link mágico ── */}
       <Button
-        label="Entrar com link mágico 💫"
-        variant="secondary"
+        label="Entrar com link mágico ✨"
+        variant="primary"
         size="md"
         fullWidth
         loading={magicLoading}
@@ -259,19 +182,84 @@ function LoginForm({ onSuccess, onSignup }: { onSuccess: (email: string) => void
         onClick={handleMagicLink}
       />
       <Text variant="caption-regular" color="secondary" className="text-center -mt-[var(--gap-xs)]">
-        Receberes um link no teu e-mail — sem palavra-passe.
+        Vamos enviar um link no seu e-mail — sem precisar de senha.
       </Text>
 
-      {/* toggle para signup */}
+      {/* ── divisor ── */}
+      <div className="flex items-center gap-[var(--gap-sm)]" aria-hidden="true">
+        <div className="flex-1 h-px bg-ds-neutral-border" />
+        <Text variant="caption-regular" color="secondary" as="span">ou entre com senha</Text>
+        <div className="flex-1 h-px bg-ds-neutral-border" />
+      </div>
+
+      {/* ── caminho secundário: senha ── */}
+      <AnimatePresence mode="wait">
+        {!showPassword ? (
+          <motion.div
+            key="show-pw-btn"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <Button
+              label="Usar senha"
+              variant="secondary"
+              size="md"
+              fullWidth
+              disabled={loading || magicLoading}
+              onClick={() => setShowPassword(true)}
+            />
+          </motion.div>
+        ) : (
+          <motion.form
+            key="pw-form"
+            onSubmit={handlePassword}
+            noValidate
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col gap-[var(--gap-md)]"
+          >
+            <TextInput
+              label="Senha"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setApiError(null); }}
+              onBlur={() => setPassTouched(true)}
+              error={passErr ?? undefined}
+              autoComplete="current-password"
+              size="md"
+              fullWidth
+              autoFocus
+            />
+
+            <AnimatePresence mode="wait">
+              {apiError && <InlineFeedback key="err" type="error" message={apiError} />}
+            </AnimatePresence>
+
+            <Button
+              type="submit"
+              label="Entrar"
+              variant="secondary"
+              size="md"
+              fullWidth
+              loading={loading}
+              disabled={loading || magicLoading}
+            />
+          </motion.form>
+        )}
+      </AnimatePresence>
+
+      {/* link para signup */}
       <div className="flex items-center justify-center gap-[var(--gap-xs)] pt-[var(--gap-xs)]">
         <Text variant="caption-regular" color="secondary">Primeira vez aqui?</Text>
-        <LinkButton label="Criar o meu ninho →" linkType="interactive" onClick={onSignup} />
+        <LinkButton label="Criar minha conta →" linkType="interactive" onClick={onSignup} />
       </div>
     </motion.div>
   );
 }
 
-// ─── ecrã: signup ─────────────────────────────────────────────────────────────
+// ─── tela: signup ─────────────────────────────────────────────────────────────
 
 function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (email: string) => void }) {
   const [name,           setName]           = useState('');
@@ -284,10 +272,10 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
   const [passTouched,    setPassTouched]    = useState(false);
   const [consentTouched, setConsentTouched] = useState(false);
 
-  const emailErr    = emailTouched    ? validateEmail(email)       : null;
-  const passErr     = passTouched     ? validatePassword(password) : null;
-  const consentErr  = consentTouched && !consent
-    ? 'Aceita os termos para continuar'
+  const emailErr   = emailTouched    ? validateEmail(email)       : null;
+  const passErr    = passTouched     ? validatePassword(password) : null;
+  const consentErr = consentTouched && !consent
+    ? 'Confirme a política de privacidade para continuar'
     : null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -325,8 +313,8 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[var(--gap-md)]">
         <TextInput
-          label="O teu nome"
-          placeholder="Como devo chamar-te?"
+          label="Seu nome"
+          placeholder="Como posso te chamar?"
           value={name}
           onChange={e => setName(e.target.value)}
           autoComplete="name"
@@ -337,7 +325,7 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
         <TextInput
           label="E-mail"
           type="email"
-          placeholder="o.teu@email.com"
+          placeholder="seu@email.com"
           value={email}
           onChange={e => { setEmail(e.target.value); setApiError(null); }}
           onBlur={() => setEmailTouched(true)}
@@ -348,20 +336,20 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
         />
 
         <TextInput
-          label="Palavra-passe"
+          label="Senha"
           type="password"
           placeholder="Mínimo 6 caracteres"
           value={password}
           onChange={e => { setPassword(e.target.value); setApiError(null); }}
           onBlur={() => setPassTouched(true)}
           error={passErr ?? undefined}
-          hint="Os teus dados ficam seguros e cifrados."
+          hint="Seus dados ficam seguros e criptografados."
           autoComplete="new-password"
           size="md"
           fullWidth
         />
 
-        {/* LEX: consentimento de privacidade */}
+        {/* consentimento */}
         <div className="flex items-start gap-[var(--gap-sm)]">
           <button
             type="button"
@@ -386,9 +374,9 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
           </button>
           <div>
             <Text variant="caption-regular" color="secondary" as="span">
-              Aceito que os meus dados sejam tratados de acordo com a{' '}
+              Li e aceito a{' '}
               <span className="text-ds-accent-fg font-semibold">Política de Privacidade</span>
-              . Os dados de saúde do meu bebé são armazenados de forma cifrada.
+              . Os dados de saúde do bebê são armazenados com criptografia. 🔒
             </Text>
             {consentErr && (
               <Text variant="caption-medium" className="text-ds-error-fg-strong block mt-[var(--gap-xxs)]">
@@ -404,7 +392,7 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
 
         <Button
           type="submit"
-          label="Criar o meu ninho"
+          label="Criar minha conta 🪺"
           variant="primary"
           size="md"
           fullWidth
@@ -414,7 +402,7 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
       </form>
 
       <div className="flex items-center justify-center gap-[var(--gap-xs)]">
-        <Text variant="caption-regular" color="secondary">Já tens ninho?</Text>
+        <Text variant="caption-regular" color="secondary">Já tem conta?</Text>
         <LinkButton label="Entrar →" linkType="interactive" onClick={onLogin} />
       </div>
     </motion.div>
@@ -424,15 +412,10 @@ function SignupForm({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: (e
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export default function AuthPage() {
-  const [screen,       setScreen]       = useState<Screen>('login');
-  const [sentToEmail,  setSentToEmail]  = useState('');
+  const [screen,      setScreen]      = useState<Screen>('login');
+  const [sentToEmail, setSentToEmail] = useState('');
 
   function handleOtpSent(email: string) {
-    setSentToEmail(email);
-    setScreen('otp-sent');
-  }
-
-  function handleSignupSuccess(email: string) {
     setSentToEmail(email);
     setScreen('otp-sent');
   }
@@ -440,7 +423,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-ds-pure-white flex flex-col">
 
-      {/* ── hero ──────────────────────────────────────────────────────── */}
+      {/* hero */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -456,22 +439,18 @@ export default function AuthPage() {
         >
           🪺
         </motion.span>
-
         <div className="text-center flex flex-col gap-[var(--gap-xs)]">
           <Text variant="h1" className="font-heading tracking-tight">ninho</Text>
           <Text variant="body-md-regular" color="secondary">
-            O teu porto seguro para os dias de bebé.
+            Seu porto seguro nos dias com bebê.
           </Text>
         </div>
       </motion.header>
 
-      {/* ── divisor ───────────────────────────────────────────────────── */}
       <div className="h-px bg-ds-neutral-border mx-[var(--padding-lg)]" aria-hidden="true" />
 
-      {/* ── form area ─────────────────────────────────────────────────── */}
+      {/* form */}
       <main className="flex-1 flex flex-col px-[var(--padding-lg)] py-[var(--padding-xl)] max-w-sm w-full mx-auto">
-
-        {/* heading contextual */}
         <AnimatePresence mode="wait">
           {screen === 'login' && (
             <motion.div
@@ -481,9 +460,9 @@ export default function AuthPage() {
               exit={{ opacity: 0 }}
               className="mb-[var(--gap-lg)]"
             >
-              <Text variant="h2" className="font-heading">Bem-vindo de volta 👋</Text>
+              <Text variant="h2" className="font-heading">Bem-vinda de volta 👋</Text>
               <Text variant="body-md-regular" color="secondary" className="mt-[var(--gap-xs)]">
-                Entra para continuar a acompanhar o teu bebé.
+                Entre para acompanhar o dia a dia do seu bebê.
               </Text>
             </motion.div>
           )}
@@ -495,15 +474,14 @@ export default function AuthPage() {
               exit={{ opacity: 0 }}
               className="mb-[var(--gap-lg)]"
             >
-              <Text variant="h2" className="font-heading">Vamos criar o teu ninho 🪹</Text>
+              <Text variant="h2" className="font-heading">Vamos criar seu ninho 🪹</Text>
               <Text variant="body-md-regular" color="secondary" className="mt-[var(--gap-xs)]">
-                Leva menos de 2 minutos. Prometemos.
+                Leva menos de 2 minutos. Promessa.
               </Text>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* forms */}
         <AnimatePresence mode="wait">
           {screen === 'login' && (
             <LoginForm
@@ -516,7 +494,7 @@ export default function AuthPage() {
             <SignupForm
               key="signup-form"
               onLogin={() => setScreen('login')}
-              onSuccess={handleSignupSuccess}
+              onSuccess={handleOtpSent}
             />
           )}
           {screen === 'otp-sent' && (
@@ -529,12 +507,9 @@ export default function AuthPage() {
         </AnimatePresence>
       </main>
 
-      {/* ── rodapé ────────────────────────────────────────────────────── */}
       <footer className="pb-[var(--padding-lg)] flex justify-center">
         <Text variant="caption-regular" color="secondary" className="opacity-50">
-          Ninho · Cuidado Inteligente ·{' '}
-          <span aria-hidden="true">🔒</span>
-          {' '}Privacidade protegida
+          Ninho · Cuidado com carinho · 🔒 Privacidade protegida
         </Text>
       </footer>
     </div>

@@ -33,11 +33,11 @@ function todayISO() {
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDate(d: Date) {
-  return d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+  return d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function capitalize(s: string) {
@@ -137,9 +137,9 @@ function NoChildEmptyState() {
   return (
     <EmptyState
       icon="🪺"
-      title="Nenhuma criança selecionada"
-      description="Regista primeiro uma criança para acompanhar a rotina diária."
-      cta={{ label: 'Adicionar criança →', onClick: () => navigate('/onboarding/child') }}
+      title="Vamos começar?"
+      description="Adicione seu bebê para começar a acompanhar a rotina do dia a dia."
+      cta={{ label: 'Adicionar bebê →', onClick: () => navigate('/onboarding/child') }}
     />
   );
 }

@@ -1,0 +1,61 @@
+# ─── Build, deps & runtime ───────────────────────────────────────────────────
+node_modules/
+dist/
+.next/
+.vercel/
+.git/
+
+# ─── Lock files & package managers ───────────────────────────────────────────
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lock
+bun.lockb
+.npmrc
+
+# ─── Configs de projeto (não são código da app) ───────────────────────────────
+package.json
+vite.config.ts
+postcss.config.js
+tsconfig*.json
+tailwind.config.ts
+*.html
+.env*
+
+# ─── Assets binários ──────────────────────────────────────────────────────────
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.svg
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.pdf
+src/assets/
+public/
+
+# ─── Docs geradas ─────────────────────────────────────────────────────────────
+docs/
+temp_docs/
+
+# ─── Design system e tokens (gerados via Figma/Tokens Studio) ────────────────
+src/design-system/
+src/index.css
+
+# ─── Componentes UI (shadcn — auto-gerados, não editar diretamente) ──────────
+src/components/ui/
+
+# ─── Integrações e tipos gerados ─────────────────────────────────────────────
+src/integrations/
+src/store/
+
+# ─── Duplicatas geradas pelo editor ──────────────────────────────────────────
+* 2.tsx
+* 2.ts
+* 2.png
+* 2.svg
+* 2.html

@@ -95,7 +95,7 @@ export default function FamilyPage() {
 
       {/* ── header: só os dots, sem texto de "Passo N de N" ─────────────── */}
       <header className="flex items-center px-[var(--padding-lg)] pb-[var(--padding-md)]">
-        <StepDots current={1} total={2} />
+        <StepDots current={2} total={3} />
       </header>
 
       {/* ── hero ──────────────────────────────────────────────────────────── */}

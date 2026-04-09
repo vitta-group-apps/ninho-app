@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { Toaster } from "sonner";
 import { useSession }         from "./hooks/useSession";
 import AuthPage               from "./pages/onboarding/AuthPage";
+import ModePage               from "./pages/onboarding/ModePage";
 import FamilyPage             from "./pages/onboarding/FamilyPage";
 import ChildPage              from "./pages/onboarding/ChildPage";
 import { DashboardPage }      from "./pages/DashboardPage";
@@ -32,8 +33,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-      <span className="text-4xl" aria-hidden="true">🪺</span>
+    <div className="min-h-screen bg-ds-pure-white flex flex-col items-center justify-center gap-4">
+      <span className="text-5xl" aria-hidden="true" style={{ fontSize: '3rem' }}>🪺</span>
       <SpinnerRound size="lg" />
     </div>
   );
@@ -44,7 +45,8 @@ function LoadingScreen() {
 function AppRoot({ appState }: { appState: string }) {
   switch (appState) {
     case 'unauthenticated':
-    case 'auth':              return <Navigate to="/auth"               replace />;
+    case 'auth':              return <Navigate to="/auth"                replace />;
+    case 'onboarding_mode':  return <Navigate to="/onboarding/mode"    replace />;
     case 'onboarding_family': return <Navigate to="/onboarding/family"  replace />;
     case 'onboarding_child':  return <Navigate to="/onboarding/child"   replace />;
     case 'dashboard':
@@ -67,6 +69,7 @@ function App() {
       <AppShell>
         <Routes>
           <Route path="/auth"               element={<AuthPage />} />
+          <Route path="/onboarding/mode"    element={<ModePage />} />
           <Route path="/onboarding/family"  element={<FamilyPage />} />
           <Route path="/onboarding/child"   element={<ChildPage />} />
           <Route path="/dashboard"          element={profile ? <DashboardPage />    : <Navigate to="/auth" replace />} />

@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast }     from 'sonner';
 import { Text }      from '@/design-system/components/ui/Text';
 import { Button }    from '@/design-system/components/ui/Button';
@@ -90,15 +90,44 @@ function SexPicker({ value, onChange }: { value?: Sex; onChange: (v: Sex) => voi
 
 // ─── page ─────────────────────────────────────────────────────────────────────
 
+// ─── aha! moment banner ───────────────────────────────────────────────────────
+
+function AhaMoment({ name }: { name: string }) {
+  const firstName = name.trim().split(' ')[0];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="rounded-[var(--radius-lg)] px-[var(--padding-md)] py-[var(--padding-sm)] bg-ds-accent-subtle"
+      role="status"
+      aria-live="polite"
+    >
+      <Text variant="body-md-regular" as="p">
+        ✨ Que nome lindo! Vamos organizar o mundo para{' '}
+        <span className="font-semibold text-ds-accent-fg">{firstName}</span>.
+      </Text>
+    </motion.div>
+  );
+}
+
+// ─── page ─────────────────────────────────────────────────────────────────────
+
 export default function ChildPage() {
   const store = useNinhoStore();
+  const isPregnancy = store.onboardingMode === 'pregnancy';
+
   const [name,      setName]      = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [sex,       setSex]       = useState<Sex | undefined>();
   const [touched,   setTouched]   = useState(false);
   const [loading,   setLoading]   = useState(false);
 
-  const nameError = touched && name.trim().length < 1
+  const trimmedName  = name.trim();
+  const showAha      = trimmedName.length >= 2;
+
+  const nameError = touched && trimmedName.length < 1
     ? 'O nome é necessário para personalizar a experiência'
     : null;
 
@@ -146,7 +175,7 @@ export default function ChildPage() {
 
       {/* ── header: só os dots ────────────────────────────────────────────── */}
       <header className="flex items-center px-[var(--padding-lg)] pb-[var(--padding-md)]">
-        <StepDots current={2} total={2} />
+        <StepDots current={3} total={3} />
       </header>
 
       {/* ── hero ──────────────────────────────────────────────────────────── */}
@@ -156,22 +185,23 @@ export default function ChildPage() {
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="flex flex-col gap-[var(--gap-md)] px-[var(--padding-lg)] pb-[var(--padding-xl)]"
       >
-        {/* emoji âncora — 6xl conforme spec Apple Health */}
+        {/* emoji âncora */}
         <span
-          className="text-6xl leading-none select-none"
+          className="leading-none select-none"
           aria-hidden="true"
           style={{ fontSize: '4rem', lineHeight: 1 }}
         >
-          🍼
+          {isPregnancy ? '🤰' : '🍼'}
         </span>
 
         <div className="flex flex-col gap-[var(--gap-sm)]">
           <Text variant="h1" className="font-heading tracking-tight">
-            Como se chama seu bebê?
+            {isPregnancy ? 'Qual é o nome escolhido?' : 'Como se chama seu bebê?'}
           </Text>
           <Text variant="body-md-regular" color="secondary">
-            Só precisamos do nome e a data de nascimento — o resto você preenche depois, no seu
-            tempo.
+            {isPregnancy
+              ? 'Pode ser o nome que vocês já escolheram — ou um apelido carinhoso por enquanto.'
+              : 'Só precisamos do nome e a data de nascimento — o resto você preenche depois, no seu tempo.'}
           </Text>
         </div>
       </motion.section>
@@ -184,7 +214,7 @@ export default function ChildPage() {
         <form onSubmit={handleCreate} noValidate className="flex flex-col gap-[var(--gap-md)]">
 
           <TextInput
-            label="Nome do bebê"
+            label={isPregnancy ? 'Nome escolhido' : 'Nome do bebê'}
             placeholder="Mateus, Lara, Sofia..."
             value={name}
             onChange={e => { setName(e.target.value); setTouched(false); }}
@@ -195,14 +225,21 @@ export default function ChildPage() {
             autoFocus
           />
 
+          {/* Aha! Moment — Lumen: "Que nome lindo! Vamos organizar o mundo para [Nome]" */}
+          <AnimatePresence>
+            {showAha && <AhaMoment name={name} />}
+          </AnimatePresence>
+
           <TextInput
-            label="Data de nascimento"
+            label={isPregnancy ? 'Previsão de nascimento' : 'Data de nascimento'}
             type="date"
             value={birthDate}
             onChange={e => setBirthDate(e.target.value)}
             size="md"
             fullWidth
-            hint="Usamos isso para os insights de crescimento."
+            hint={isPregnancy
+              ? 'Usamos isso para acompanhar o desenvolvimento pré-natal.'
+              : 'Usamos isso para os insights de crescimento.'}
           />
 
           <SexPicker value={sex} onChange={setSex} />
@@ -218,9 +255,10 @@ export default function ChildPage() {
           />
         </form>
 
-        {/* ATLAS: prepara expectativa dos insights */}
         <Text variant="caption-regular" color="secondary" className="text-center">
-          ✨ Em segundos, seu painel de cuidados estará pronto.
+          {isPregnancy
+            ? '🌱 Vamos preparar tudo para a chegada.'
+            : '✨ Em segundos, o painel de cuidados estará pronto.'}
         </Text>
       </main>
     </div>

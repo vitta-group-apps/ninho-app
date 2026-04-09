@@ -24,7 +24,12 @@ async function resolveSession(): Promise<void> {
       .maybeSingle()
 
     if (!memberData?.families) {
-      store.setAppState('onboarding_family')
+      // Bifurcação Estratégica (Luke): se modo ainda não escolhido, vai para seleção
+      if (!store.onboardingMode) {
+        store.setAppState('onboarding_mode')
+      } else {
+        store.setAppState('onboarding_family')
+      }
       return
     }
 

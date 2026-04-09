@@ -15,7 +15,7 @@ export type LinkButtonType = 'interactive' | 'black' | 'gray';
 export interface LinkButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label:       string;
-  type?:       LinkButtonType;
+  linkType?:   LinkButtonType;
   iconLeft?:   React.ReactNode;
   iconRight?:  React.ReactNode;
 }
@@ -71,14 +71,14 @@ const TYPE_STYLES: Record<LinkButtonType, {
 
 export function LinkButton({
   label,
-  type      = 'interactive',
+  linkType  = 'interactive',
   iconLeft,
   iconRight,
   disabled,
   className,
   ...props
 }: LinkButtonProps) {
-  const styles = TYPE_STYLES[type];
+  const styles = TYPE_STYLES[linkType];
 
   return (
     <button

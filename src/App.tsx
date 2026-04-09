@@ -1,29 +1,24 @@
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { useState, useCallback, useEffect, createContext, useContext } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Toaster as Sonner } from '@/components/ui/sonner';
-import { Toaster } from '@/components/ui/toaster';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { SplashScreen } from '@/components/auth/SplashScreen';
-import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 import { ActiveChildProvider } from '@/contexts/ActiveChildContext';
+import { SplashScreen } from '@/components/auth/SplashScreen';
+import { AppShell } from '@/components/layout/AppShell';
 
 // Pages — main app
 import HomePage from '@/pages/HomePage';
 import RotinaPage from '@/pages/RotinaPage';
 import SaudePage from '@/pages/SaudePage';
 import SettingsPage from '@/pages/SettingsPage';
-import SettingsAccountPage from './pages/SettingsAccountPage';
-import SettingsLanguagePage from './pages/SettingsLanguagePage';
-import SettingsUnitsPage from './pages/SettingsUnitsPage';
-import SettingsExportPage from './pages/SettingsExportPage';
-import SettingsImportPage from './pages/SettingsImportPage';
-import SettingsPlanPage from './pages/SettingsPlanPage';
-import SettingsHelpPage from './pages/SettingsHelpPage';
+import SettingsAccountPage from '@/pages/SettingsAccountPage';
+import SettingsLanguagePage from '@/pages/SettingsLanguagePage';
+import SettingsUnitsPage from '@/pages/SettingsUnitsPage';
+import SettingsExportPage from '@/pages/SettingsExportPage';
+import SettingsImportPage from '@/pages/SettingsImportPage';
+import SettingsPlanPage from '@/pages/SettingsPlanPage';
+import SettingsHelpPage from '@/pages/SettingsHelpPage';
 import DesenvolvimentoPage from '@/pages/DesenvolvimentoPage';
 import FamiliaPage from '@/pages/FamiliaPage';
 import DiaperScreen from '@/pages/DiaperScreen';
@@ -35,6 +30,7 @@ import BreastfeedingScreen from '@/pages/BreastfeedingScreen';
 import BottleScreen from '@/pages/BottleScreen';
 import BottleDetailScreen from '@/pages/BottleDetailScreen';
 import { ResetPasswordPage } from '@/pages/ResetPassword';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import NotFound from '@/pages/NotFound';
 
 // Pages — família e filhos (produto — separado do onboarding)
@@ -54,8 +50,6 @@ import FamilyPage from '@/pages/onboarding/FamilyPage';
 import ChildPage from '@/pages/onboarding/ChildPage';
 import CompletePage from '@/pages/onboarding/CompletePage';
 
-const queryClient = new QueryClient();
-
 // ─── Single auth context so useAuth() is only called once ───────────────────
 type AuthCtx = ReturnType<typeof useAuth>;
 const AuthContext = createContext<AuthCtx | null>(null);
@@ -65,6 +59,19 @@ function useAuthContext() {
   return ctx;
 }
 
+// ─── Loading spinner ─────────────────────────────────────────────────────────
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#806e84' }}>
+      <div
+        className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: 'rgba(255,255,255,0.6)' }}
+      />
+    </div>
+  );
+}
+
+// ─── Rotas autenticadas (app principal) ──────────────────────────────────────
 function AuthedRoutes() {
   return (
     <ActiveChildProvider>
@@ -81,13 +88,13 @@ function AuthedRoutes() {
         <Route path="/breastfeeding"                 element={<BreastfeedingScreen />} />
         <Route path="/bottle"                        element={<BottleScreen />} />
 
-        {/* Família e filhos — rotas de produto (não onboarding) */}
+        {/* Família e filhos — rotas de produto */}
         <Route path="/family/add-child"              element={<ChildCreatePage />} />
         <Route path="/family/child/:childId/edit"    element={<ChildEditPage />} />
         <Route path="/family/edit"                   element={<FamilyEditPage />} />
         <Route path="/family/invite"                 element={<InviteMemberPage />} />
 
-        {/* Main app shell with bottom nav */}
+        {/* App shell com bottom nav */}
         <Route path="/*" element={
           <AppShell>
             <Routes>
@@ -118,6 +125,7 @@ function AuthedRoutes() {
   );
 }
 
+// ─── Guard de onboarding ─────────────────────────────────────────────────────
 function OnboardingGuard() {
   const { user, isLoggedIn, loading } = useAuthContext();
   const { loading: statusLoading, hasFamily, hasChild, familyId } = useOnboardingStatus(user?.id ?? null);
@@ -133,14 +141,7 @@ function OnboardingGuard() {
     }
   }, [loading, statusLoading, isLoggedIn, hasFamily, hasChild, familyId, navigate]);
 
-  if ((loading || statusLoading) && user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#806e84' }}>
-        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: 'rgba(255,255,255,0.6)' }} />
-      </div>
-    );
-  }
+  if ((loading || statusLoading) && user) return <LoadingSpinner />;
 
   return (
     <Routes>
@@ -154,21 +155,15 @@ function OnboardingGuard() {
   );
 }
 
+// ─── Roteador principal ──────────────────────────────────────────────────────
 function AppRouter() {
   const { isLoggedIn, loading } = useAuthContext();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#806e84' }}>
-        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: 'rgba(255,255,255,0.6)' }} />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
     <Routes>
-      {/* Auth callback must be reachable before session is established */}
+      {/* Auth callback deve ser acessível antes da sessão estar estabelecida */}
       <Route path="/auth/callback"   element={<AuthCallback />} />
       <Route path="/reset-password"  element={<ResetPasswordPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -179,6 +174,7 @@ function AppRouter() {
   );
 }
 
+// ─── App raiz ────────────────────────────────────────────────────────────────
 function NinhoApp() {
   const auth = useAuth();
   const { session, loading } = auth;
@@ -200,14 +196,8 @@ function NinhoApp() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <NinhoApp />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <BrowserRouter>
+      <NinhoApp />
+    </BrowserRouter>
   );
 }

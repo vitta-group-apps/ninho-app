@@ -1,0 +1,4173 @@
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Dot,
+} from 'recharts';
+
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useActiveChild } from '@/contexts/ActiveChildContext';
+import { InlineStatusPill, SectionLabel } from '@/components/ds';
+import { toast } from '@/hooks/use-toast';
+import { getAgeContext } from '@/lib/eventSystem';
+import { vaccineSchedule, type VaccineEntry } from '@/data/vaccineSchedule';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PaywallGate } from '@/components/PaywallGate';
+
+import type {
+  ConsultationRecord,
+  GrowthRecord,
+  SymptomRecord,
+  MedicalNoteRecord,
+  MedicationRecord,
+  VaccineRecord,
+} from '@/lib/contracts/health';
+
+import {
+  toConsultationRecord,
+  toGrowthRecord,
+  toSymptomRecord,
+  toMedicalNoteRecord,
+  toMedicationRecord,
+  toVaccineRecord,
+} from '@/lib/adapters/healthAdapters';
+
+import {
+  isValidConsultationRecord,
+  isValidGrowthRecord,
+  isValidSymptomRecord,
+  isValidMedicalNoteRecord,
+  isValidMedicationRecord,
+  isValidVaccineRecord,
+} from '@/lib/validators/healthValidators';
+
+const SAGE = '#789687';
+const AMBER = '#C8894A';
+const AMBER_BG = '#FDF3E9';
+const AMBER_BORDER = '#f0d5b0';
+const MAUVE = '#806e84';
+const SAGE_BG = '#ebf0ed';
+const SAGE_BORDER = '#ccd9d3';
+const SAGE_LIGHT = '#f0f5f2';
+const MAUVE_BG = '#f4f0f3';
+const MAUVE_BORDER = '#e3d9e2';
+const MUTED_BG = '#E8E8E2';
+const CARD_BG = '#ffffff';
+const CARD_BORDER = '#E5E0D8';
+const TXT = '#2C2C2C';
+const TXT_MUTED = '#7A7A7A';
+const PAGE_BG = '#F8F5F0';
+
+const COMPLEMENTARY_VACCINES: {
+  name: string;
+  description: string;
+  ageHint: string;
+  requiresPediatricGuidance: boolean;
+}[] = [
+  {
+    name: 'Meningocócica B (MenB)',
+    description:
+      'Proteção adicional contra meningite B. Não disponível no SUS — rede particular.',
+    ageHint: 'A partir de 2 meses',
+    requiresPediatricGuidance: true,
+  },
+  {
+    name: 'Pneumocócica 13-valente (Prevenar 13)',
+    description:
+      'Cobertura mais ampla que a Pneumo 10 do SUS. Indicação pediátrica.',
+    ageHint: 'A partir de 2 meses',
+    requiresPediatricGuidance: true,
+  },
+  {
+    name: 'Varicela 2ª dose antecipada',
+    description: 'Reforço antecipado disponível na rede particular.',
+    ageHint: '15 meses',
+    requiresPediatricGuidance: false,
+  },
+  {
+    name: 'Hepatite A 2ª dose',
+    description: 'Complementar ao calendário SUS, conforme indicação pediátrica.',
+    ageHint: '18–24 meses',
+    requiresPediatricGuidance: false,
+  },
+  {
+    name: 'Influenza anual (particular)',
+    description:
+      'Disponível no SUS em campanha. Rede particular disponível fora do período.',
+    ageHint: 'Anual, a partir de 6 meses',
+    requiresPediatricGuidance: false,
+  },
+  {
+    name: 'Rotavírus pentavalente (RotaTeq)',
+    description: 'Alternativa com cobertura mais ampla de cepas. Rede particular.',
+    ageHint: 'A partir de 6 semanas',
+    requiresPediatricGuidance: true,
+  },
+];
+
+/**
+ * Tipos de UI da tela.
+ * O contrato oficial do banco fica em src/lib/contracts/health.ts
+ * Aqui existem só os shapes prontos para renderização.
+ */
+interface GrowthEntry {
+  id: string;
+  weight?: number;
+  height?: number;
+  headCircumference?: number;
+  note?: string;
+  date: Date;
+  edited?: boolean;
+}
+
+interface SymptomEntry {
+  id: string;
+  symptoms: string[];
+  note?: string;
+  severity?: string;
+  temperatureC?: number;
+  date: Date;
+}
+
+interface NoteEntry {
+  id?: string;
+  text: string;
+  source?: string;
+  date: Date;
+}
+
+interface ConsultationEntry {
+  id: string;
+  doctor: string;
+  specialty: string;
+  location?: string;
+  date: string;
+  note: string;
+}
+
+interface MedicationEntry {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  endDate: string;
+  note: string;
+  active: boolean;
+  createdAt?: string;
+  authorId?: string;
+  childId?: string;
+}
+
+interface MedicationFormState {
+  name: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  endDate: string;
+  note: string;
+  active: boolean;
+}
+
+/**
+ * Adapters locais temporários.
+ * A ideia correta é migrar isso depois para src/lib/adapters/healthAdapters.ts,
+ * mas já deixamos a tela toda consumindo contratos de forma padronizada.
+ */
+function consultationRecordToEntry(record: ConsultationRecord): ConsultationEntry {
+  return {
+    id: record.id,
+    doctor: record.doctorName ?? '',
+    specialty: record.specialty ?? '',
+    location: record.location ?? '',
+    date: record.date,
+    note: record.notes ?? '',
+  };
+}
+
+function growthRecordToEntry(record: GrowthRecord): GrowthEntry {
+  return {
+    id: record.id,
+    weight: record.weightKg ?? undefined,
+    height: record.heightCm ?? undefined,
+    headCircumference: record.headCircumferenceCm ?? undefined,
+    note: record.notes ?? undefined,
+    date: new Date(`${record.measuredOn}T12:00:00`),
+    edited: false,
+  };
+}
+
+function symptomRecordToEntry(record: SymptomRecord): SymptomEntry {
+  return {
+    id: record.id,
+    symptoms: Array.isArray(record.symptoms) ? record.symptoms : [],
+    note: record.notes ?? undefined,
+    severity: record.severity ?? undefined,
+    temperatureC: record.temperatureC ?? undefined,
+    date: new Date(record.occurredAt),
+  };
+}
+
+function medicalNoteRecordToEntry(record: MedicalNoteRecord): NoteEntry {
+  return {
+    id: record.id,
+    text: record.note,
+    source: record.source ?? undefined,
+    date: new Date(record.notedAt),
+  };
+}
+
+function medicationRecordToEntry(record: MedicationRecord): MedicationEntry {
+  return {
+    id: record.id,
+    name: record.name,
+    dosage: record.dosage ?? '',
+    frequency: record.frequency ?? '',
+    startDate: record.startDate ?? '',
+    endDate: record.endDate ?? '',
+    note: record.notes ?? '',
+    active: record.isActive,
+    createdAt: record.createdAt,
+    authorId: record.authorId,
+    childId: record.childId,
+  };
+}
+
+function vaccineRecordIsApplied(record: VaccineRecord): boolean {
+  return record.status === 'applied' && !!record.vaccineCode;
+}
+
+function medicationToFormState(entry: MedicationEntry): MedicationFormState {
+  return {
+    name: entry.name ?? '',
+    dosage: entry.dosage ?? '',
+    frequency: entry.frequency ?? '',
+    startDate: entry.startDate ?? '',
+    endDate: entry.endDate ?? '',
+    note: entry.note ?? '',
+    active: entry.active ?? true,
+  };
+}
+
+function computeVaccineState(ageMonths: number, appliedVaccineIds: Set<string>) {
+  const due = vaccineSchedule.filter(v => {
+    const vm = v.ageMonths ?? 0;
+    return vm <= ageMonths && !appliedVaccineIds.has(v.id);
+  });
+
+  const applied = vaccineSchedule.filter(v => appliedVaccineIds.has(v.id));
+
+  const upcoming = vaccineSchedule.filter(v => {
+    const vm = v.ageMonths ?? 0;
+    return vm > ageMonths && vm <= ageMonths + 3 && !appliedVaccineIds.has(v.id);
+  });
+
+  const future = vaccineSchedule.filter(v => {
+    const vm = v.ageMonths ?? 0;
+    return vm > ageMonths + 3 && !appliedVaccineIds.has(v.id);
+  });
+
+  return { applied, due, upcoming, future };
+}
+
+function sortGrowthHistoryDesc(entries: GrowthEntry[]) {
+  return [...entries].sort((a, b) => {
+    const diff = b.date.getTime() - a.date.getTime();
+    if (diff !== 0) return diff;
+    return b.id.localeCompare(a.id);
+  });
+}
+
+function parseIsoDateSafe(date?: string | null) {
+  if (!date) return null;
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function formatDateBR(date?: string | null, withYear = false) {
+  if (!date) return '';
+  const parsed = parseIsoDateSafe(date);
+  if (!parsed) return '';
+  return parsed.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    ...(withYear ? { year: '2-digit' } : {}),
+  });
+}
+
+function sortByIsoDateDesc<T extends { startDate?: string; date?: string; createdAt?: string }>(
+  items: T[]
+) {
+  return [...items].sort((a, b) => {
+    const aDate = a.startDate ?? a.date ?? a.createdAt ?? '';
+    const bDate = b.startDate ?? b.date ?? b.createdAt ?? '';
+    return bDate.localeCompare(aDate);
+  });
+}
+
+const SYMPTOM_CHIPS = [
+  { emoji: '🌡️', label: 'Febre' },
+  { emoji: '😮‍💨', label: 'Tosse' },
+  { emoji: '🤧', label: 'Coriza' },
+  { emoji: '🤢', label: 'Vômito' },
+  { emoji: '💩', label: 'Diarreia' },
+  { emoji: '😭', label: 'Choro intenso' },
+  { emoji: '😴', label: 'Sonolência' },
+  { emoji: '🍽️', label: 'Sem apetite' },
+  { emoji: '🔴', label: 'Assadura' },
+  { emoji: '😤', label: 'Irritabilidade' },
+  { emoji: '😰', label: 'Dificuldade respiratória' },
+  { emoji: '🤲', label: 'Erupção cutânea' },
+];
+
+function OverviewStat({
+  emoji,
+  label,
+  value,
+  sub,
+  color,
+  onTap,
+  urgent,
+}: {
+  emoji: string;
+  label: string;
+  value: string;
+  sub: string;
+  color: string;
+  onTap?: () => void;
+  urgent?: boolean;
+}) {
+  return (
+    <button
+      onClick={onTap}
+      className="rounded-2xl p-3 text-left w-full transition-all active:scale-[0.98]"
+      style={{
+        backgroundColor: urgent ? AMBER_BG : CARD_BG,
+        border: `1px solid ${urgent ? AMBER_BORDER : CARD_BORDER}`,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+      }}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[15px]">{emoji}</span>
+        <p
+          className="text-[10px] font-bold uppercase tracking-widest font-nunito leading-none"
+          style={{ color: TXT_MUTED }}
+        >
+          {label}
+        </p>
+      </div>
+
+      <p
+        className="text-[22px] font-bold font-quicksand leading-none"
+        style={{ color }}
+      >
+        {value}
+      </p>
+
+      <p
+        className="text-[10px] font-nunito mt-1 leading-tight"
+        style={{ color: TXT_MUTED }}
+      >
+        {sub}
+      </p>
+    </button>
+  );
+}
+
+function PriorityCard({
+  emoji,
+  title,
+  body,
+  ctaLabel,
+  onCta,
+}: {
+  emoji: string;
+  title: string;
+  body: string;
+  ctaLabel?: string;
+  onCta?: () => void;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
+      style={{ backgroundColor: AMBER_BG, border: `1px solid ${AMBER_BORDER}` }}
+    >
+      <span className="text-[18px] mt-0.5 flex-shrink-0">{emoji}</span>
+
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-[13px] font-bold font-quicksand leading-snug"
+          style={{ color: TXT }}
+        >
+          {title}
+        </p>
+        <p
+          className="text-[12px] font-nunito mt-0.5 leading-snug"
+          style={{ color: TXT_MUTED }}
+        >
+          {body}
+        </p>
+      </div>
+
+      {ctaLabel && onCta && (
+        <button
+          onClick={onCta}
+          className="text-[11px] font-bold font-nunito px-2.5 py-1.5 rounded-xl text-white flex-shrink-0 self-center transition-all active:scale-95"
+          style={{ backgroundColor: AMBER }}
+        >
+          {ctaLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ExpandableSection({
+  id,
+  emoji,
+  title,
+  statusPill,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  emoji: string;
+  title: string;
+  statusPill?: ReactNode;
+  summary?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+    >
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-4 text-left transition-colors"
+        style={{ backgroundColor: open ? MAUVE_BG : 'transparent' }}
+      >
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-[17px] flex-shrink-0"
+          style={{ backgroundColor: MUTED_BG }}
+        >
+          {emoji}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p
+              className="text-[14px] font-bold font-quicksand"
+              style={{ color: TXT }}
+            >
+              {title}
+            </p>
+            {statusPill}
+          </div>
+
+          {summary && (
+            <p
+              className="text-[11px] font-nunito mt-0.5 line-clamp-1"
+              style={{ color: TXT_MUTED }}
+            >
+              {summary}
+            </p>
+          )}
+        </div>
+
+        <div className="flex-shrink-0" style={{ color: TXT_MUTED }}>
+          {open ? (
+            <ChevronDownIcon className="w-4 h-4" />
+          ) : (
+            <ChevronRightIcon className="w-4 h-4" />
+          )}
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key={`${id}-body`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div
+              className="px-4 pb-5 pt-3 space-y-4"
+              style={{ borderTop: `1px solid ${CARD_BORDER}` }}
+            >
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className="w-full flex items-center justify-between rounded-2xl px-4 py-3 transition-all active:scale-[0.99]"
+      style={{
+        backgroundColor: CARD_BG,
+        border: `1px solid ${CARD_BORDER}`,
+      }}
+    >
+      <span
+        className="text-[13px] font-bold font-nunito"
+        style={{ color: TXT }}
+      >
+        {label}
+      </span>
+
+      <div
+        className="w-11 h-6 rounded-full relative transition-colors"
+        style={{
+          backgroundColor: value ? SAGE : '#D8D5CF',
+        }}
+      >
+        <div
+          className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+          style={{
+            left: value ? '22px' : '2px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+          }}
+        />
+      </div>
+    </button>
+  );
+}
+
+function VaccineConfirmModal({
+  vaccine,
+  childId,
+  onClose,
+  onConfirmed,
+}: {
+  vaccine: VaccineEntry;
+  childId: string;
+  onClose: () => void;
+  onConfirmed: (record: VaccineRecord) => void;
+}) {
+  const today = new Date().toISOString().split('T')[0];
+  const [appliedDate, setAppliedDate] = useState(today);
+  const [saving, setSaving] = useState(false);
+
+  async function confirm() {
+    if (!appliedDate) return;
+    setSaving(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('child_vaccines')
+        .upsert(
+          [
+            {
+              child_id: childId,
+              vaccine_id: vaccine.id,
+              vaccine_code: vaccine.id,
+              vaccine_name: vaccine.shortName,
+              dose_label: vaccine.doses ?? '',
+              scheduled_age_months: vaccine.ageMonths ?? null,
+              scheduled_date: null,
+              applied_date: appliedDate,
+              status: 'applied',
+              source: 'app',
+              notes: null,
+            },
+          ],
+          {
+            onConflict: 'child_id,vaccine_code,dose_label',
+          }
+        )
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      const record = toVaccineRecord(data);
+
+      if (!isValidVaccineRecord(record)) {
+        throw new Error('Invalid vaccine record returned from database');
+      }
+
+      onConfirmed(record);
+      toast({ title: `✅ ${vaccine.shortName} confirmada` });
+      onClose();
+    } catch {
+      toast({ title: 'Erro ao confirmar vacina', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: CARD_BG }}
+      >
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
+
+        <div className="px-5 pb-8 space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p
+                className="text-[16px] font-bold font-quicksand"
+                style={{ color: TXT }}
+              >
+                Confirmar aplicação
+              </p>
+              <p
+                className="text-[12px] font-nunito mt-0.5"
+                style={{ color: TXT_MUTED }}
+              >
+                {vaccine.shortName}
+                {vaccine.doses ? ` · ${vaccine.doses}` : ''}
+              </p>
+            </div>
+
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div
+            className="rounded-2xl px-4 py-3"
+            style={{ backgroundColor: MUTED_BG }}
+          >
+            <p
+              className="text-[12px] font-nunito leading-snug"
+              style={{ color: TXT_MUTED }}
+            >
+              {vaccine.diseases}
+            </p>
+            <p
+              className="text-[11px] font-bold font-nunito mt-1.5"
+              style={{ color: SAGE }}
+            >
+              Prevista: {vaccine.ageLabel}
+            </p>
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-2"
+              style={{ color: TXT_MUTED }}
+            >
+              Data de aplicação
+            </p>
+
+            <input
+              type="date"
+              value={appliedDate}
+              max={today}
+              onChange={e => setAppliedDate(e.target.value)}
+              className="w-full px-4 py-3 rounded-2xl text-[13px] font-nunito outline-none transition-colors"
+              style={{
+                backgroundColor: MUTED_BG,
+                border: `1.5px solid ${CARD_BORDER}`,
+                color: TXT,
+              }}
+            />
+          </div>
+
+          <p
+            className="text-[11px] font-nunito leading-snug"
+            style={{ color: TXT_MUTED }}
+          >
+            Ao confirmar, esta vacina será registrada no histórico de{' '}
+            {vaccine.shortName} desta criança.
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: MUTED_BG,
+                color: TXT_MUTED,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={confirm}
+              disabled={saving || !appliedDate}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Salvando…' : 'Confirmar vacina'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+function VaccineRow({
+  vaccine,
+  state,
+  onConfirm,
+  appliedDate,
+}: {
+  vaccine: VaccineEntry;
+  state: 'applied' | 'due' | 'upcoming' | 'future';
+  onConfirm?: (v: VaccineEntry) => void;
+  appliedDate?: string;
+}) {
+  const stateConfig = {
+    applied: { color: SAGE, label: 'Aplicada', bg: SAGE_BG },
+    due: { color: AMBER, label: 'A confirmar', bg: AMBER_BG },
+    upcoming: { color: MAUVE, label: 'Próxima', bg: MAUVE_BG },
+    future: { color: TXT_MUTED, label: 'Futura', bg: MUTED_BG },
+  }[state];
+
+  return (
+    <div
+      className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${
+        state === 'future' ? 'opacity-55' : ''
+      }`}
+      style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+    >
+      <div
+        className="w-8 h-8 rounded-xl flex items-center justify-center text-[14px] flex-shrink-0"
+        style={{ backgroundColor: stateConfig.bg }}
+      >
+        {state === 'applied' ? '✓' : '💉'}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-[13px] font-bold font-quicksand leading-tight"
+          style={{ color: TXT }}
+        >
+          {vaccine.shortName}
+          {vaccine.doses && (
+            <span className="font-normal" style={{ color: TXT_MUTED }}>
+              {' '}
+              · {vaccine.doses}
+            </span>
+          )}
+        </p>
+
+        <p className="text-[11px] font-nunito mt-0.5" style={{ color: TXT_MUTED }}>
+          {state === 'applied' && appliedDate
+            ? `Aplicada em ${new Date(
+                `${appliedDate}T12:00:00`
+              ).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit',
+              })}`
+            : vaccine.ageLabel}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <InlineStatusPill
+          label={stateConfig.label}
+          variant={state === 'applied' ? 'active' : 'paused'}
+          color={stateConfig.color}
+        />
+
+        {(state === 'due' || state === 'upcoming') && onConfirm && (
+          <button
+            onClick={() => onConfirm(vaccine)}
+            className="text-[10px] font-bold font-nunito px-2 py-1 rounded-xl text-white transition-all active:scale-95"
+            style={{
+              backgroundColor: SAGE,
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            Confirmar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConsultationModal({
+  childId,
+  userId,
+  onClose,
+  onSaved,
+}: {
+  childId: string;
+  userId: string;
+  onClose: () => void;
+  onSaved: (entry: ConsultationEntry) => void;
+}) {
+  const [form, setForm] = useState({
+    doctor: '',
+    specialty: '',
+    location: '',
+    date: '',
+    note: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!form.date) {
+      toast({ title: 'Informe a data da consulta', variant: 'destructive' });
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('child_consultations')
+        .insert({
+          child_id: childId,
+          author_id: userId,
+          consultation_date: form.date,
+          doctor_name: form.doctor.trim() || null,
+          specialty: form.specialty.trim() || null,
+          location: form.location.trim() || null,
+          notes: form.note.trim() || null,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      const record: ConsultationRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        date: data.consultation_date,
+        doctorName: data.doctor_name,
+        specialty: data.specialty,
+        location: data.location,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      onSaved(consultationRecordToEntry(record));
+      toast({ title: '🩺 Consulta registrada' });
+      onClose();
+    } catch {
+      toast({ title: 'Erro ao salvar consulta', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: CARD_BG }}
+      >
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
+
+        <div className="px-5 pb-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <p
+              className="text-[16px] font-bold font-quicksand"
+              style={{ color: TXT }}
+            >
+              Registrar consulta
+            </p>
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          {[
+            {
+              label: 'Data da consulta *',
+              key: 'date',
+              type: 'date',
+              placeholder: '',
+            },
+            {
+              label: 'Médico (opcional)',
+              key: 'doctor',
+              type: 'text',
+              placeholder: 'Nome do médico',
+            },
+            {
+              label: 'Especialidade (opcional)',
+              key: 'specialty',
+              type: 'text',
+              placeholder: 'Ex: Pediatria...',
+            },
+            {
+              label: 'Local (opcional)',
+              key: 'location',
+              type: 'text',
+              placeholder: 'Ex: Clínica, hospital...',
+            },
+          ].map(f => (
+            <div key={f.key}>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                {f.label}
+              </p>
+              <input
+                type={f.type}
+                placeholder={f.placeholder}
+                value={(form as Record<string, string>)[f.key]}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, [f.key]: e.target.value }))
+                }
+                style={inputStyle}
+              />
+            </div>
+          ))}
+
+          <div>
+            <p
+              className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Observações (opcional)
+            </p>
+
+            <textarea
+              rows={2}
+              placeholder="Ex: retorno de 3 meses..."
+              value={form.note}
+              onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+              style={{ ...inputStyle, resize: 'none' }}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: MUTED_BG,
+                color: TXT_MUTED,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={save}
+              disabled={saving || !form.date}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Salvando…' : 'Registrar consulta'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+function MedicationModal({
+  childId,
+  userId,
+  onClose,
+  onSaved,
+}: {
+  childId: string;
+  userId: string;
+  onClose: () => void;
+  onSaved: (entry: MedicationEntry) => void;
+}) {
+  const [form, setForm] = useState<MedicationFormState>({
+    name: '',
+    dosage: '',
+    frequency: '',
+    startDate: '',
+    endDate: '',
+    note: '',
+    active: true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  async function save() {
+    if (!form.name.trim()) {
+      toast({ title: 'Informe o nome do medicamento', variant: 'destructive' });
+      return;
+    }
+
+    if (form.endDate && form.startDate && form.endDate < form.startDate) {
+      toast({
+        title: 'A data de término não pode ser anterior à data de início',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('child_medications')
+        .insert({
+          child_id: childId,
+          author_id: userId,
+          name: form.name.trim(),
+          dosage: form.dosage.trim() || null,
+          frequency: form.frequency.trim() || null,
+          start_date: form.startDate || null,
+          end_date: form.endDate || null,
+          is_active: form.active,
+          notes: form.note.trim() || null,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      const record: MedicationRecord = {
+        id: data.id,
+        childId: data.child_id,
+        authorId: data.author_id,
+        name: data.name,
+        dosage: data.dosage,
+        frequency: data.frequency,
+        startDate: data.start_date,
+        endDate: data.end_date,
+        isActive: data.is_active,
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      onSaved(medicationRecordToEntry(record));
+      toast({ title: '💊 Medicamento registrado' });
+      onClose();
+    } catch {
+      toast({
+        title: 'Não foi possível salvar o medicamento',
+        description: 'Tente novamente em instantes.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: CARD_BG }}
+      >
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
+
+        <div className="px-5 pb-8 space-y-4 max-h-[85vh] overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <p
+              className="text-[16px] font-bold font-quicksand"
+              style={{ color: TXT }}
+            >
+              Registrar medicamento
+            </p>
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Nome do medicamento *
+            </p>
+
+            <input
+              type="text"
+              placeholder="Ex: Paracetamol"
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Posologia (opcional)
+              </p>
+
+              <input
+                type="text"
+                placeholder="Ex: 5ml"
+                value={form.dosage}
+                onChange={e => setForm(prev => ({ ...prev, dosage: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Frequência (opcional)
+              </p>
+
+              <input
+                type="text"
+                placeholder="Ex: 8 em 8 horas"
+                value={form.frequency}
+                onChange={e => setForm(prev => ({ ...prev, frequency: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Data de início (opcional)
+              </p>
+
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Data de término (opcional)
+              </p>
+
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Observações (opcional)
+            </p>
+
+            <textarea
+              rows={2}
+              placeholder="Ex: usar para dor"
+              value={form.note}
+              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+              style={{ ...inputStyle, resize: 'none' }}
+            />
+          </div>
+
+          <ToggleRow
+            label="Medicamento em uso"
+            value={form.active}
+            onChange={value => setForm(prev => ({ ...prev, active: value }))}
+          />
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: MUTED_BG,
+                color: TXT_MUTED,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={save}
+              disabled={saving || !form.name.trim()}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Salvando…' : 'Registrar medicamento'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+function MedicationEditModal({
+  entry,
+  onClose,
+  onSave,
+}: {
+  entry: MedicationEntry;
+  onClose: () => void;
+  onSave: (payload: MedicationFormState) => Promise<void>;
+}) {
+  const [form, setForm] = useState<MedicationFormState>(medicationToFormState(entry));
+  const [saving, setSaving] = useState(false);
+
+  const initial = medicationToFormState(entry);
+
+  const hasChanges =
+    form.name !== initial.name ||
+    form.dosage !== initial.dosage ||
+    form.frequency !== initial.frequency ||
+    form.startDate !== initial.startDate ||
+    form.endDate !== initial.endDate ||
+    form.note !== initial.note ||
+    form.active !== initial.active;
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  async function handleSave() {
+    if (!form.name.trim()) {
+      toast({ title: 'Informe o nome do medicamento', variant: 'destructive' });
+      return;
+    }
+
+    if (form.endDate && form.startDate && form.endDate < form.startDate) {
+      toast({
+        title: 'A data de término não pode ser anterior à data de início',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSave({
+        name: form.name.trim(),
+        dosage: form.dosage,
+        frequency: form.frequency,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        note: form.note,
+        active: form.active,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: CARD_BG }}
+      >
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
+
+        <div className="px-5 pb-8 space-y-4 max-h-[85vh] overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <p
+                className="text-[16px] font-bold font-quicksand"
+                style={{ color: TXT }}
+              >
+                Editar medicamento
+              </p>
+              <p
+                className="text-[12px] font-nunito mt-0.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Ajuste os dados salvos
+              </p>
+            </div>
+
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Nome do medicamento *
+            </p>
+
+            <input
+              type="text"
+              placeholder="Ex: Paracetamol"
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Posologia (opcional)
+              </p>
+
+              <input
+                type="text"
+                placeholder="Ex: 5ml"
+                value={form.dosage}
+                onChange={e => setForm(prev => ({ ...prev, dosage: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Frequência (opcional)
+              </p>
+
+              <input
+                type="text"
+                placeholder="Ex: 8 em 8 horas"
+                value={form.frequency}
+                onChange={e => setForm(prev => ({ ...prev, frequency: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Data de início (opcional)
+              </p>
+
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Data de término (opcional)
+              </p>
+
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold uppercase tracking-wide font-nunito mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Observações (opcional)
+            </p>
+
+            <textarea
+              rows={2}
+              placeholder="Ex: usar para dor"
+              value={form.note}
+              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+              style={{ ...inputStyle, resize: 'none' }}
+            />
+          </div>
+
+          <ToggleRow
+            label="Medicamento em uso"
+            value={form.active}
+            onChange={value => setForm(prev => ({ ...prev, active: value }))}
+          />
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: MUTED_BG,
+                color: TXT_MUTED,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !hasChanges || !form.name.trim()}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Salvando…' : 'Salvar alterações'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+function GrowthEditModal({
+  entry,
+  onClose,
+  onSave,
+}: {
+  entry: GrowthEntry;
+  onClose: () => void;
+  onSave: (payload: {
+    weight?: number;
+    height?: number;
+    headCircumference?: number;
+    note?: string;
+    date: string;
+  }) => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    weight: entry.weight != null ? String(entry.weight) : '',
+    height: entry.height != null ? String(entry.height) : '',
+    headCircumference:
+      entry.headCircumference != null ? String(entry.headCircumference) : '',
+    note: entry.note ?? '',
+    date: new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0],
+  });
+  const [saving, setSaving] = useState(false);
+
+  const initialWeight = entry.weight != null ? String(entry.weight) : '';
+  const initialHeight = entry.height != null ? String(entry.height) : '';
+  const initialHead =
+    entry.headCircumference != null ? String(entry.headCircumference) : '';
+  const initialNote = entry.note ?? '';
+  const initialDate = new Date(entry.date.getTime() - entry.date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split('T')[0];
+
+  const hasChanges =
+    form.weight !== initialWeight ||
+    form.height !== initialHeight ||
+    form.headCircumference !== initialHead ||
+    form.note !== initialNote ||
+    form.date !== initialDate;
+
+  const canSave =
+    hasChanges &&
+    !!form.date &&
+    (form.weight.trim() !== '' ||
+      form.height.trim() !== '' ||
+      form.headCircumference.trim() !== '');
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  async function handleSave() {
+    if (!canSave) return;
+
+    setSaving(true);
+    try {
+      await onSave({
+        weight: form.weight.trim() ? parseFloat(form.weight) : undefined,
+        height: form.height.trim() ? parseFloat(form.height) : undefined,
+        headCircumference: form.headCircumference.trim()
+          ? parseFloat(form.headCircumference)
+          : undefined,
+        note: form.note.trim() || undefined,
+        date: form.date,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto rounded-t-3xl overflow-hidden"
+        style={{ backgroundColor: CARD_BG }}
+      >
+        <div
+          className="w-10 h-1 rounded-full mx-auto mt-3 mb-4"
+          style={{ backgroundColor: CARD_BORDER }}
+        />
+
+        <div className="px-5 pb-8 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p
+                className="text-[16px] font-bold font-quicksand"
+                style={{ color: TXT }}
+              >
+                Editar medição
+              </p>
+              <p
+                className="text-[12px] font-nunito mt-0.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Ajuste os dados salvos
+              </p>
+            </div>
+
+            <button onClick={onClose} style={{ color: TXT_MUTED }}>
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Data da medição
+            </p>
+
+            <input
+              type="date"
+              value={form.date}
+              onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p
+                className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Peso (kg)
+              </p>
+
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Ex: 5.2"
+                value={form.weight}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, weight: e.target.value }))
+                }
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <p
+                className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+                style={{ color: TXT_MUTED }}
+              >
+                Altura (cm)
+              </p>
+
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Ex: 58.5"
+                value={form.height}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, height: e.target.value }))
+                }
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Circunferência cefálica (cm)
+            </p>
+
+            <input
+              type="number"
+              step="0.1"
+              placeholder="Ex: 39.2"
+              value={form.headCircumference}
+              onChange={e =>
+                setForm(prev => ({ ...prev, headCircumference: e.target.value }))
+              }
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <p
+              className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+              style={{ color: TXT_MUTED }}
+            >
+              Observação
+            </p>
+
+            <input
+              type="text"
+              placeholder="Observação (opcional)"
+              value={form.note}
+              onChange={e => setForm(prev => ({ ...prev, note: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[13px] font-bold font-nunito transition-all active:scale-95"
+              style={{
+                backgroundColor: MUTED_BG,
+                color: TXT_MUTED,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !canSave}
+              className="flex-[2] py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: SAGE,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {saving ? 'Salvando…' : 'Salvar alterações'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+export default function SaudePage() {
+  const { user } = useAuth();
+  const { activeChild } = useActiveChild();
+
+  const childName = activeChild?.name ?? 'seu filho';
+  const ageCtx = activeChild ? getAgeContext(activeChild.birth_date) : null;
+  const ageMonths = ageCtx?.months ?? 0;
+
+  const [appliedVaccineIds, setAppliedVaccineIds] = useState<Set<string>>(new Set());
+  const [appliedVaccineDates, setAppliedVaccineDates] = useState<Record<string, string>>({});
+  const vaccineState = computeVaccineState(ageMonths, appliedVaccineIds);
+
+  const [openSection, setOpenSection] = useState<string | null>(null);
+  const [showAllDue, setShowAllDue] = useState(false);
+  const [showFuture, setShowFuture] = useState(false);
+  const [showComplementary, setShowComplementary] = useState(false);
+  const [confirmVaccine, setConfirmVaccine] = useState<VaccineEntry | null>(null);
+  const [showConsultModal, setShowConsultModal] = useState(false);
+  const [showMedModal, setShowMedModal] = useState(false);
+  const [editingGrowthEntry, setEditingGrowthEntry] = useState<GrowthEntry | null>(null);
+  const [editingMedicationEntry, setEditingMedicationEntry] = useState<MedicationEntry | null>(null);
+
+  const [growthHistory, setGrowthHistory] = useState<GrowthEntry[]>([]);
+  const [symptomHistory, setSymptomHistory] = useState<SymptomEntry[]>([]);
+  const [savedNotes, setSavedNotes] = useState<NoteEntry[]>([]);
+  const [consultations, setConsultations] = useState<ConsultationEntry[]>([]);
+  const [medications, setMedications] = useState<MedicationEntry[]>([]);
+
+  const [growthForm, setGrowthForm] = useState<{
+    weight?: string;
+    height?: string;
+    headCircumference?: string;
+    note?: string;
+    date?: string;
+  }>({
+    date: new Date().toISOString().split('T')[0],
+  });
+
+  const [growthSaving, setGrowthSaving] = useState(false);
+  const [loggedSymptoms, setLoggedSymptoms] = useState<string[]>([]);
+  const [symptomNote, setSymptomNote] = useState('');
+  const [symptomSaving, setSymptomSaving] = useState(false);
+  const [quickNote, setQuickNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
+  const [dbLoading, setDbLoading] = useState(true);
+
+  function toggle(id: string) {
+    setOpenSection(prev => (prev === id ? null : id));
+  }
+
+  function openAndScroll(id: string) {
+    setOpenSection(id);
+    setTimeout(() => {
+      document
+        .getElementById(`section-${id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
+
+  function fmtWeight(w: number): string {
+    return `${w.toFixed(2)} kg`;
+  }
+
+  function fmtWeightDelta(d: number): string {
+    return `${Math.abs(d).toFixed(2)} kg`;
+  }
+
+  const loadData = useCallback(async () => {
+  if (!activeChild) {
+    setDbLoading(false);
+    return;
+  }
+
+  setDbLoading(true);
+
+  try {
+    const [
+      consultationsResult,
+      growthResult,
+      symptomsResult,
+      notesResult,
+      vaccineRowsResult,
+      medicationRowsResult,
+    ] = await Promise.all([
+      supabase
+        .from('child_consultations')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('consultation_date', { ascending: false })
+        .limit(200),
+
+      supabase
+        .from('child_growth_measurements')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('measured_on', { ascending: false })
+        .limit(200),
+
+      supabase
+        .from('child_symptom_logs')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('occurred_at', { ascending: false })
+        .limit(200),
+
+      supabase
+        .from('child_medical_notes')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('noted_at', { ascending: false })
+        .limit(200),
+
+      supabase
+        .from('child_vaccines')
+        .select('*')
+        .eq('child_id', activeChild.id),
+
+      supabase
+        .from('child_medications')
+        .select('*')
+        .eq('child_id', activeChild.id)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (consultationsResult.error) throw consultationsResult.error;
+    if (growthResult.error) throw growthResult.error;
+    if (symptomsResult.error) throw symptomsResult.error;
+    if (notesResult.error) throw notesResult.error;
+    if (vaccineRowsResult.error) throw vaccineRowsResult.error;
+    if (medicationRowsResult.error) throw medicationRowsResult.error;
+
+    const consultationRecords: ConsultationRecord[] = (consultationsResult.data ?? [])
+      .map(row => toConsultationRecord(row))
+      .filter(isValidConsultationRecord);
+
+    const growthRecords: GrowthRecord[] = (growthResult.data ?? [])
+      .map(row => toGrowthRecord(row))
+      .filter(isValidGrowthRecord);
+
+    const symptomRecords: SymptomRecord[] = (symptomsResult.data ?? [])
+      .map(row => toSymptomRecord(row))
+      .filter(isValidSymptomRecord);
+
+    const medicalNoteRecords: MedicalNoteRecord[] = (notesResult.data ?? [])
+      .map(row => toMedicalNoteRecord(row))
+      .filter(isValidMedicalNoteRecord);
+
+    const medicationRecords: MedicationRecord[] = (medicationRowsResult.data ?? [])
+      .map(row => toMedicationRecord(row))
+      .filter(isValidMedicationRecord);
+
+    const vaccineRecords: VaccineRecord[] = (vaccineRowsResult.data ?? [])
+      .map(row => toVaccineRecord(row))
+      .filter(isValidVaccineRecord);
+
+    const consults: ConsultationEntry[] = consultationRecords.map(record => ({
+      id: record.id,
+      doctor: record.doctorName ?? '',
+      specialty: record.specialty ?? '',
+      location: record.location ?? '',
+      date: record.date,
+      note: record.notes ?? '',
+    }));
+
+    const growth: GrowthEntry[] = growthRecords.map(record => ({
+      id: record.id,
+      weight: record.weightKg ?? undefined,
+      height: record.heightCm ?? undefined,
+      headCircumference: record.headCircumferenceCm ?? undefined,
+      note: record.notes ?? undefined,
+      date: new Date(`${record.measuredOn}T12:00:00`),
+      edited: false,
+    }));
+
+    const symptoms: SymptomEntry[] = symptomRecords.map(record => ({
+      id: record.id,
+      symptoms: record.symptoms,
+      note: record.notes ?? undefined,
+      severity: record.severity ?? undefined,
+      temperatureC: record.temperatureC ?? undefined,
+      date: new Date(record.occurredAt),
+    }));
+
+    const notes: NoteEntry[] = medicalNoteRecords.map(record => ({
+      id: record.id,
+      text: record.note,
+      source: record.source ?? undefined,
+      date: new Date(record.notedAt),
+    }));
+
+    const meds: MedicationEntry[] = medicationRecords.map(record => ({
+      id: record.id,
+      name: record.name,
+      dosage: record.dosage ?? '',
+      frequency: record.frequency ?? '',
+      startDate: record.startDate ?? '',
+      endDate: record.endDate ?? '',
+      note: record.notes ?? '',
+      active: record.isActive,
+      createdAt: record.createdAt,
+      authorId: record.authorId,
+      childId: record.childId,
+    }));
+
+    const appliedIds = new Set<string>();
+    const appliedDates: Record<string, string> = {};
+
+    for (const record of vaccineRecords) {
+      if (record.status === 'applied' && record.vaccineCode) {
+        appliedIds.add(record.vaccineCode);
+        if (record.appliedDate) {
+          appliedDates[record.vaccineCode] = record.appliedDate;
+        }
+      }
+    }
+
+    setSavedNotes(notes);
+    setGrowthHistory(sortGrowthHistoryDesc(growth));
+    setSymptomHistory(symptoms);
+    setConsultations(sortByIsoDateDesc(consults));
+    setMedications(sortByIsoDateDesc(meds));
+    setAppliedVaccineIds(appliedIds);
+    setAppliedVaccineDates(appliedDates);
+  } catch {
+    toast({
+      title: 'Erro ao carregar dados de saúde',
+      description: 'Tente novamente em instantes.',
+      variant: 'destructive',
+    });
+  } finally {
+    setDbLoading(false);
+  }
+}, [activeChild]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  async function saveQuickNote() {
+  if (!quickNote.trim() || !activeChild || !user) return;
+
+  setSavingNote(true);
+
+  try {
+    const now = new Date();
+
+    const { data, error } = await supabase
+      .from('child_medical_notes')
+      .insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        note: quickNote.trim(),
+        noted_at: now.toISOString(),
+        source: 'manual',
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const record = toMedicalNoteRecord(data);
+
+    if (!isValidMedicalNoteRecord(record)) {
+      throw new Error('Invalid medical note record returned from database');
+    }
+
+    const nextNote: NoteEntry = {
+      id: record.id,
+      text: record.note,
+      source: record.source ?? undefined,
+      date: new Date(record.notedAt),
+    };
+
+    setSavedNotes(prev => [nextNote, ...prev]);
+
+    setQuickNote('');
+    setNoteSavedFeedback(true);
+    setTimeout(() => setNoteSavedFeedback(false), 2500);
+
+    toast({ title: '📋 Nota salva no relatório' });
+  } catch {
+    toast({ title: 'Erro ao salvar nota', variant: 'destructive' });
+  } finally {
+    setSavingNote(false);
+  }
+}
+
+async function saveGrowthMeasurement() {
+  if (
+    !activeChild ||
+    !user ||
+    (!growthForm.weight && !growthForm.height && !growthForm.headCircumference)
+  ) {
+    return;
+  }
+
+  setGrowthSaving(true);
+
+  try {
+    const measuredOn = growthForm.date || new Date().toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('child_growth_measurements')
+      .insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        measured_on: measuredOn,
+        weight_kg: growthForm.weight ? parseFloat(growthForm.weight) : null,
+        height_cm: growthForm.height ? parseFloat(growthForm.height) : null,
+        head_circumference_cm: growthForm.headCircumference
+          ? parseFloat(growthForm.headCircumference)
+          : null,
+        notes: growthForm.note?.trim() || null,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const record = toGrowthRecord(data);
+
+    if (!isValidGrowthRecord(record)) {
+      throw new Error('Invalid growth record returned from database');
+    }
+
+    const nextGrowth: GrowthEntry = {
+      id: record.id,
+      weight: record.weightKg ?? undefined,
+      height: record.heightCm ?? undefined,
+      headCircumference: record.headCircumferenceCm ?? undefined,
+      note: record.notes ?? undefined,
+      date: new Date(`${record.measuredOn}T12:00:00`),
+      edited: false,
+    };
+
+    setGrowthHistory(prev => sortGrowthHistoryDesc([nextGrowth, ...prev]));
+
+    setGrowthForm({
+      date: new Date().toISOString().split('T')[0],
+    });
+
+    toast({ title: '📏 Medição salva' });
+  } catch {
+    toast({ title: 'Erro ao salvar medição', variant: 'destructive' });
+  } finally {
+    setGrowthSaving(false);
+  }
+}
+
+async function updateGrowthMeasurement(
+  entryId: string,
+  payload: {
+    weight?: number;
+    height?: number;
+    headCircumference?: number;
+    note?: string;
+    date: string;
+  }
+) {
+  if (!activeChild || !user) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('child_growth_measurements')
+      .update({
+        measured_on: payload.date,
+        weight_kg: payload.weight ?? null,
+        height_cm: payload.height ?? null,
+        head_circumference_cm: payload.headCircumference ?? null,
+        notes: payload.note?.trim() || null,
+      })
+      .eq('id', entryId)
+      .eq('child_id', activeChild.id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const record = toGrowthRecord(data);
+
+    if (!isValidGrowthRecord(record)) {
+      throw new Error('Invalid updated growth record returned from database');
+    }
+
+    const updatedEntry: GrowthEntry = {
+      id: record.id,
+      weight: record.weightKg ?? undefined,
+      height: record.heightCm ?? undefined,
+      headCircumference: record.headCircumferenceCm ?? undefined,
+      note: record.notes ?? undefined,
+      date: new Date(`${record.measuredOn}T12:00:00`),
+      edited: true,
+    };
+
+    setGrowthHistory(prev =>
+      sortGrowthHistoryDesc(
+        prev.map(entry => (entry.id === entryId ? updatedEntry : entry))
+      )
+    );
+
+    setEditingGrowthEntry(null);
+    toast({ title: '📏 Medição atualizada' });
+  } catch {
+    toast({ title: 'Erro ao atualizar medição', variant: 'destructive' });
+  }
+}
+
+async function updateMedication(entryId: string, payload: MedicationFormState) {
+  if (!activeChild || !user) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('child_medications')
+      .update({
+        name: payload.name.trim(),
+        dosage: payload.dosage.trim() || null,
+        frequency: payload.frequency.trim() || null,
+        start_date: payload.startDate || null,
+        end_date: payload.endDate || null,
+        is_active: payload.active,
+        notes: payload.note.trim() || null,
+      })
+      .eq('id', entryId)
+      .eq('child_id', activeChild.id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const record = toMedicationRecord(data);
+
+    if (!isValidMedicationRecord(record)) {
+      throw new Error('Invalid updated medication record returned from database');
+    }
+
+    const updatedEntry: MedicationEntry = {
+      id: record.id,
+      name: record.name,
+      dosage: record.dosage ?? '',
+      frequency: record.frequency ?? '',
+      startDate: record.startDate ?? '',
+      endDate: record.endDate ?? '',
+      note: record.notes ?? '',
+      active: record.isActive,
+      createdAt: record.createdAt,
+      authorId: record.authorId,
+      childId: record.childId,
+    };
+
+    setMedications(prev =>
+      sortByIsoDateDesc(prev.map(item => (item.id === entryId ? updatedEntry : item)))
+    );
+
+    setEditingMedicationEntry(null);
+    toast({ title: '💊 Medicamento atualizado' });
+  } catch {
+    toast({
+      title: 'Não foi possível atualizar o medicamento',
+      description: 'Tente novamente em instantes.',
+      variant: 'destructive',
+    });
+  }
+}
+
+async function saveSymptoms() {
+  if (!activeChild || !user || loggedSymptoms.length === 0) return;
+
+  setSymptomSaving(true);
+
+  try {
+    const now = new Date();
+
+    const { data, error } = await supabase
+      .from('child_symptom_logs')
+      .insert({
+        child_id: activeChild.id,
+        author_id: user.id,
+        symptoms: loggedSymptoms,
+        notes: symptomNote.trim() || null,
+        occurred_at: now.toISOString(),
+        severity: null,
+        temperature_c: null,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const record = toSymptomRecord(data);
+
+    if (!isValidSymptomRecord(record)) {
+      throw new Error('Invalid symptom record returned from database');
+    }
+
+    const nextSymptom: SymptomEntry = {
+      id: record.id,
+      symptoms: record.symptoms,
+      note: record.notes ?? undefined,
+      severity: record.severity ?? undefined,
+      temperatureC: record.temperatureC ?? undefined,
+      date: new Date(record.occurredAt),
+    };
+
+    setSymptomHistory(prev => [nextSymptom, ...prev]);
+
+    setLoggedSymptoms([]);
+    setSymptomNote('');
+    toast({ title: '🌡️ Sintomas registrados' });
+  } catch {
+    toast({ title: 'Erro ao salvar sintomas', variant: 'destructive' });
+  } finally {
+    setSymptomSaving(false);
+  }
+}
+
+  const priorityItems: {
+    emoji: string;
+    title: string;
+    body: string;
+    cta: string;
+    sectionId: string;
+  }[] = [];
+
+  if (vaccineState.due.length > 0) {
+    const first = vaccineState.due[0];
+    priorityItems.push({
+      emoji: '💉',
+      title: `${vaccineState.due.length} vacina${vaccineState.due.length > 1 ? 's' : ''} a confirmar`,
+      body: `${first.shortName} (${first.doses}) prevista para esta fase.`,
+      cta: 'Ver',
+      sectionId: 'vaccines',
+    });
+  } else if (vaccineState.upcoming.length > 0) {
+    const next = vaccineState.upcoming[0];
+    priorityItems.push({
+      emoji: '💉',
+      title: 'Vacina prevista em breve',
+      body: `${next.shortName} (${next.doses}) — ${next.ageLabel}.`,
+      cta: 'Ver',
+      sectionId: 'vaccines',
+    });
+  }
+
+  if (consultations.length === 0 && priorityItems.length < 2) {
+    priorityItems.push({
+      emoji: '🩺',
+      title: 'Nenhuma consulta registrada',
+      body: 'Consultas regulares facilitam o acompanhamento.',
+      cta: 'Registrar',
+      sectionId: 'appointments',
+    });
+  }
+
+  if (ageMonths >= 1 && growthHistory.length === 0 && priorityItems.length < 3) {
+    priorityItems.push({
+      emoji: '📏',
+      title: 'Registre peso e altura',
+      body: `Acompanhar o crescimento de ${childName} facilita o histórico pediátrico.`,
+      cta: 'Registrar',
+      sectionId: 'growth',
+    });
+  }
+
+  const activeMeds = medications.filter(m => m.active);
+  const inactiveMeds = medications.filter(m => !m.active);
+  const today = new Date().toISOString().split('T')[0];
+
+  const upcomingConsults = [...consultations]
+    .filter(c => c.date && c.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const pastConsults = [...consultations]
+    .filter(c => c.date && c.date < today)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const inputStyle = {
+    backgroundColor: MUTED_BG,
+    border: `1.5px solid ${CARD_BORDER}`,
+    borderRadius: 12,
+    color: TXT,
+    fontFamily: 'Nunito, sans-serif',
+    fontSize: 13,
+    width: '100%',
+    padding: '12px 16px',
+    outline: 'none',
+  };
+
+  return (
+    <div className="min-h-screen pb-28" style={{ backgroundColor: PAGE_BG }}>
+      <div
+        className="px-5 pb-5 flex-shrink-0"
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
+          backgroundColor: MAUVE,
+          borderRadius: '0 0 24px 24px',
+        }}
+      >
+        <h1 className="text-[22px] font-bold font-quicksand" style={{ color: 'white' }}>
+          Saúde
+        </h1>
+
+        <p
+          className="text-[13px] mt-0.5 font-nunito"
+          style={{ color: 'rgba(255,255,255,0.65)' }}
+        >
+          {activeChild ? activeChild.name : 'Acompanhamento'}
+          {ageCtx && <span style={{ opacity: 0.75 }}> · {ageCtx.phaseHint}</span>}
+        </p>
+      </div>
+
+      <div className="px-4 pt-5 space-y-5">
+        <div>
+          <p
+            className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
+            style={{ color: TXT_MUTED }}
+          >
+            Visão geral
+          </p>
+
+          {dbLoading ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[0, 1, 2, 3].map(i => (
+                <Skeleton key={i} className="h-24 rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <OverviewStat
+                emoji="💉"
+                label="Vacinas"
+                value={
+                  vaccineState.due.length > 0
+                    ? `${vaccineState.due.length}`
+                    : vaccineState.applied.length > 0
+                    ? `${vaccineState.applied.length}`
+                    : '—'
+                }
+                sub={
+                  vaccineState.due.length > 0
+                    ? `${vaccineState.due.length} a confirmar`
+                    : vaccineState.upcoming.length > 0
+                    ? `${vaccineState.upcoming.length} próxima${
+                        vaccineState.upcoming.length > 1 ? 's' : ''
+                      }`
+                    : vaccineState.applied.length > 0
+                    ? `${vaccineState.applied.length} confirmada${
+                        vaccineState.applied.length > 1 ? 's' : ''
+                      }`
+                    : 'Nenhuma confirmada ainda'
+                }
+                color={vaccineState.due.length > 0 ? AMBER : SAGE}
+                urgent={vaccineState.due.length > 0}
+                onTap={() => openAndScroll('vaccines')}
+              />
+
+              <OverviewStat
+                emoji="🩺"
+                label="Consultas"
+                value={consultations.length > 0 ? `${consultations.length}` : '—'}
+                sub={
+                  upcomingConsults.length > 0
+                    ? `Próxima: ${formatDateBR(upcomingConsults[0].date)}`
+                    : consultations.length > 0
+                    ? `${consultations.length} no histórico`
+                    : 'Nenhuma registrada'
+                }
+                color={upcomingConsults.length > 0 ? SAGE : MAUVE}
+                urgent={false}
+                onTap={() => openAndScroll('appointments')}
+              />
+
+              <OverviewStat
+                emoji="🌡️"
+                label="Sintomas"
+                value={symptomHistory.length > 0 ? `${symptomHistory.length}` : '—'}
+                sub={
+                  symptomHistory.length > 0
+                    ? `Último: ${symptomHistory[0].date.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                      })}`
+                    : 'Nenhum registrado'
+                }
+                color={symptomHistory.length > 0 ? AMBER : SAGE}
+                urgent={false}
+                onTap={() => openAndScroll('symptoms')}
+              />
+
+              <OverviewStat
+                emoji="💊"
+                label="Medicamentos"
+                value={
+                  activeMeds.length > 0
+                    ? `${activeMeds.length}`
+                    : medications.length > 0
+                    ? `${medications.length}`
+                    : '—'
+                }
+                sub={
+                  activeMeds.length > 0
+                    ? `${activeMeds.length} em uso`
+                    : medications.length > 0
+                    ? `${medications.length} no histórico`
+                    : 'Nenhum registrado'
+                }
+                color={activeMeds.length > 0 ? SAGE : MAUVE}
+                urgent={false}
+                onTap={() => openAndScroll('medications')}
+              />
+            </div>
+          )}
+        </div>
+
+        {!dbLoading && priorityItems.length > 0 && (
+          <div>
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.08em] mb-3 font-nunito"
+              style={{ color: TXT_MUTED }}
+            >
+              Atenção
+            </p>
+
+            <div className="space-y-2">
+              {priorityItems.slice(0, 3).map((item, i) => (
+                <PriorityCard
+                  key={i}
+                  emoji={item.emoji}
+                  title={item.title}
+                  body={item.body}
+                  ctaLabel={item.cta}
+                  onCta={() => {
+                    if (item.sectionId === 'appointments') {
+                      setOpenSection('appointments');
+                      setShowConsultModal(true);
+                    } else if (item.sectionId === 'growth') {
+                      setOpenSection('growth');
+                    } else {
+                      setOpenSection(item.sectionId);
+                    }
+
+                    setTimeout(() => {
+                      document
+                        .getElementById(`section-${item.sectionId}`)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div id="section-vaccines">
+          <ExpandableSection
+            id="vaccines"
+            emoji="💉"
+            title="Vacinas"
+            statusPill={
+              vaccineState.due.length > 0 ? (
+                <InlineStatusPill
+                  label={`${vaccineState.due.length} a confirmar`}
+                  variant="paused"
+                  color={AMBER}
+                />
+              ) : vaccineState.applied.length > 0 ? (
+                <InlineStatusPill
+                  label={`${vaccineState.applied.length} confirmada${
+                    vaccineState.applied.length > 1 ? 's' : ''
+                  }`}
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : (
+                <InlineStatusPill
+                  label="Nenhuma confirmada"
+                  variant="paused"
+                  color={MAUVE}
+                />
+              )
+            }
+            summary={`Calendário SUS · ${vaccineState.applied.length} confirmada${
+              vaccineState.applied.length !== 1 ? 's' : ''
+            }`}
+            open={openSection === 'vaccines'}
+            onToggle={() => toggle('vaccines')}
+          >
+            <div className="flex gap-4 rounded-xl p-3" style={{ backgroundColor: MUTED_BG }}>
+              {[
+                { value: vaccineState.applied.length, label: 'Confirmadas', color: SAGE },
+                { value: vaccineState.due.length, label: 'A confirmar', color: AMBER },
+                { value: vaccineState.upcoming.length, label: 'Próximas', color: MAUVE },
+              ].map((stat, i) => (
+                <div key={i} className="flex-1 text-center">
+                  <p
+                    className="text-[22px] font-bold font-quicksand"
+                    style={{ color: stat.color }}
+                  >
+                    {stat.value}
+                  </p>
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-wide font-nunito mt-0.5"
+                    style={{ color: TXT_MUTED }}
+                  >
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="rounded-xl px-3 py-2.5 flex items-start gap-2"
+              style={{ backgroundColor: MUTED_BG }}
+            >
+              <span className="text-[13px] mt-0.5 flex-shrink-0">ℹ️</span>
+              <p
+                className="text-[11px] font-nunito leading-snug"
+                style={{ color: TXT_MUTED }}
+              >
+                Nenhuma vacina é marcada automaticamente. Toque em <strong>Confirmar</strong>{' '}
+                para registrar a data de aplicação.
+              </p>
+            </div>
+
+            {vaccineState.applied.length > 0 && (
+              <div>
+                <SectionLabel>Confirmadas</SectionLabel>
+                <div className="space-y-2">
+                  {vaccineState.applied.map(v => (
+                    <VaccineRow
+                      key={v.id}
+                      vaccine={v}
+                      state="applied"
+                      appliedDate={appliedVaccineDates[v.id]}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {vaccineState.due.length > 0 && (
+              <div>
+                <SectionLabel>Previstas para esta fase — confirmar quando aplicadas</SectionLabel>
+                <div className="space-y-2">
+                  {vaccineState.due
+                    .slice(0, showAllDue ? vaccineState.due.length : 5)
+                    .map(v => (
+                      <VaccineRow
+                        key={v.id}
+                        vaccine={v}
+                        state="due"
+                        onConfirm={setConfirmVaccine}
+                      />
+                    ))}
+
+                  {!showAllDue && vaccineState.due.length > 5 && (
+                    <button
+                      onClick={() => setShowAllDue(true)}
+                      className="text-[12px] font-semibold font-nunito ml-1"
+                      style={{ color: TXT_MUTED }}
+                    >
+                      ▸ Ver todas ({vaccineState.due.length})
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {vaccineState.upcoming.length > 0 && (
+              <div>
+                <SectionLabel>Próximas doses</SectionLabel>
+                <div className="space-y-2">
+                  {vaccineState.upcoming.map(v => (
+                    <VaccineRow
+                      key={v.id}
+                      vaccine={v}
+                      state="upcoming"
+                      onConfirm={setConfirmVaccine}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {vaccineState.applied.length === 0 &&
+              vaccineState.due.length === 0 &&
+              vaccineState.upcoming.length === 0 && (
+                <div
+                  className="rounded-xl px-3 py-3 flex items-center gap-2"
+                  style={{ backgroundColor: MUTED_BG }}
+                >
+                  <span className="text-[13px] flex-shrink-0">📅</span>
+                  <p
+                    className="text-[11px] font-nunito leading-snug flex-1"
+                    style={{ color: TXT_MUTED }}
+                  >
+                    As vacinas aparecerão aqui conforme {childName} for crescendo.
+                  </p>
+                </div>
+              )}
+
+            {vaccineState.future.length > 0 && (
+              <>
+                <button
+                  onClick={() => setShowFuture(v => !v)}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold font-nunito"
+                  style={{ color: TXT_MUTED }}
+                >
+                  <span>{showFuture ? '▾' : '▸'}</span>
+                  Vacinas futuras ({vaccineState.future.length})
+                </button>
+
+                {showFuture && (
+                  <div className="space-y-2">
+                    {vaccineState.future.map(v => (
+                      <VaccineRow key={v.id} vaccine={v} state="future" />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            <div
+              className="rounded-2xl p-4 space-y-3"
+              style={{ backgroundColor: MAUVE_BG, border: `1px solid ${MAUVE_BORDER}` }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p
+                    className="text-[13px] font-bold font-quicksand"
+                    style={{ color: TXT }}
+                  >
+                    Vacinas complementares / opcionais
+                  </p>
+                  <p
+                    className="text-[11px] font-nunito mt-0.5 leading-relaxed"
+                    style={{ color: TXT_MUTED }}
+                  >
+                    Não fazem parte do calendário SUS. Disponíveis na rede particular.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowComplementary(v => !v)}
+                  className="text-[11px] font-bold font-nunito flex-shrink-0"
+                  style={{ color: TXT_MUTED }}
+                >
+                  {showComplementary ? 'Ocultar' : 'Ver'}
+                </button>
+              </div>
+
+              {showComplementary && (
+                <div className="space-y-2 mt-1">
+                  {COMPLEMENTARY_VACCINES.map(v => (
+                    <div
+                      key={v.name}
+                      className="flex gap-2 py-2.5"
+                      style={{ borderTop: `1px solid ${MAUVE_BORDER}` }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-2 flex-wrap">
+                          <p
+                            className="text-[12px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
+                            {v.name}
+                          </p>
+
+                          {v.requiresPediatricGuidance && (
+                            <span
+                              className="text-[9px] font-bold font-nunito px-1.5 py-0.5 rounded-full flex-shrink-0"
+                              style={{
+                                backgroundColor: MAUVE_BG,
+                                color: MAUVE,
+                                border: `1px solid ${MAUVE_BORDER}`,
+                              }}
+                            >
+                              Indicação pediátrica
+                            </span>
+                          )}
+                        </div>
+
+                        <p
+                          className="text-[11px] font-nunito mt-0.5 leading-snug"
+                          style={{ color: TXT_MUTED }}
+                        >
+                          {v.description}
+                        </p>
+
+                        <p
+                          className="text-[10px] font-bold font-nunito mt-1"
+                          style={{ color: MAUVE }}
+                        >
+                          {v.ageHint}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ExpandableSection>
+        </div>
+
+        <div id="section-appointments">
+          <ExpandableSection
+            id="appointments"
+            emoji="🩺"
+            title="Consultas"
+            statusPill={
+              upcomingConsults.length > 0 ? (
+                <InlineStatusPill
+                  label={`${upcomingConsults.length} próxima${
+                    upcomingConsults.length > 1 ? 's' : ''
+                  }`}
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : consultations.length > 0 ? (
+                <InlineStatusPill
+                  label={`${consultations.length} no histórico`}
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : (
+                <InlineStatusPill
+                  label="Nenhuma registrada"
+                  variant="paused"
+                  color={MAUVE}
+                />
+              )
+            }
+            summary="Registre e acompanhe as consultas"
+            open={openSection === 'appointments'}
+            onToggle={() => toggle('appointments')}
+          >
+            <button
+              onClick={() => setShowConsultModal(true)}
+              className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
+              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+            >
+              Registrar consulta
+            </button>
+
+            {upcomingConsults.length > 0 && (
+              <div>
+                <SectionLabel>Próximas</SectionLabel>
+                <div className="space-y-2">
+                  {upcomingConsults.map(c => (
+                    <div
+                      key={c.id}
+                      className="rounded-2xl px-4 py-3"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className="text-[13px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
+                            {c.doctor || 'Consulta'}
+                            {c.specialty ? ` · ${c.specialty}` : ''}
+                          </p>
+
+                          {c.location && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {c.location}
+                            </p>
+                          )}
+
+                          {c.note && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5 leading-snug"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {c.note}
+                            </p>
+                          )}
+                        </div>
+
+                        <p
+                          className="text-[11px] font-bold font-nunito flex-shrink-0"
+                          style={{ color: SAGE }}
+                        >
+                          {formatDateBR(c.date)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pastConsults.length > 0 && (
+              <div>
+                <SectionLabel>Histórico</SectionLabel>
+                <div className="space-y-2">
+                  {pastConsults.slice(0, 5).map(c => (
+                    <div
+                      key={c.id}
+                      className="rounded-2xl px-4 py-3 opacity-70"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className="text-[13px] font-bold font-quicksand"
+                            style={{ color: TXT }}
+                          >
+                            {c.doctor || 'Consulta'}
+                            {c.specialty ? ` · ${c.specialty}` : ''}
+                          </p>
+
+                          {c.location && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {c.location}
+                            </p>
+                          )}
+
+                          {c.note && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5 leading-snug"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {c.note}
+                            </p>
+                          )}
+                        </div>
+
+                        <p
+                          className="text-[11px] font-nunito flex-shrink-0"
+                          style={{ color: TXT_MUTED }}
+                        >
+                          {formatDateBR(c.date)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {consultations.length === 0 && (
+              <div
+                className="rounded-2xl px-5 py-8 text-center"
+                style={{
+                  backgroundColor: CARD_BG,
+                  border: `1px solid ${CARD_BORDER}`,
+                }}
+              >
+                <p className="text-3xl mb-2">🩺</p>
+                <p
+                  className="text-[14px] font-bold font-quicksand"
+                  style={{ color: TXT }}
+                >
+                  Nenhuma consulta registrada
+                </p>
+                <p
+                  className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[220px] mx-auto"
+                  style={{ color: TXT_MUTED }}
+                >
+                  Registrar as consultas facilita o histórico e prepara melhor as
+                  conversas com o pediatra.
+                </p>
+              </div>
+            )}
+          </ExpandableSection>
+        </div>
+
+        <div id="section-symptoms">
+          <ExpandableSection
+            id="symptoms"
+            emoji="🌡️"
+            title="Sintomas"
+            statusPill={
+              loggedSymptoms.length > 0 ? (
+                <InlineStatusPill
+                  label={`${loggedSymptoms.length} selecionado${
+                    loggedSymptoms.length > 1 ? 's' : ''
+                  }`}
+                  variant="paused"
+                  color={AMBER}
+                />
+              ) : symptomHistory.length > 0 ? (
+                <InlineStatusPill
+                  label={`${symptomHistory.length} no histórico`}
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : (
+                <InlineStatusPill
+                  label="Nenhum registrado"
+                  variant="active"
+                  color={SAGE}
+                />
+              )
+            }
+            summary="Registre sintomas para facilitar a consulta"
+            open={openSection === 'symptoms'}
+            onToggle={() => toggle('symptoms')}
+          >
+            <div>
+              <SectionLabel>Registrar sintoma</SectionLabel>
+
+              <div className="flex flex-wrap gap-2">
+                {SYMPTOM_CHIPS.map(s => {
+                  const isSelected = loggedSymptoms.includes(s.label);
+
+                  return (
+                    <button
+                      key={s.label}
+                      onClick={() =>
+                        setLoggedSymptoms(prev =>
+                          isSelected
+                            ? prev.filter(l => l !== s.label)
+                            : [...prev, s.label]
+                        )
+                      }
+                      className="py-2 px-3.5 rounded-2xl text-[12px] font-bold font-nunito transition-all active:scale-95"
+                      style={{
+                        backgroundColor: isSelected ? AMBER_BG : MUTED_BG,
+                        color: isSelected ? AMBER : TXT,
+                        border: `1.5px solid ${
+                          isSelected ? AMBER_BORDER : 'transparent'
+                        }`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {s.emoji} {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {loggedSymptoms.length > 0 && (
+              <div className="space-y-2.5">
+                <textarea
+                  value={symptomNote}
+                  onChange={e => setSymptomNote(e.target.value)}
+                  placeholder="Observações adicionais (opcional)..."
+                  rows={2}
+                  style={{ ...inputStyle, resize: 'none' }}
+                />
+
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                  {loggedSymptoms.map(s => (
+                    <span
+                      key={s}
+                      className="text-[11px] font-bold font-nunito px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: AMBER_BG, color: AMBER }}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+
+                <button
+                  onClick={saveSymptoms}
+                  disabled={symptomSaving}
+                  className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+                  style={{
+                    backgroundColor: SAGE,
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {symptomSaving ? 'Salvando…' : 'Salvar sintomas'}
+                </button>
+              </div>
+            )}
+
+            <div>
+              <SectionLabel>Histórico</SectionLabel>
+
+              {symptomHistory.length === 0 ? (
+                <div
+                  className="rounded-2xl px-5 py-8 text-center"
+                  style={{
+                    backgroundColor: CARD_BG,
+                    border: `1px solid ${CARD_BORDER}`,
+                  }}
+                >
+                  <p className="text-3xl mb-2">🌡️</p>
+                  <p
+                    className="text-[14px] font-bold font-quicksand"
+                    style={{ color: TXT }}
+                  >
+                    Nenhum sintoma registrado
+                  </p>
+                  <p
+                    className="text-[12px] mt-1 font-nunito leading-snug max-w-[200px] mx-auto"
+                    style={{ color: TXT_MUTED }}
+                  >
+                    Registrar sintomas cria um histórico útil para as conversas com o
+                    pediatra.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {symptomHistory.slice(0, 5).map(entry => (
+                    <div
+                      key={entry.id}
+                      className="rounded-2xl px-4 py-3"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {entry.symptoms.map(s => (
+                          <span
+                            key={s}
+                            className="text-[11px] font-bold font-nunito px-2.5 py-1 rounded-full"
+                            style={{ backgroundColor: AMBER_BG, color: AMBER }}
+                          >
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+
+                      {entry.note && (
+                        <p
+                          className="text-[12px] font-nunito leading-snug mb-1"
+                          style={{ color: TXT }}
+                        >
+                          {entry.note}
+                        </p>
+                      )}
+
+                      <p className="text-[10px] font-nunito" style={{ color: TXT_MUTED }}>
+                        {entry.date.toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ExpandableSection>
+        </div>
+
+        <div id="section-medications">
+          <ExpandableSection
+            id="medications"
+            emoji="💊"
+            title="Medicamentos"
+            statusPill={
+              activeMeds.length > 0 ? (
+                <InlineStatusPill
+                  label={`${activeMeds.length} ativo${activeMeds.length > 1 ? 's' : ''}`}
+                  variant="paused"
+                  color={AMBER}
+                />
+              ) : medications.length > 0 ? (
+                <InlineStatusPill
+                  label={`${medications.length} no histórico`}
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : (
+                <InlineStatusPill label="Nenhum ativo" variant="active" color={SAGE} />
+              )
+            }
+            summary="Medicamentos em uso e histórico"
+            open={openSection === 'medications'}
+            onToggle={() => toggle('medications')}
+          >
+            <button
+              onClick={() => setShowMedModal(true)}
+              className="w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95"
+              style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+            >
+              Adicionar medicamento
+            </button>
+
+            {activeMeds.length > 0 && (
+              <div>
+                <SectionLabel>Em uso</SectionLabel>
+                <div className="space-y-2">
+                  {activeMeds.map(m => (
+                    <div
+                      key={m.id}
+                      className="rounded-2xl px-4 py-3"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex items-stretch justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p
+                              className="text-[13px] font-bold font-quicksand"
+                              style={{ color: TXT }}
+                            >
+                              {m.name}
+                            </p>
+                            <InlineStatusPill label="Ativo" variant="active" color={SAGE} />
+                          </div>
+
+                          {(m.dosage || m.frequency) && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+
+                          {(m.startDate || m.endDate) && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {m.startDate ? `Início: ${formatDateBR(m.startDate, true)}` : ''}
+                              {m.startDate && m.endDate ? ' · ' : ''}
+                              {m.endDate ? `Término: ${formatDateBR(m.endDate, true)}` : ''}
+                            </p>
+                          )}
+
+                          {m.note && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5 italic"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {m.note}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center flex-shrink-0">
+                          <button
+                            onClick={() => setEditingMedicationEntry(m)}
+                            className="px-3 py-1.5 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
+                            style={{
+                              backgroundColor: MAUVE_BG,
+                              color: MAUVE,
+                              border: `1px solid ${MAUVE_BORDER}`,
+                              cursor: 'pointer',
+                              minWidth: 88,
+                            }}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {inactiveMeds.length > 0 && (
+              <div>
+                <SectionLabel>Histórico</SectionLabel>
+                <div className="space-y-2">
+                  {inactiveMeds.slice(0, 5).map(m => (
+                    <div
+                      key={m.id}
+                      className="rounded-2xl px-4 py-3 opacity-70"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex items-stretch justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p
+                              className="text-[13px] font-bold font-quicksand"
+                              style={{ color: TXT }}
+                            >
+                              {m.name}
+                            </p>
+                            <InlineStatusPill label="Inativo" variant="paused" color={MAUVE} />
+                          </div>
+
+                          {(m.dosage || m.frequency) && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {[m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+
+                          {(m.startDate || m.endDate) && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {m.startDate ? `Início: ${formatDateBR(m.startDate, true)}` : ''}
+                              {m.startDate && m.endDate ? ' · ' : ''}
+                              {m.endDate ? `Término: ${formatDateBR(m.endDate, true)}` : ''}
+                            </p>
+                          )}
+
+                          {m.note && (
+                            <p
+                              className="text-[11px] font-nunito mt-0.5 italic"
+                              style={{ color: TXT_MUTED }}
+                            >
+                              {m.note}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center flex-shrink-0">
+                          <button
+                            onClick={() => setEditingMedicationEntry(m)}
+                            className="px-3 py-1.5 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
+                            style={{
+                              backgroundColor: MAUVE_BG,
+                              color: MAUVE,
+                              border: `1px solid ${MAUVE_BORDER}`,
+                              cursor: 'pointer',
+                              minWidth: 88,
+                            }}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {medications.length === 0 && (
+              <div
+                className="rounded-2xl px-5 py-8 text-center"
+                style={{
+                  backgroundColor: CARD_BG,
+                  border: `1px solid ${CARD_BORDER}`,
+                }}
+              >
+                <p className="text-3xl mb-2">💊</p>
+                <p
+                  className="text-[14px] font-bold font-quicksand"
+                  style={{ color: TXT }}
+                >
+                  Nenhum medicamento ativo
+                </p>
+                <p
+                  className="text-[12px] mt-1.5 font-nunito leading-snug max-w-[200px] mx-auto"
+                  style={{ color: TXT_MUTED }}
+                >
+                  Registre medicamentos em uso para acompanhar horários e posologias.
+                </p>
+              </div>
+            )}
+          </ExpandableSection>
+        </div>
+
+        <div id="section-growth">
+          <ExpandableSection
+            id="growth"
+            emoji="📏"
+            title="Crescimento"
+            statusPill={
+              growthHistory.length > 0 ? (
+                <InlineStatusPill
+                  label={
+                    growthHistory[0].weight != null
+                      ? fmtWeight(growthHistory[0].weight)
+                      : `${growthHistory.length} medição${growthHistory.length > 1 ? 'ões' : ''}`
+                  }
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : (
+                <InlineStatusPill label="Sem medições" variant="paused" color={MAUVE} />
+              )
+            }
+            summary={
+              growthHistory.length > 0
+                ? `Última medição em ${growthHistory[0].date.toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                  })}`
+                : `Registre peso e altura de ${childName}`
+            }
+            open={openSection === 'growth'}
+            onToggle={() => toggle('growth')}
+          >
+            {growthHistory.length > 0 &&
+              (() => {
+                const latest = growthHistory[0];
+                const prev = growthHistory[1];
+                const deltaW =
+                  latest.weight != null && prev?.weight != null
+                    ? +(latest.weight - prev.weight).toFixed(2)
+                    : null;
+                const deltaH =
+                  latest.height != null && prev?.height != null
+                    ? +(latest.height - prev.height).toFixed(1)
+                    : null;
+
+                return (
+                  <div
+                    className="rounded-2xl px-4 py-4 space-y-3"
+                    style={{
+                      backgroundColor: SAGE_LIGHT,
+                      border: `1px solid ${SAGE_BORDER}`,
+                    }}
+                  >
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.08em] font-nunito"
+                      style={{ color: TXT_MUTED }}
+                    >
+                      Última medição ·{' '}
+                      {latest.date.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: '2-digit',
+                      })}
+                    </p>
+
+                    <div className="flex items-end gap-5 flex-wrap">
+                      {latest.weight != null && (
+                        <div>
+                          <p
+                            className="text-[28px] font-bold font-quicksand leading-none"
+                            style={{ color: SAGE }}
+                          >
+                            {fmtWeight(latest.weight)}
+                          </p>
+
+                          {deltaW != null && (
+                            <p
+                              className="text-[11px] font-semibold font-nunito mt-1"
+                              style={{ color: deltaW >= 0 ? SAGE : AMBER }}
+                            >
+                              {deltaW >= 0 ? '▲' : '▼'} {fmtWeightDelta(deltaW)} vs anterior
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {latest.weight != null && latest.height != null && (
+                        <div
+                          className="w-px h-10 self-center"
+                          style={{ backgroundColor: CARD_BORDER }}
+                        />
+                      )}
+
+                      {latest.height != null && (
+                        <div>
+                          <p
+                            className="text-[28px] font-bold font-quicksand leading-none"
+                            style={{ color: MAUVE }}
+                          >
+                            {latest.height}
+                            <span className="text-[14px] font-semibold ml-0.5">cm</span>
+                          </p>
+
+                          {deltaH != null && (
+                            <p
+                              className="text-[11px] font-semibold font-nunito mt-1"
+                              style={{ color: deltaH >= 0 ? SAGE : AMBER }}
+                            >
+                              {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH).toFixed(1)} cm vs anterior
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {latest.headCircumference != null && (
+                      <p
+                        className="text-[12px] font-nunito"
+                        style={{ color: TXT_MUTED }}
+                      >
+                        Circunferência cefálica:{' '}
+                        <strong style={{ color: TXT }}>{latest.headCircumference} cm</strong>
+                      </p>
+                    )}
+
+                    {latest.note && (
+                      <p
+                        className="text-[11px] font-nunito italic leading-snug"
+                        style={{ color: TXT_MUTED }}
+                      >
+                        {latest.note}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+            {growthHistory.filter(e => e.weight != null).length >= 2 &&
+              (() => {
+                const chartData = [...growthHistory]
+                  .filter(e => e.weight != null)
+                  .reverse()
+                  .map(e => ({
+                    date: e.date.toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                    }),
+                    peso: e.weight,
+                  }));
+
+                return (
+                  <div>
+                    <SectionLabel>Evolução do peso (kg)</SectionLabel>
+                    <div
+                      className="rounded-2xl pt-3 pb-2 pr-2"
+                      style={{
+                        backgroundColor: MUTED_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height={140}>
+                        <LineChart
+                          data={chartData}
+                          margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke={CARD_BORDER} />
+                          <XAxis
+                            dataKey="date"
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
+                            axisLine={false}
+                            tickLine={false}
+                            domain={['auto', 'auto']}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              fontSize: 11,
+                              fontFamily: 'Nunito',
+                              backgroundColor: CARD_BG,
+                              border: `1px solid ${CARD_BORDER}`,
+                              borderRadius: 12,
+                            }}
+                            formatter={(v: number) => [`${v.toFixed(2)} kg`, 'Peso']}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="peso"
+                            stroke={SAGE}
+                            strokeWidth={2.5}
+                            dot={<Dot r={4} fill={SAGE} stroke={CARD_BG} strokeWidth={2} />}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                );
+              })()}
+
+            {growthHistory.filter(e => e.height != null).length >= 2 &&
+              (() => {
+                const chartData = [...growthHistory]
+                  .filter(e => e.height != null)
+                  .reverse()
+                  .map(e => ({
+                    date: e.date.toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                    }),
+                    altura: e.height,
+                  }));
+
+                return (
+                  <div>
+                    <SectionLabel>Evolução da altura (cm)</SectionLabel>
+                    <div
+                      className="rounded-2xl pt-3 pb-2 pr-2"
+                      style={{
+                        backgroundColor: MUTED_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height={140}>
+                        <LineChart
+                          data={chartData}
+                          margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke={CARD_BORDER} />
+                          <XAxis
+                            dataKey="date"
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tick={{
+                              fontSize: 9,
+                              fontFamily: 'Nunito',
+                              fill: TXT_MUTED,
+                            }}
+                            axisLine={false}
+                            tickLine={false}
+                            domain={['auto', 'auto']}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              fontSize: 11,
+                              fontFamily: 'Nunito',
+                              backgroundColor: CARD_BG,
+                              border: `1px solid ${CARD_BORDER}`,
+                              borderRadius: 12,
+                            }}
+                            formatter={(v: number) => [`${v} cm`, 'Altura']}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="altura"
+                            stroke={MAUVE}
+                            strokeWidth={2.5}
+                            dot={<Dot r={4} fill={MAUVE} stroke={CARD_BG} strokeWidth={2} />}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                );
+              })()}
+
+            <div>
+              <SectionLabel>Registrar medição</SectionLabel>
+
+              <div>
+                <p
+                  className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+                  style={{ color: TXT_MUTED }}
+                >
+                  Data da medição
+                </p>
+
+                <input
+                  type="date"
+                  value={growthForm.date ?? ''}
+                  onChange={e => setGrowthForm(f => ({ ...f, date: e.target.value }))}
+                  style={{ ...inputStyle, marginBottom: 12 }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p
+                    className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+                    style={{ color: TXT_MUTED }}
+                  >
+                    Peso (kg)
+                  </p>
+
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Ex: 5.2"
+                    value={growthForm.weight ?? ''}
+                    onChange={e => setGrowthForm(f => ({ ...f, weight: e.target.value }))}
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div>
+                  <p
+                    className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+                    style={{ color: TXT_MUTED }}
+                  >
+                    Altura (cm)
+                  </p>
+
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Ex: 58.5"
+                    value={growthForm.height ?? ''}
+                    onChange={e => setGrowthForm(f => ({ ...f, height: e.target.value }))}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <p
+                  className="text-[11px] font-bold font-nunito uppercase tracking-wide mb-1.5"
+                  style={{ color: TXT_MUTED }}
+                >
+                  Circunferência cefálica (cm)
+                </p>
+
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="Ex: 39.2"
+                  value={growthForm.headCircumference ?? ''}
+                  onChange={e =>
+                    setGrowthForm(f => ({ ...f, headCircumference: e.target.value }))
+                  }
+                  style={inputStyle}
+                />
+              </div>
+
+              <input
+                type="text"
+                placeholder="Observação (opcional)"
+                value={growthForm.note ?? ''}
+                onChange={e => setGrowthForm(f => ({ ...f, note: e.target.value }))}
+                style={{ ...inputStyle, marginTop: 12 }}
+              />
+
+              <button
+                onClick={saveGrowthMeasurement}
+                disabled={
+                  growthSaving ||
+                  (!growthForm.weight && !growthForm.height && !growthForm.headCircumference)
+                }
+                className="mt-3 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+                style={{
+                  backgroundColor: SAGE,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {growthSaving ? 'Salvando…' : 'Salvar medição'}
+              </button>
+            </div>
+
+            {growthHistory.length > 0 && (
+              <div>
+                <SectionLabel>Histórico completo</SectionLabel>
+                <div className="space-y-2">
+                  {growthHistory.map((entry, idx) => {
+                    const prevEntry = growthHistory[idx + 1];
+                    const deltaW =
+                      entry.weight != null && prevEntry?.weight != null
+                        ? +(entry.weight - prevEntry.weight).toFixed(2)
+                        : null;
+                    const deltaH =
+                      entry.height != null && prevEntry?.height != null
+                        ? +(entry.height - prevEntry.height).toFixed(1)
+                        : null;
+
+                    return (
+                      <div
+                        key={entry.id}
+                        className="rounded-2xl px-4 py-3"
+                        style={{
+                          backgroundColor: CARD_BG,
+                          border: `1px solid ${CARD_BORDER}`,
+                        }}
+                      >
+                        <div className="flex items-stretch justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              {entry.weight != null && (
+                                <span
+                                  className="text-[15px] font-bold font-quicksand"
+                                  style={{ color: SAGE }}
+                                >
+                                  {fmtWeight(entry.weight)}
+                                  {deltaW != null && (
+                                    <span
+                                      className="text-[10px] font-semibold ml-1"
+                                      style={{ color: deltaW >= 0 ? SAGE : AMBER }}
+                                    >
+                                      {deltaW >= 0 ? '▲' : '▼'}
+                                      {fmtWeightDelta(deltaW)}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+
+                              {entry.height != null && (
+                                <span
+                                  className="text-[15px] font-bold font-quicksand"
+                                  style={{ color: MAUVE }}
+                                >
+                                  {entry.height} cm
+                                  {deltaH != null && (
+                                    <span
+                                      className="text-[10px] font-semibold ml-1"
+                                      style={{ color: deltaH >= 0 ? MAUVE : AMBER }}
+                                    >
+                                      {deltaH >= 0 ? '▲' : '▼'} {Math.abs(deltaH).toFixed(1)}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+
+                              {entry.headCircumference != null && (
+                                <span
+                                  className="text-[12px] font-bold font-nunito"
+                                  style={{ color: TXT_MUTED }}
+                                >
+                                  CC {entry.headCircumference} cm
+                                </span>
+                              )}
+
+                              {entry.edited && (
+                                <span
+                                  className="text-[10px] font-nunito italic"
+                                  style={{ color: '#A39AA7' }}
+                                >
+                                  editado
+                                </span>
+                              )}
+                            </div>
+
+                            {entry.note && (
+                              <p
+                                className="text-[11px] font-nunito mt-1 italic"
+                                style={{ color: TXT_MUTED }}
+                              >
+                                {entry.note}
+                              </p>
+                            )}
+
+                            <div className="mt-2">
+                              <p
+                                className="text-[10px] font-nunito"
+                                style={{ color: TXT_MUTED }}
+                              >
+                                {entry.date.toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: '2-digit',
+                                })}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center flex-shrink-0">
+                            <button
+                              onClick={() => setEditingGrowthEntry(entry)}
+                              className="px-3 py-1.5 rounded-xl text-[10px] font-bold font-nunito transition-all active:scale-95"
+                              style={{
+                                backgroundColor: MAUVE_BG,
+                                color: MAUVE,
+                                border: `1px solid ${MAUVE_BORDER}`,
+                                cursor: 'pointer',
+                                minWidth: 88,
+                              }}
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {growthHistory.length === 0 && (
+              <div
+                className="rounded-2xl px-5 py-8 text-center"
+                style={{
+                  backgroundColor: CARD_BG,
+                  border: `1px solid ${CARD_BORDER}`,
+                }}
+              >
+                <p className="text-3xl mb-2">📏</p>
+                <p
+                  className="text-[14px] font-bold font-quicksand"
+                  style={{ color: TXT }}
+                >
+                  Nenhuma medição registrada
+                </p>
+                <p
+                  className="text-[12px] mt-1 font-nunito leading-snug max-w-[220px] mx-auto"
+                  style={{ color: TXT_MUTED }}
+                >
+                  Registre peso, altura e circunferência cefálica para iniciar o histórico de crescimento de{' '}
+                  {childName}.
+                </p>
+              </div>
+            )}
+          </ExpandableSection>
+        </div>
+
+        <PaywallGate feature="relatorio">
+          <ExpandableSection
+            id="report"
+            emoji="📋"
+            title="Relatório médico"
+            statusPill={
+              savedNotes.length > 0 ? (
+                <InlineStatusPill
+                  label={`${savedNotes.length} nota${savedNotes.length > 1 ? 's' : ''}`}
+                  variant="active"
+                  color={SAGE}
+                />
+              ) : (
+                <InlineStatusPill label="Vazio" variant="paused" color={MAUVE} />
+              )
+            }
+            summary="Notas e eventos para compartilhar com o pediatra"
+            open={openSection === 'report'}
+            onToggle={() => toggle('report')}
+          >
+            <div>
+              <SectionLabel>Adicionar nota livre</SectionLabel>
+
+              <textarea
+                value={quickNote}
+                onChange={e => setQuickNote(e.target.value)}
+                placeholder="Ex: mamou menos hoje, irritado após vacina..."
+                rows={3}
+                style={{ ...inputStyle, resize: 'none' }}
+              />
+
+              <button
+                onClick={saveQuickNote}
+                disabled={savingNote || !quickNote.trim()}
+                className="mt-2 w-full py-3 rounded-2xl text-[13px] font-bold font-nunito text-white transition-all active:scale-95 disabled:opacity-40"
+                style={{ backgroundColor: SAGE, border: 'none', cursor: 'pointer' }}
+              >
+                {savingNote ? 'Salvando…' : 'Salvar nota'}
+              </button>
+
+              {noteSavedFeedback && (
+                <div
+                  className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl"
+                  style={{ backgroundColor: SAGE_BG }}
+                >
+                  <span className="text-[13px]">✓</span>
+                  <p
+                    className="text-[12px] font-semibold font-nunito"
+                    style={{ color: SAGE }}
+                  >
+                    Nota salva com data e hora
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {savedNotes.length > 0 && (
+              <div>
+                <SectionLabel>Notas salvas</SectionLabel>
+                <div className="space-y-2">
+                  {savedNotes.map((n, i) => (
+                    <div
+                      key={n.id ?? i}
+                      className="rounded-2xl px-4 py-3"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <p
+                        className="text-[12px] font-nunito leading-snug"
+                        style={{ color: TXT }}
+                      >
+                        {n.text}
+                      </p>
+                      <p
+                        className="text-[10px] font-nunito mt-1.5"
+                        style={{ color: TXT_MUTED }}
+                      >
+                        {n.date.toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {symptomHistory.length > 0 && (
+              <div>
+                <SectionLabel>Sintomas registrados</SectionLabel>
+                <div className="space-y-1.5">
+                  {symptomHistory.slice(0, 3).map(entry => (
+                    <div
+                      key={entry.id}
+                      className="flex items-start gap-2 px-3 py-2.5 rounded-xl"
+                      style={{
+                        backgroundColor: CARD_BG,
+                        border: `1px solid ${CARD_BORDER}`,
+                      }}
+                    >
+                      <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                        {entry.symptoms.slice(0, 3).map(s => (
+                          <span
+                            key={s}
+                            className="text-[10px] font-bold font-nunito"
+                            style={{ color: AMBER }}
+                          >
+                            {s}
+                          </span>
+                        ))}
+                        {entry.symptoms.length > 3 && (
+                          <span
+                            className="text-[10px] font-nunito"
+                            style={{ color: TXT_MUTED }}
+                          >
+                            +{entry.symptoms.length - 3}
+                          </span>
+                        )}
+                      </div>
+
+                      <p
+                        className="text-[10px] font-nunito flex-shrink-0"
+                        style={{ color: TXT_MUTED }}
+                      >
+                        {entry.date.toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl p-4 space-y-2" style={{ backgroundColor: MUTED_BG }}>
+              <p className="text-[12px] font-bold font-nunito" style={{ color: TXT }}>
+                O que vale incluir
+              </p>
+
+              {[
+                '🤱 Mamadas com dificuldade ou comportamento diferente',
+                '💩 Fraldas com cor ou consistência incomum',
+                '🌡️ Febre ou sintomas que persistem',
+                '💊 Medicamentos e possíveis reações',
+                '😴 Sono muito longo ou muitos despertares',
+                '📏 Medições de peso, altura e CC recentes',
+              ].map(item => (
+                <p key={item} className="text-[11px] font-nunito" style={{ color: TXT_MUTED }}>
+                  {item}
+                </p>
+              ))}
+            </div>
+          </ExpandableSection>
+        </PaywallGate>
+      </div>
+
+      <AnimatePresence>
+  {confirmVaccine && activeChild && (
+    <VaccineConfirmModal
+      vaccine={confirmVaccine}
+      childId={activeChild.id}
+      onClose={() => setConfirmVaccine(null)}
+      onConfirmed={(record) => {
+        if (record.vaccineCode) {
+          setAppliedVaccineIds(prev => new Set([...prev, record.vaccineCode!]));
+        }
+
+        if (record.vaccineCode && record.appliedDate) {
+          setAppliedVaccineDates(prev => ({
+            ...prev,
+            [record.vaccineCode!]: record.appliedDate!,
+          }));
+        }
+
+        setConfirmVaccine(null);
+      }}
+    />
+  )}
+</AnimatePresence>
+
+      <AnimatePresence>
+        {showConsultModal && activeChild && user && (
+          <ConsultationModal
+            childId={activeChild.id}
+            userId={user.id}
+            onClose={() => setShowConsultModal(false)}
+            onSaved={entry =>
+              setConsultations(prev => sortByIsoDateDesc([...prev, entry]))
+            }
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showMedModal && activeChild && user && (
+          <MedicationModal
+            childId={activeChild.id}
+            userId={user.id}
+            onClose={() => setShowMedModal(false)}
+            onSaved={entry =>
+              setMedications(prev => sortByIsoDateDesc([entry, ...prev]))
+            }
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingMedicationEntry && (
+          <MedicationEditModal
+            entry={editingMedicationEntry}
+            onClose={() => setEditingMedicationEntry(null)}
+            onSave={payload => updateMedication(editingMedicationEntry.id, payload)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingGrowthEntry && (
+          <GrowthEditModal
+            entry={editingGrowthEntry}
+            onClose={() => setEditingGrowthEntry(null)}
+            onSave={payload =>
+              updateGrowthMeasurement(editingGrowthEntry.id, payload)
+            }
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

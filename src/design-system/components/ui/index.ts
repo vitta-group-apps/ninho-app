@@ -11,7 +11,6 @@ export { Avatar }  from './Avatar';
 export { Alert }   from './Alert';
 
 export type { ButtonProps, ButtonVariant, ButtonSize }    from './Button';
-export type { InputProps }                                from './Input';
 export type { BadgeProps, BadgeVariant, BadgeSize }       from './Badge';
 export type { ChipProps }                                 from './Chip';
 export type { TagProps, TagVariant }                      from './Tag';

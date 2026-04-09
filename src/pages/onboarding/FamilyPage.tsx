@@ -34,29 +34,15 @@ export default function FamilyPage() {
     setLoading(true);
 
     try {
-      // INSERT direto em `families`.
-      //
-      // Por que não usar RPC?
-      //   O RPC `create_family_with_owner` NÃO existe nas migrations nem em
-      //   database.types.ts — seria uma chamada para uma função inexistente.
-      //
-      // Por que isso funciona sem RPC?
-      //   Migration 20260318220833 define:
-      //     ALTER TABLE families ALTER COLUMN owner_id SET DEFAULT auth.uid();
-      //   E a policy "Authenticated users can create families" verifica:
-      //     WITH CHECK (owner_id = auth.uid())
-      //   Portanto o INSERT simples é atomicamente seguro: owner_id é preenchido
-      //   automaticamente pelo banco e a RLS valida na mesma operação.
-      const { data: family, error: familyError } = await supabase
-        .from('families')
-        .insert({ name: familyName.trim() })
-        .select('id')
-        .single();
+      // Atomic RPC: creates family + inserts owner with joined_at in one SECURITY DEFINER tx
+      // Avoids RLS chicken-and-egg (is_family_member requires joined_at IS NOT NULL)
+      const { data: familyId, error: rpcError } = await supabase
+        .rpc('create_family_with_owner', { p_name: familyName.trim() });
 
-      if (familyError) throw familyError;
-      if (!family?.id) throw new Error('Família não retornou ID');
+      if (rpcError) throw rpcError;
+      if (!familyId) throw new Error('Família não retornou ID');
 
-      sessionStorage.setItem('onboarding_family_id', family.id);
+      sessionStorage.setItem('onboarding_family_id', familyId);
       navigate('/onboarding/child');
     } catch {
       setError('Não conseguimos criar sua família agora. Tente novamente.');

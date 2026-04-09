@@ -42,23 +42,20 @@ export default function ChildPage() {
     setLoading(true);
 
     try {
-      // children.name (NÃO preferred_name — coluna auditada nas migrations SQL)
-      // children.sex_at_birth — presente no schema live conforme database.types.ts
       const { error: childError } = await supabase.from('children').insert({
-        family_id:    familyId,
-        name:         childName.trim(),
-        birth_date:   birthDate,
+        family_id: familyId,
+        preferred_name: childName.trim(),
+        birth_date: birthDate,
         sex_at_birth: sexAtBirth,
       });
 
       if (childError) throw childError;
 
-      // profiles.user_id = auth.users.id
-      // profiles.id é UUID interno separado — não confundir com auth UID
+      // Mark onboarding complete — column added via migration add_onboarding_complete_and_family_owner_policy
       const { error: profileErr } = await supabase
         .from('profiles')
         .update({ onboarding_complete: true })
-        .eq('user_id', user.id);
+        .eq('id', user.id);
 
       if (profileErr) console.warn('[ChildPage] onboarding_complete update failed:', profileErr);
 

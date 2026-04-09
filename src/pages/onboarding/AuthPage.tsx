@@ -181,7 +181,10 @@ function LoginForm({ onSuccess, onSignup }: { onSuccess: (email: string) => void
     try {
       const { error: sbErr } = await supabase.auth.signInWithOtp({
         email,
-        options: { shouldCreateUser: false },
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: window.location.origin,
+        },
       });
       if (sbErr) {
         setApiError(translateSupabaseError(sbErr));

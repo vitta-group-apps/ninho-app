@@ -159,7 +159,7 @@ export default function ChildPage() {
 
       store.setChildren([child as any]);
       store.setCurrentChild(child as any);
-      store.setAppState('dashboard');
+      store.setAppState('onboarding_copilots');
     } catch (err: any) {
       toast.error(err?.message ?? 'Não foi possível registrar o bebê. Tente novamente.');
     } finally {

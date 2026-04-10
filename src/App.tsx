@@ -5,6 +5,7 @@ import AuthPage               from "./pages/onboarding/AuthPage";
 import ModePage               from "./pages/onboarding/ModePage";
 import FamilyPage             from "./pages/onboarding/FamilyPage";
 import ChildPage              from "./pages/onboarding/ChildPage";
+import CopilotsPage           from "./pages/onboarding/CopilotsPage";
 import { DashboardPage }      from "./pages/DashboardPage";
 import { RoutineDashboard }   from "./pages/routine/RoutineDashboard";
 import { HealthDashboard }    from "./pages/health/HealthDashboard";
@@ -48,7 +49,8 @@ function AppRoot({ appState }: { appState: string }) {
     case 'auth':              return <Navigate to="/auth"                replace />;
     case 'onboarding_mode':  return <Navigate to="/onboarding/mode"    replace />;
     case 'onboarding_family': return <Navigate to="/onboarding/family"  replace />;
-    case 'onboarding_child':  return <Navigate to="/onboarding/child"   replace />;
+    case 'onboarding_child':     return <Navigate to="/onboarding/child"     replace />;
+    case 'onboarding_copilots':  return <Navigate to="/onboarding/copilots"  replace />;
     case 'dashboard':
     case 'ready':             return <Navigate to="/routine"            replace />;
     default:                  return <Navigate to="/auth"               replace />;
@@ -71,7 +73,8 @@ function App() {
           <Route path="/auth"               element={<AuthPage />} />
           <Route path="/onboarding/mode"    element={<ModePage />} />
           <Route path="/onboarding/family"  element={<FamilyPage />} />
-          <Route path="/onboarding/child"   element={<ChildPage />} />
+          <Route path="/onboarding/child"     element={<ChildPage />} />
+          <Route path="/onboarding/copilots"  element={<CopilotsPage />} />
           <Route path="/dashboard"          element={profile ? <DashboardPage />    : <Navigate to="/auth" replace />} />
           <Route path="/routine"            element={profile ? <RoutineDashboard /> : <Navigate to="/auth" replace />} />
           <Route path="/health"             element={profile ? <HealthDashboard />  : <Navigate to="/auth" replace />} />

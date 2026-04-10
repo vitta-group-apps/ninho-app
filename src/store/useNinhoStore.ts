@@ -24,6 +24,7 @@ export interface Child {
 export type AppStatus =
   | 'loading' | 'auth' | 'unauthenticated' | 'onboarding'
   | 'onboarding_mode' | 'onboarding_family' | 'onboarding_child'
+  | 'onboarding_copilots'
   | 'dashboard' | 'ready';
 
 export type OnboardingMode = 'pregnancy' | 'newborn' | null;

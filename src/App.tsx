@@ -4,12 +4,12 @@
  * Arquitetura de roteamento:
  *   StateRouter fica SEMPRE montado dentro do BrowserRouter.
  *   Usa useLayoutEffect (síncrono, antes do paint) para navegar.
- *   LoadingScreen renderiza dentro do BrowserRouter — sem flash.
+ *   SplashScreen renderiza dentro do BrowserRouter — sem flash.
  *
  * Hierarquia:
  *   BrowserRouter
  *     StateRouter   ← sempre montado, reage a appState com useLayoutEffect
- *     LoadingScreen ← se appState === 'loading'
+ *     SplashScreen  ← se appState === 'loading'
  *     Toaster / OfflineAlert / AppShell / Routes ← se não loading
  */
 
@@ -29,8 +29,9 @@ import { RoutineDashboard }   from "./pages/routine/RoutineDashboard";
 import { HealthDashboard }    from "./pages/health/HealthDashboard";
 import { ProfilePage }        from "./pages/profile/ProfilePage";
 import { BottomNavigation }   from "./components/BottomNavigation";
-import { SpinnerRound }       from "./design-system/components/ui/Spinner";
+import { SplashScreen }       from "./components/SplashScreen";
 import { OfflineAlert }       from "./design-system/components/ui/OfflineAlert";
+import { NinhoWordmark }      from "./components/NinhoLogo";
 
 // ─── mapeamento appState → rota ──────────────────────────────────────────────
 
@@ -48,9 +49,6 @@ const STATE_ROUTES: Partial<Record<AppStatus, string>> = {
 const APP_PREFIXES = ['/routine', '/health', '/dashboard', '/profile'];
 
 // ─── StateRouter ──────────────────────────────────────────────────────────────
-//
-// Sempre montado. useLayoutEffect: corre sync antes do paint → zero flash.
-// Quando appState muda, navega para a rota certa antes que o browser renderize.
 
 function StateRouter() {
   const navigate   = useNavigate();
@@ -59,50 +57,71 @@ function StateRouter() {
 
   useLayoutEffect(() => {
     const target = STATE_ROUTES[appState];
-    if (!target) return; // 'loading' — aguarda resolução
-
-    if (pathname === target) return; // já na rota correta
-
-    // Não redireciona da zona do app se o estado já é dashboard
+    if (!target) return;
+    if (pathname === target) return;
     const isAppState = appState === 'dashboard' || appState === 'ready';
     const inAppZone  = APP_PREFIXES.some(p => pathname.startsWith(p));
     if (isAppState && inAppZone) return;
-
     navigate(target, { replace: true });
   }, [appState, navigate, pathname]);
 
   return null;
 }
 
-// ─── bottom navigation ────────────────────────────────────────────────────────
+// ─── app header (zona do app) ─────────────────────────────────────────────────
+
+function AppHeader() {
+  const currentChild = useNinhoStore(s => s.currentChild);
+  const firstName    = currentChild?.preferred_name?.split(' ')[0] ?? '';
+
+  return (
+    <header style={{
+      position: 'fixed',
+      top: 0, left: 0, right: 0,
+      zIndex: 20,
+      background: 'rgba(255,255,255,0.92)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      borderBottom: '1px solid #eeedec',
+      paddingTop: 'env(safe-area-inset-top)',
+    }}>
+      <div style={{
+        height: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        paddingInline: 20,
+      }}>
+        <NinhoWordmark height={20} color="#6e2880" />
+        {firstName && (
+          <span style={{
+            fontFamily: "'Nunito', system-ui, sans-serif",
+            fontWeight: 600, fontSize: '0.85rem', color: '#a9a5a2',
+          }}>
+            {firstName}
+          </span>
+        )}
+      </div>
+    </header>
+  );
+}
+
+// ─── app shell ────────────────────────────────────────────────────────────────
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const showNav = APP_PREFIXES.some(r => pathname.startsWith(r));
+
   return (
     <>
-      {children}
+      {showNav && <AppHeader />}
+      <div style={showNav ? {
+        paddingTop: 'calc(env(safe-area-inset-top) + 50px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)',
+        minHeight: '100dvh',
+      } : {}}>
+        {children}
+      </div>
       {showNav && <BottomNavigation />}
     </>
-  );
-}
-
-// ─── loading screen ───────────────────────────────────────────────────────────
-
-function LoadingScreen() {
-  return (
-    <div style={{
-      minHeight: '100dvh',
-      background: '#ffffff',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 20,
-    }}>
-      <span aria-hidden="true" style={{ fontSize: '3rem', lineHeight: 1 }}>🪺</span>
-      <SpinnerRound size="lg" />
-    </div>
   );
 }
 
@@ -112,14 +131,12 @@ function AppContent() {
   const { profile } = useSession();
   const appState    = useNinhoStore(s => s.appState);
 
-  // StateRouter sempre montado — roda antes do conteúdo abrir
   return (
     <>
       <StateRouter />
 
       {appState === 'loading' ? (
-        // Loading dentro do BrowserRouter: StateRouter montado, sem flash
-        <LoadingScreen />
+        <SplashScreen />
       ) : (
         <>
           <OfflineAlert />
@@ -129,19 +146,18 @@ function AppContent() {
               {/* Auth */}
               <Route path="/auth" element={<AuthPage />} />
 
-              {/* Onboarding — sem guard de profile: FamilyPage/ChildPage validam internamente */}
+              {/* Onboarding */}
               <Route path="/onboarding/mode"      element={<ModePage />} />
               <Route path="/onboarding/family"    element={<FamilyPage />} />
               <Route path="/onboarding/child"     element={<ChildPage />} />
               <Route path="/onboarding/copilots"  element={<CopilotsPage />} />
 
-              {/* App — guarda profile */}
+              {/* App */}
               <Route path="/dashboard" element={profile ? <DashboardPage />    : null} />
               <Route path="/routine"   element={profile ? <RoutineDashboard /> : null} />
               <Route path="/health"    element={profile ? <HealthDashboard />  : null} />
               <Route path="/profile"   element={profile ? <ProfilePage />      : null} />
 
-              {/* Fallback: StateRouter navega para cá corretamente */}
               <Route path="*" element={null} />
             </Routes>
           </AppShell>

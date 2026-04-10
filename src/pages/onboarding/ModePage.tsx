@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNinhoStore } from '@/store/useNinhoStore';
 import type { OnboardingMode } from '@/store/useNinhoStore';
+import { NinhoWordmark } from '@/components/NinhoLogo';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 
@@ -36,27 +37,6 @@ const Font = {
   h: "'Quicksand', 'SF Pro Rounded', system-ui, sans-serif",
   b: "'Nunito', 'SF Pro Text', system-ui, sans-serif",
 } as const;
-
-// ─── ninho mark ──────────────────────────────────────────────────────────────
-
-function NinhoMark() {
-  return (
-    <div style={{
-      width: 36, height: 36,
-      borderRadius: 12,
-      background: `linear-gradient(135deg, ${T.mauve100}, ${T.mauve200})`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.24 3 11.91 3.81 13 5.08C14.09 3.81 15.76 3 17.5 3C20.58 3 23 5.42 23 8.5C23 14.5 12 21 12 21Z"
-          stroke={T.mauve500} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-          fill="none"
-        />
-      </svg>
-    </div>
-  );
-}
 
 // ─── check icon ──────────────────────────────────────────────────────────────
 
@@ -296,16 +276,7 @@ export default function ModePage() {
           paddingInline: 24, paddingBottom: 4,
         }}
       >
-        <NinhoMark />
-        <span style={{
-          fontFamily: Font.h,
-          fontWeight: 700,
-          fontSize: '1.05rem',
-          color: T.mauve500,
-          letterSpacing: '-0.01em',
-        }}>
-          ninho
-        </span>
+        <NinhoWordmark height={22} color={T.mauve700} />
       </motion.header>
 
       {/* ── headline ────────────────────────────────────────────────────────── */}

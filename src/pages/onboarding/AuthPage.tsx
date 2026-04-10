@@ -17,6 +17,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase, translateSupabaseError } from '@/lib/supabase';
+import { NinhoIcon, NinhoWordmark } from '@/components/NinhoLogo';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 
@@ -323,7 +324,7 @@ export default function AuthPage() {
           textAlign: 'center', gap: 20,
         }}>
 
-          {/* nest icon + halo pulsante */}
+          {/* logo mark + halo pulsante */}
           <motion.div
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -331,40 +332,41 @@ export default function AuthPage() {
             style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <motion.div
-              animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.08, 0.2] }}
+              animate={{ scale: [1, 1.18, 1], opacity: [0.18, 0.06, 0.18] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               style={{
                 position: 'absolute',
-                width: 120, height: 120, borderRadius: '50%',
+                width: 140, height: 140, borderRadius: '50%',
                 background: `radial-gradient(circle, ${T.mauve300}, transparent 70%)`,
               }}
             />
-            <span style={{ fontSize: '5rem', lineHeight: 1, position: 'relative' }} aria-hidden="true">
-              🪺
-            </span>
+            <NinhoIcon size={80} color={T.mauve700} style={{ position: 'relative' }} />
           </motion.div>
 
-          {/* headline */}
+          {/* wordmark + headline */}
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.28, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}
           >
-            <h1 style={{
-              fontFamily: Font.h, fontWeight: 700,
-              fontSize: 'clamp(2.1rem, 8vw, 2.75rem)',
-              color: T.stone900, margin: 0,
-              lineHeight: 1.08, letterSpacing: '-0.025em',
-            }}>
-              Tire o peso<br />da memória.
-            </h1>
-            <p style={{
-              fontFamily: Font.b, fontSize: 16,
-              color: T.stone500, margin: 0, lineHeight: 1.5,
-            }}>
-              Organize a rotina de quem você ama.
-            </p>
+            <NinhoWordmark height={22} color={T.mauve500} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <h1 style={{
+                fontFamily: Font.h, fontWeight: 700,
+                fontSize: 'clamp(2.1rem, 8vw, 2.75rem)',
+                color: T.stone900, margin: 0,
+                lineHeight: 1.08, letterSpacing: '-0.025em',
+              }}>
+                Tire o peso<br />da memória.
+              </h1>
+              <p style={{
+                fontFamily: Font.b, fontSize: 16,
+                color: T.stone500, margin: 0, lineHeight: 1.5,
+              }}>
+                Organize a rotina de quem você ama.
+              </p>
+            </div>
           </motion.div>
         </div>
 

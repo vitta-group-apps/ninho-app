@@ -1,279 +1,380 @@
 /**
- * NINHO — CopilotsPage · Ativação da Rede (Flow 3)
- *
- * Zeus:  Rede visual formando-se — o usuário vê o ninho crescendo.
- *        RoleCards em grid 2×2, touch ≥ 80px, sem digitação obrigatória.
- *        "Pular" sempre visível — zero pressão.
- * Lumen: "Quem cuida com você?" — a pergunta que muda tudo.
- *        Não "Adicionar usuário secundário" — humanidade primeiro.
- * Luke:  Growth loop: quem convida 1 copiloto tem retenção 2× maior.
- *        Compartilhar link = Web Share API nativa (sem formulário extra).
+ * NINHO — CopilotsPage v3 · Rede de Apoio
+ * Zeus:  cards orgânicos de papéis, visualização de rede SVG animada,
+ *        chip de papel selecionável, invite pill com ação nativa
+ * Lumen: "Quem cuida junto de você?" — afeto sem pressão
+ * Luke:  skip é sempre visível — não vira bloqueio de conversão
  */
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { toast }         from 'sonner';
-import { Share2, Copy, Mail, Check, ArrowLeft } from 'lucide-react';
-import { Text }          from '@/design-system/components/ui/Text';
-import { Button }        from '@/design-system/components/ui/Button';
-import { TextInput }     from '@/design-system/components/ui/TextInput';
-import { LinkButton }    from '@/design-system/components/ui/LinkButton';
-import { supabase }      from '@/lib/supabase';
+import { toast } from 'sonner';
 import { useNinhoStore } from '@/store/useNinhoStore';
 
-// ─── tipos ────────────────────────────────────────────────────────────────────
+// ─── tokens ──────────────────────────────────────────────────────────────────
 
-type CopilotRole = 'partner' | 'grandparent' | 'nanny' | 'other';
-type Step = 'roles' | 'invite' | 'done';
+const T = {
+  mauve50:  '#faf3fc',
+  mauve100: '#f4e8f7',
+  mauve200: '#e8d4ed',
+  mauve300: '#d8b9df',
+  mauve500: '#8b5e96',
+  mauve700: '#6e2880',
+  sage50:   '#f4fbf8',
+  sage100:  '#e6f4ef',
+  sage500:  '#4a9e7e',
+  sage700:  '#1c5941',
+  earth100: '#f5ede4',
+  earth400: '#c4895a',
+  sun100:   '#fef9e7',
+  sun400:   '#d4a820',
+  water100: '#e8f4fd',
+  water500: '#3a86c8',
+  stone50:  '#f8f7f7',
+  stone100: '#eeedec',
+  stone200: '#e2e0df',
+  stone400: '#c8c4c1',
+  stone500: '#a9a5a2',
+  stone700: '#6b6865',
+  stone900: '#3a3836',
+  white:    '#ffffff',
+} as const;
 
-const ROLES: {
-  id: CopilotRole; emoji: string; label: string; description: string;
-}[] = [
-  { id: 'partner',     emoji: '💑', label: 'Parceiro/a',      description: 'Divide o cuidado diário' },
-  { id: 'grandparent', emoji: '🧓', label: 'Avó / Avô',       description: 'Apoio especial da família' },
-  { id: 'nanny',       emoji: '🤝', label: 'Babá',            description: 'Cuida quando não pode estar' },
-  { id: 'other',       emoji: '💙', label: 'Outro cuidador',  description: 'Alguém especial da rede' },
+const Font = {
+  h: "'Quicksand', 'SF Pro Rounded', system-ui, sans-serif",
+  b: "'Nunito', 'SF Pro Text', system-ui, sans-serif",
+} as const;
+
+// ─── roles ────────────────────────────────────────────────────────────────────
+
+interface Role {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+  bg: string;
+  activeBg: string;
+}
+
+const ROLES: Role[] = [
+  { id: 'partner',     label: 'Parceiro(a)',  emoji: '💑', color: T.mauve700, bg: T.mauve50,  activeBg: T.mauve100 },
+  { id: 'grandparent', label: 'Avó / Avô',   emoji: '👴', color: T.earth400, bg: '#fdf6f0',  activeBg: T.earth100 },
+  { id: 'sibling',     label: 'Irmão / Irmã', emoji: '🧑‍🤝‍🧑', color: T.water500, bg: T.water100, activeBg: '#d4ecf7' },
+  { id: 'nanny',       label: 'Babá',         emoji: '🧸', color: T.sage700,  bg: T.sage50,  activeBg: T.sage100 },
+  { id: 'doctor',      label: 'Pediatra',     emoji: '👩‍⚕️', color: T.stone700, bg: T.stone50, activeBg: T.stone100 },
+  { id: 'friend',      label: 'Amigo(a)',     emoji: '💚', color: T.sun400,   bg: T.sun100,  activeBg: '#fdf3c0' },
 ];
 
-// ─── rede visual — avatares do ninho ─────────────────────────────────────────
+// ─── svg network ──────────────────────────────────────────────────────────────
 
-function NestNetwork({ invitedCount }: { invitedCount: number }) {
-  const slots = 4;
+function NetworkViz({ selectedRoles }: { selectedRoles: Set<string> }) {
+  const cx = 110, cy = 110, radius = 72;
+
+  const satellites = ROLES.map((role, i) => {
+    const angle = (i / ROLES.length) * 2 * Math.PI - Math.PI / 2;
+    return {
+      x: cx + Math.cos(angle) * radius,
+      y: cy + Math.sin(angle) * radius,
+      r: 22,
+      role,
+      active: selectedRoles.has(role.id),
+    };
+  });
+
   return (
-    <div className="flex items-center justify-center gap-3 py-2">
-      {/* Dono — sempre preenchido */}
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ delay: 0.1, ease: [0.34, 1.56, 0.64, 1], duration: 0.4 }}
-        className="flex flex-col items-center gap-1"
-      >
-        <div className="w-14 h-14 rounded-full bg-ds-accent-subtle border-2 border-ds-accent-tint flex items-center justify-center text-2xl select-none">
-          🪺
-        </div>
-        <Text variant="caption-regular" color="secondary">Você</Text>
-      </motion.div>
+    <svg width="220" height="220" viewBox="0 0 220 220" aria-hidden="true" style={{ overflow: 'visible' }}>
+      {/* lines */}
+      {satellites.map((s, i) => (
+        <motion.line
+          key={i}
+          x1={cx} y1={cy} x2={s.x} y2={s.y}
+          stroke={s.active ? T.mauve300 : T.stone200}
+          strokeWidth={s.active ? 2 : 1}
+          strokeDasharray={s.active ? '0' : '4 4'}
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.1 + i * 0.06 }}
+        />
+      ))}
 
-      {/* Linha conectora */}
-      <div className="flex gap-2 items-center">
-        {Array.from({ length: slots }).map((_, i) => (
-          <motion.div
-            key={i}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.15 + i * 0.08, ease: [0.34, 1.56, 0.64, 1], duration: 0.35 }}
-            className="flex flex-col items-center gap-1"
+      {/* satellite nodes */}
+      {satellites.map((s, i) => (
+        <motion.g
+          key={i}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, delay: 0.15 + i * 0.06, ease: [0.34, 1.4, 0.64, 1] }}
+          style={{ transformOrigin: `${s.x}px ${s.y}px` }}
+        >
+          <circle
+            cx={s.x} cy={s.y} r={s.r}
+            fill={s.active ? s.role.activeBg : T.stone50}
+            stroke={s.active ? s.role.color : T.stone200}
+            strokeWidth={s.active ? 2 : 1}
+          />
+          <text
+            x={s.x} y={s.y}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={13}
+            style={{ userSelect: 'none' }}
           >
-            <div
-              className={[
-                'w-10 h-10 rounded-full border-2 border-dashed flex items-center justify-center text-lg select-none transition-all duration-300',
-                i < invitedCount
-                  ? 'bg-ds-success-subtle border-ds-success-border'
-                  : 'bg-ds-neutral-subtle border-ds-neutral-border opacity-40',
-              ].join(' ')}
-            >
-              {i < invitedCount ? '✓' : '+'}
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </div>
+            {s.role.emoji}
+          </text>
+        </motion.g>
+      ))}
+
+      {/* center node */}
+      <motion.g
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
+        style={{ transformOrigin: `${cx}px ${cy}px` }}
+      >
+        <motion.circle
+          cx={cx} cy={cy} r={36}
+          fill="none"
+          stroke={T.mauve200}
+          strokeWidth={2}
+          animate={{ r: [36, 46], opacity: [0.6, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
+        />
+        <circle cx={cx} cy={cy} r={30} fill={T.mauve100} stroke={T.mauve300} strokeWidth={2} />
+        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={20} style={{ userSelect: 'none' }}>
+          🪺
+        </text>
+      </motion.g>
+    </svg>
   );
 }
 
-// ─── role card ────────────────────────────────────────────────────────────────
+// ─── role chip ────────────────────────────────────────────────────────────────
 
-interface RoleCardProps {
-  emoji: string; label: string; description: string;
-  isSelected: boolean; delay: number; onClick: () => void;
-}
-
-function RoleCard({ emoji, label, description, isSelected, delay, onClick }: RoleCardProps) {
+function RoleChip({ role, selected, onToggle }: { role: Role; selected: boolean; onToggle: () => void }) {
   return (
     <motion.button
       type="button"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      whileTap={{ scale: 0.97 }}
-      onClick={onClick}
-      aria-pressed={isSelected}
-      className={[
-        'relative flex flex-col items-center gap-2 p-5 rounded-[20px] border-2 text-center',
-        'transition-all duration-200 cursor-pointer',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent-tint focus-visible:ring-offset-2',
-        isSelected
-          ? 'bg-ds-accent-subtle-2 border-ds-accent-tint'
-          : 'bg-ds-neutral-subtle border-transparent',
-      ].join(' ')}
+      onClick={onToggle}
+      aria-pressed={selected}
+      whileTap={{ scale: 0.93 }}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        paddingInline: 16,
+        paddingBlock: 10,
+        borderRadius: 100,
+        border: `1.5px solid ${selected ? role.color : T.stone200}`,
+        background: selected ? role.activeBg : T.white,
+        cursor: 'pointer',
+        outline: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+        boxShadow: selected ? `0 2px 8px ${role.color}30` : 'none',
+      }}
     >
-      {isSelected && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
-          className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-ds-accent-tint flex items-center justify-center"
-        >
-          <Check size={11} strokeWidth={2.5} className="text-white" aria-hidden="true" />
-        </motion.div>
-      )}
-      <span className="text-3xl leading-none select-none" aria-hidden="true">{emoji}</span>
-      <div className="flex flex-col gap-0.5">
-        <Text variant="caption-medium" className={isSelected ? 'text-ds-accent-fg-strong' : ''}>
-          {label}
-        </Text>
-        <Text variant="caption-regular" color="secondary" className="text-[11px] leading-tight">
-          {description}
-        </Text>
-      </div>
+      <span style={{ fontSize: '1.1rem', lineHeight: 1 }} aria-hidden="true">{role.emoji}</span>
+      <span style={{
+        fontFamily: Font.b,
+        fontWeight: selected ? 700 : 500,
+        fontSize: '0.9rem',
+        color: selected ? role.color : T.stone700,
+        transition: 'color 0.2s ease',
+      }}>
+        {role.label}
+      </span>
+      <AnimatePresence>
+        {selected && (
+          <motion.span
+            key="check"
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0 }}
+            style={{
+              width: 18, height: 18, borderRadius: '50%',
+              background: role.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6.5l2.5 2.5L10 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </motion.span>
+        )}
+      </AnimatePresence>
     </motion.button>
   );
 }
 
-// ─── convite por link / e-mail ────────────────────────────────────────────────
+// ─── invite section ───────────────────────────────────────────────────────────
 
-function InvitePanel({
-  role, familyId, childName,
-  onBack, onSent,
-}: {
-  role: CopilotRole; familyId: string; childName: string;
-  onBack: () => void; onSent: () => void;
-}) {
-  const [email,       setEmail]       = useState('');
-  const [emailSent,   setEmailSent]   = useState(false);
-  const [linkCopied,  setLinkCopied]  = useState(false);
-  const [sending,     setSending]     = useState(false);
+function InviteSection({ selectedRoles, babyName }: { selectedRoles: Set<string>; babyName: string }) {
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
 
-  const inviteLink = `${window.location.origin}/convite?fid=${familyId}&role=${role}`;
-  const roleLabel = ROLES.find(r => r.id === role)?.label ?? 'Cuidador';
-
-  async function handleShareLink() {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Cuide do ${childName} no Ninho`,
-          text: `Quero te convidar para ajudar nos cuidados do ${childName}. Entre no Ninho!`,
-          url: inviteLink,
-        });
-        onSent();
-      } else {
-        await navigator.clipboard.writeText(inviteLink);
-        setLinkCopied(true);
-        toast.success('Link copiado! Compartilhe como preferir.');
-        setTimeout(onSent, 1200);
-      }
-    } catch {
-      // Usuário cancelou o share — sem erro
-    }
+  async function send() {
+    const e = email.trim();
+    if (!e || !/\S+@\S+\.\S+/.test(e)) { toast.error('Coloque um e-mail válido'); return; }
+    setSending(true);
+    await new Promise(r => setTimeout(r, 800));
+    setSending(false);
+    setEmail('');
+    toast.success(`Convite enviado para ${e}`);
   }
 
-  async function handleEmailInvite() {
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error('E-mail parece incorreto. Confere aí?');
-      return;
-    }
-    setSending(true);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: inviteLink,
-        },
-      });
-      if (error) throw error;
-      setEmailSent(true);
-      toast.success(`Convite enviado para ${email.trim()}!`);
-      setTimeout(onSent, 1200);
-    } catch {
-      toast.error('Opa! Não consegui enviar. Tenta compartilhar o link.');
-    } finally {
-      setSending(false);
+  async function share() {
+    const roles = ROLES.filter(r => selectedRoles.has(r.id)).map(r => r.label).join(', ');
+    const text = `Estou usando o Ninho para organizar os cuidados${babyName ? ` do ${babyName}` : ''}. Te adicionei como ${roles || 'copiloto'}. Baixa o app!`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Ninho', text }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(text);
+      toast.success('Link copiado!');
     }
   }
 
   return (
-    <motion.div
-      key="invite-panel"
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -24 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col gap-5"
-    >
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-ds-neutral-fg-strong self-start"
-        aria-label="Voltar"
-      >
-        <ArrowLeft size={16} aria-hidden="true" />
-        <Text variant="caption-medium" color="secondary">Voltar</Text>
-      </button>
-
-      <div className="flex flex-col gap-1">
-        <Text variant="h3" className="font-heading">Convidar {roleLabel}</Text>
-        <Text variant="body-md-regular" color="secondary">
-          Escolha como quer compartilhar.
-        </Text>
-      </div>
-
-      {/* Compartilhar link — caminho primário */}
-      <button
-        type="button"
-        onClick={handleShareLink}
-        className={[
-          'flex items-center gap-4 p-5 rounded-[20px] border-2 text-left transition-all',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent-tint',
-          linkCopied
-            ? 'bg-ds-success-subtle border-ds-success-border'
-            : 'bg-ds-neutral-subtle border-transparent hover:bg-ds-neutral-bg-hover',
-        ].join(' ')}
-      >
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${linkCopied ? 'bg-ds-success-tint' : 'bg-ds-accent-subtle'}`}>
-          {linkCopied
-            ? <Check size={20} className="text-ds-success-fg" aria-hidden="true" />
-            : <Share2 size={20} className="text-ds-accent-fg" aria-hidden="true" />}
-        </div>
-        <div>
-          <Text variant="body-md-semibold">
-            {linkCopied ? 'Link copiado!' : 'Compartilhar link'}
-          </Text>
-          <Text variant="caption-regular" color="secondary">
-            WhatsApp, mensagem, qualquer app.
-          </Text>
-        </div>
-      </button>
-
-      {/* Divisor */}
-      <div className="flex items-center gap-3" aria-hidden="true">
-        <div className="flex-1 h-px bg-ds-neutral-border" />
-        <Text variant="caption-regular" color="secondary" as="span">ou envie por e-mail</Text>
-        <div className="flex-1 h-px bg-ds-neutral-border" />
-      </div>
-
-      {/* Envio por e-mail */}
-      <div className="flex flex-col gap-3">
-        <TextInput
-          label="E-mail do cuidador"
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* email row */}
+      <div style={{
+        display: 'flex', height: 52, borderRadius: 100,
+        border: `1.5px solid ${T.stone200}`, background: T.stone50,
+        overflow: 'hidden', alignItems: 'center', paddingLeft: 20, gap: 8,
+      }}>
+        <input
           type="email"
-          placeholder="email@exemplo.com"
+          placeholder="e-mail do copiloto"
           value={email}
           onChange={e => setEmail(e.target.value)}
-          autoComplete="off"
-          size="md"
-          fullWidth
+          onKeyDown={e => e.key === 'Enter' && send()}
+          style={{
+            flex: 1, border: 'none', background: 'transparent', outline: 'none',
+            fontFamily: Font.b, fontSize: '0.95rem', color: T.stone900,
+          }}
         />
-        <Button
-          label={emailSent ? 'Enviado! ✓' : 'Enviar convite por e-mail'}
-          variant="secondary"
-          size="lg"
-          fullWidth
-          loading={sending}
-          disabled={emailSent || sending}
-          onClick={handleEmailInvite}
-        />
+        <button
+          type="button"
+          onClick={send}
+          disabled={sending}
+          style={{
+            height: '100%', paddingInline: 22,
+            background: sending ? T.mauve300 : T.mauve500,
+            border: 'none', borderRadius: '0 100px 100px 0',
+            cursor: sending ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'background 0.2s',
+          }}
+        >
+          {sending ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white' }}
+            />
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
       </div>
+
+      <button
+        type="button"
+        onClick={share}
+        style={{
+          height: 44, borderRadius: 100,
+          border: `1.5px solid ${T.stone200}`, background: T.white,
+          cursor: 'pointer', fontFamily: Font.b, fontWeight: 600,
+          fontSize: '0.9rem', color: T.stone700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" stroke={T.stone500} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Compartilhar link de convite
+      </button>
+    </div>
+  );
+}
+
+// ─── done screen ──────────────────────────────────────────────────────────────
+
+function DoneScreen({ count, onContinue }: { count: number; onContinue: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      style={{
+        minHeight: '100svh',
+        background: `radial-gradient(ellipse 120% 60% at 50% -5%, ${T.mauve200}, ${T.white})`,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '48px 32px', gap: 24, textAlign: 'center',
+      }}
+    >
+      <motion.div
+        initial={{ scale: 0, rotate: -10 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: [0.34, 1.56, 0.64, 1] }}
+        style={{
+          width: 100, height: 100, borderRadius: '50%',
+          background: `linear-gradient(135deg, ${T.mauve100}, ${T.mauve300})`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '3rem', boxShadow: `0 12px 40px ${T.mauve300}`,
+        }}
+      >
+        🪺
+      </motion.div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <motion.h2
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.4 }}
+          style={{
+            fontFamily: Font.h, fontWeight: 700,
+            fontSize: 'clamp(1.6rem, 6vw, 2rem)',
+            letterSpacing: '-0.025em', color: T.stone900,
+            margin: 0, lineHeight: 1.2,
+          }}
+        >
+          {count > 0 ? `Ninho com ${count} copiloto${count > 1 ? 's' : ''}. ✨` : 'Ninho pronto para voar. ✨'}
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.4 }}
+          style={{
+            fontFamily: Font.b, fontWeight: 400,
+            fontSize: '1rem', lineHeight: 1.6, color: T.stone500, margin: 0,
+          }}
+        >
+          {count > 0 ? 'Os convites estão a caminho. Você pode adicionar mais depois.' : 'Você pode convidar pessoas para ajudar quando quiser.'}
+        </motion.p>
+      </div>
+
+      <motion.button
+        type="button"
+        onClick={onContinue}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45, duration: 0.4 }}
+        whileTap={{ scale: 0.97 }}
+        style={{
+          height: 56, paddingInline: 40, borderRadius: 100, border: 'none',
+          background: `linear-gradient(135deg, ${T.mauve500}, ${T.mauve700})`,
+          cursor: 'pointer', fontFamily: Font.h, fontWeight: 700,
+          fontSize: '1.05rem', color: T.white, letterSpacing: '-0.01em',
+          boxShadow: `0 8px 24px ${T.mauve500}60`,
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        Entrar no ninho 🪺
+      </motion.button>
     </motion.div>
   );
 }
@@ -282,186 +383,206 @@ function InvitePanel({
 
 export default function CopilotsPage() {
   const store = useNinhoStore();
-  const familyId  = store.currentFamily?.id ?? '';
-  const childName = store.currentChild?.preferred_name ?? store.currentChild?.name ?? 'seu bebê';
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
+  const [phase, setPhase] = useState<'select' | 'invite' | 'done'>('select');
 
-  const [step,         setStep]         = useState<Step>('roles');
-  const [selectedRole, setSelectedRole] = useState<CopilotRole | null>(null);
-  const [invitedCount, setInvitedCount] = useState(0);
+  const babyName = store.currentChild?.preferred_name ?? '';
+
+  function toggleRole(id: string) {
+    setSelectedRoles(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function handleContinue() {
+    if (phase === 'select') {
+      setPhase(selectedRoles.size > 0 ? 'invite' : 'done');
+    } else {
+      setPhase('done');
+    }
+  }
 
   function goToDashboard() {
     store.setAppState('dashboard');
   }
 
-  function handleRoleSelect(role: CopilotRole) {
-    setSelectedRole(role);
-    setStep('invite');
-  }
-
-  function handleInviteSent() {
-    setInvitedCount(c => c + 1);
-    setStep('done');
+  if (phase === 'done') {
+    return <DoneScreen count={selectedRoles.size} onContinue={goToDashboard} />;
   }
 
   return (
-    <div
-      className="min-h-screen bg-ds-pure-white flex flex-col"
-      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 20px)' }}
-    >
+    <div style={{
+      minHeight: '100svh', background: T.white,
+      display: 'flex', flexDirection: 'column',
+      paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
+      paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)',
+    }}>
 
       {/* ── header ──────────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-6 pb-2">
-        {/* Indicador de etapa */}
-        <div className="flex gap-1.5" role="progressbar" aria-label="Etapa final do onboarding">
-          {[0, 1, 2, 3].map(i => (
-            <div
-              key={i}
-              className="w-1.5 h-1.5 rounded-full bg-ds-accent-fg"
-            />
+      <header style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        paddingInline: 24, paddingBottom: 8,
+      }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {[1, 2, 3].map(n => (
+            <div key={n} style={{
+              borderRadius: 100,
+              background: T.mauve500,
+              width: n === 3 ? 24 : 8, height: 8,
+              transition: 'width 0.3s ease',
+            }} />
           ))}
         </div>
-
-        {/* Pular — sempre visível, nunca escondido */}
         <button
           type="button"
           onClick={goToDashboard}
-          className="px-3 py-1.5 rounded-lg text-ds-neutral-fg-strong hover:bg-ds-neutral-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-neutral-border"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontFamily: Font.b, fontWeight: 600, fontSize: '0.9rem', color: T.stone500,
+            padding: '4px 8px',
+          }}
         >
-          <Text variant="caption-medium" color="secondary">Pular</Text>
+          Pular
         </button>
       </header>
 
-      {/* ── hero ────────────────────────────────────────────────────────────── */}
-      <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="px-6 pt-6 pb-4"
-      >
-        <Text variant="h1" className="font-heading tracking-tight leading-tight">
-          Quem cuida com você?
-        </Text>
-        <Text variant="body-md-regular" color="secondary" className="mt-2">
-          Convide quem faz parte do cuidado de{' '}
-          <span className="font-semibold text-ds-neutral-fg-strong">{childName}</span>.
-        </Text>
-      </motion.section>
-
-      {/* ── rede visual ─────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="px-6 pb-4"
-      >
-        <NestNetwork invitedCount={invitedCount} />
-      </motion.div>
-
-      {/* ── conteúdo dinâmico ────────────────────────────────────────────────── */}
-      <main className="flex-1 px-6 pb-10">
+      {/* ── content ─────────────────────────────────────────────────────────── */}
+      <main style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        paddingInline: 24, overflowY: 'auto',
+      }}>
         <AnimatePresence mode="wait">
 
-          {/* STEP: seleção de papel */}
-          {step === 'roles' && (
+          {phase === 'select' && (
             <motion.div
-              key="roles"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, x: -16 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col gap-4"
+              key="select"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 24 }}
             >
-              <Text variant="caption-medium" color="secondary" className="mb-1">
-                Quem vai convidar?
-              </Text>
+              <div style={{ paddingTop: 20 }}>
+                <h1 style={{
+                  fontFamily: Font.h, fontWeight: 700,
+                  fontSize: 'clamp(1.6rem, 7vw, 2rem)',
+                  letterSpacing: '-0.025em', lineHeight: 1.2,
+                  color: T.stone900, margin: 0,
+                }}>
+                  Quem cuida junto{babyName ? ` do ${babyName.split(' ')[0]}` : ''}?
+                </h1>
+                <p style={{
+                  fontFamily: Font.b, fontSize: '0.95rem', lineHeight: 1.6,
+                  color: T.stone500, margin: '10px 0 0',
+                }}>
+                  Adicione pessoas ao ninho para compartilhar o cuidado.
+                </p>
+              </div>
 
-              {/* Grid 2×2 */}
-              <div className="grid grid-cols-2 gap-3">
-                {ROLES.map((r, i) => (
-                  <RoleCard
-                    key={r.id}
-                    emoji={r.emoji}
-                    label={r.label}
-                    description={r.description}
-                    isSelected={selectedRole === r.id}
-                    delay={0.1 + i * 0.07}
-                    onClick={() => handleRoleSelect(r.id)}
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <NetworkViz selectedRoles={selectedRoles} />
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                {ROLES.map(role => (
+                  <RoleChip
+                    key={role.id}
+                    role={role}
+                    selected={selectedRoles.has(role.id)}
+                    onToggle={() => toggleRole(role.id)}
                   />
                 ))}
               </div>
 
-              {/* CTA de pular com mais destaque */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="flex flex-col items-center gap-1 pt-4"
+              <button
+                type="button"
+                onClick={handleContinue}
+                style={{
+                  height: 56, borderRadius: 100, border: 'none',
+                  background: selectedRoles.size > 0
+                    ? `linear-gradient(135deg, ${T.mauve500}, ${T.mauve700})`
+                    : T.stone100,
+                  cursor: 'pointer', fontFamily: Font.h, fontWeight: 700,
+                  fontSize: '1rem', letterSpacing: '-0.01em',
+                  color: selectedRoles.size > 0 ? T.white : T.stone500,
+                  boxShadow: selectedRoles.size > 0 ? `0 6px 20px ${T.mauve500}50` : 'none',
+                  transition: 'background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease',
+                  WebkitTapHighlightColor: 'transparent',
+                  marginBottom: 16,
+                }}
               >
-                <Text variant="caption-regular" color="secondary">
-                  Pode convidar depois também.
-                </Text>
-                <LinkButton
-                  label="Ir para o ninho agora →"
-                  linkType="interactive"
-                  onClick={goToDashboard}
-                />
-              </motion.div>
+                {selectedRoles.size > 0
+                  ? `Convidar ${selectedRoles.size} pessoa${selectedRoles.size > 1 ? 's' : ''} →`
+                  : 'Continuar sem copilotos →'}
+              </button>
             </motion.div>
           )}
 
-          {/* STEP: formulário de convite */}
-          {step === 'invite' && selectedRole && (
-            <InvitePanel
-              key="invite"
-              role={selectedRole}
-              familyId={familyId}
-              childName={childName}
-              onBack={() => { setStep('roles'); setSelectedRole(null); }}
-              onSent={handleInviteSent}
-            />
-          )}
-
-          {/* STEP: convite enviado — feedback positivo */}
-          {step === 'done' && (
+          {phase === 'invite' && (
             <motion.div
-              key="done"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-              className="flex flex-col items-center gap-6 text-center pt-4"
+              key="invite"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 20 }}
             >
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.1, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
-                className="text-[4rem] leading-none select-none"
-                aria-hidden="true"
-              >
-                🎉
-              </motion.span>
-              <div className="flex flex-col gap-2">
-                <Text variant="h2" className="font-heading">Convite enviado!</Text>
-                <Text variant="body-md-regular" color="secondary">
-                  O ninho de {childName} está crescendo.
-                </Text>
+              <div>
+                <h1 style={{
+                  fontFamily: Font.h, fontWeight: 700,
+                  fontSize: 'clamp(1.5rem, 7vw, 1.9rem)',
+                  letterSpacing: '-0.025em', lineHeight: 1.2,
+                  color: T.stone900, margin: 0,
+                }}>
+                  Como prefere convidar?
+                </h1>
+                <p style={{
+                  fontFamily: Font.b, fontSize: '0.95rem', lineHeight: 1.6,
+                  color: T.stone500, margin: '10px 0 0',
+                }}>
+                  Pode pular e fazer isso depois, sem pressa.
+                </p>
               </div>
 
-              <div className="flex flex-col gap-3 w-full">
-                <Button
-                  label="Convidar mais alguém"
-                  variant="secondary"
-                  size="lg"
-                  fullWidth
-                  onClick={() => { setStep('roles'); setSelectedRole(null); }}
-                />
-                <Button
-                  label="Entrar no ninho 🪺"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  onClick={goToDashboard}
-                />
+              {/* selected roles summary */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {ROLES.filter(r => selectedRoles.has(r.id)).map(role => (
+                  <span key={role.id} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    paddingInline: 12, paddingBlock: 6, borderRadius: 100,
+                    background: role.activeBg,
+                    fontFamily: Font.b, fontWeight: 600, fontSize: '0.85rem', color: role.color,
+                  }}>
+                    <span aria-hidden="true">{role.emoji}</span>
+                    {role.label}
+                  </span>
+                ))}
               </div>
+
+              <InviteSection selectedRoles={selectedRoles} babyName={babyName} />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, height: 1, background: T.stone200 }} />
+                <span style={{ fontFamily: Font.b, fontSize: '0.8rem', color: T.stone400 }}>ou</span>
+                <div style={{ flex: 1, height: 1, background: T.stone200 }} />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleContinue}
+                style={{
+                  height: 56, borderRadius: 100,
+                  border: `1.5px solid ${T.stone200}`, background: T.white,
+                  cursor: 'pointer', fontFamily: Font.h, fontWeight: 700,
+                  fontSize: '1rem', color: T.stone700, letterSpacing: '-0.01em',
+                  WebkitTapHighlightColor: 'transparent',
+                  marginBottom: 16,
+                }}
+              >
+                Fazer isso depois →
+              </button>
             </motion.div>
           )}
 

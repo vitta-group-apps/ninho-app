@@ -1,3 +1,19 @@
+/**
+ * NINHO — useSession
+ *
+ * Resolve o estado da sessão e naveia o appState correspondente.
+ * StateRouter em App.tsx reage às mudanças de appState.
+ *
+ * Fluxo:
+ *   getSession() → sem sessão → 'unauthenticated'
+ *   getSession() → sessão → upsert profile → check family → check children → define appState
+ *
+ * Por que profile upsert?
+ *   Magic link cria auth.users mas não necessariamente profiles.
+ *   family_members.user_id tem FK para profiles.id.
+ *   Sem o upsert, o insert em family_members falha com erro de FK.
+ */
+
 import { useEffect, useRef, useCallback } from 'react'
 import { supabase, translateSupabaseError } from '@/lib/supabase'
 import { useNinhoStore, getNinhoStore } from '@/store/useNinhoStore'
@@ -14,9 +30,31 @@ async function resolveSession(): Promise<void> {
       return
     }
 
+    // ── Garantir que o perfil existe no banco ─────────────────────────────
+    // Magic link cria auth.users mas não cria profiles automaticamente
+    // (depende de trigger no Supabase que pode não existir).
+    // upsert seguro: cria se não existe, atualiza name/avatar do OAuth se existe.
+    const { error: profileErr } = await supabase
+      .from('profiles')
+      .upsert({
+        id:         session.user.id,
+        full_name:  session.user.user_metadata?.full_name
+                    ?? session.user.user_metadata?.name
+                    ?? null,
+        avatar_url: session.user.user_metadata?.avatar_url
+                    ?? session.user.user_metadata?.picture
+                    ?? null,
+      }, { onConflict: 'id' })
+
+    if (profileErr) {
+      // Não é fatal — a tabela pode não existir ou o trigger já cuida disso
+      console.warn('[useSession] profile upsert warning:', profileErr.message)
+    }
+
+    // ── Atualizar store com dados do usuário ──────────────────────────────
     store.setUser({ id: session.user.id, email: session.user.email })
 
-    // Check family membership
+    // ── Verificar família ─────────────────────────────────────────────────
     const { data: memberData } = await supabase
       .from('family_members')
       .select('family_id, families(id, name, owner_user_id)')
@@ -24,7 +62,7 @@ async function resolveSession(): Promise<void> {
       .maybeSingle()
 
     if (!memberData?.families) {
-      // Bifurcação Estratégica (Luke): se modo ainda não escolhido, vai para seleção
+      // Novo usuário ou onboarding incompleto
       if (!store.onboardingMode) {
         store.setAppState('onboarding_mode')
       } else {
@@ -36,7 +74,7 @@ async function resolveSession(): Promise<void> {
     const family = memberData.families as { id: string; name: string; owner_user_id: string }
     store.setCurrentFamily(family)
 
-    // Check children
+    // ── Verificar crianças ────────────────────────────────────────────────
     const { data: children } = await supabase
       .from('children')
       .select('*')
@@ -50,7 +88,7 @@ async function resolveSession(): Promise<void> {
 
     store.setChildren(children)
 
-    // Preserva currentChild persistido se ainda estiver na lista; caso contrário, seleciona o primeiro
+    // Preserva currentChild persistido se ainda válido; senão usa o primeiro
     const persisted  = store.currentChild
     const stillValid = persisted && children.some((c: any) => c.id === persisted.id)
     store.setCurrentChild(stillValid ? persisted : (children[0] as any))
@@ -60,9 +98,9 @@ async function resolveSession(): Promise<void> {
   } catch (error) {
     console.error('[useSession] error:', error)
     useNinhoStore.setState({
-      appState: 'unauthenticated',
+      appState:         'unauthenticated',
       isLoadingSession: false,
-      sessionError: translateSupabaseError(
+      sessionError:     translateSupabaseError(
         error instanceof Error ? { message: error.message } : null
       ),
     })
@@ -70,9 +108,9 @@ async function resolveSession(): Promise<void> {
 }
 
 export function useSession() {
-  const store = useNinhoStore()
-  const isResolvingRef = useRef(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const store           = useNinhoStore()
+  const isResolvingRef  = useRef(false)
+  const debounceRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const safeResolve = useCallback(async () => {
     if (isResolvingRef.current) return
@@ -92,7 +130,10 @@ export function useSession() {
       debounceRef.current = setTimeout(() => {
         if (event === 'SIGNED_OUT') {
           getNinhoStore().reset()
-        } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        } else if (
+          (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') &&
+          session?.user
+        ) {
           safeResolve()
         }
       }, 300)

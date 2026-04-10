@@ -1,14 +1,12 @@
 /**
  * NINHO — SplashScreen
- * Animação de entrada do app — logo oficial com spring + glow pulsante.
- * Mostrada enquanto appState === 'loading' (resolução de sessão).
+ * Animação de entrada: logo oficial completo como uma unidade.
+ * O arquivo logo-ninho.svg já tem símbolo + wordmark juntos.
+ * Sem separação de partes — anima o NinhoWordmark como peça única.
  */
 
 import { motion } from 'framer-motion';
-import { NinhoIcon, NinhoWordmark } from './NinhoLogo';
-
-const MAUVE700 = '#6e2880';
-const MAUVE300 = '#d8b9df';
+import { NinhoWordmark } from './NinhoLogo';
 
 export function SplashScreen() {
   return (
@@ -16,64 +14,42 @@ export function SplashScreen() {
       minHeight: '100dvh',
       background: '#ffffff',
       display: 'flex',
-      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 20,
     }}>
-
-      {/* ── símbolo com glow ──────────────────────────────────────────────── */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
 
-        {/* anel de glow externo */}
+        {/* glow pulsante centralizado no símbolo (lado esquerdo do logo) */}
         <motion.div
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: [1, 1.28, 1], opacity: [0.18, 0.04, 0.18] }}
-          transition={{ delay: 0.5, duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: [0, 0.28, 0.10, 0.28], scale: [0.8, 1.2, 1.0, 1.2] }}
+          transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
           style={{
             position: 'absolute',
-            width: 160, height: 160, borderRadius: '50%',
-            background: `radial-gradient(circle, ${MAUVE300} 0%, transparent 70%)`,
+            left: '-10%',      // alinha com o símbolo (lado esq do wordmark)
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 120, height: 120,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, #d8b9df 0%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />
 
-        {/* anel de glow interno */}
+        {/* logo completo — símbolo + wordmark como uma peça só */}
         <motion.div
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: [1, 1.14, 1], opacity: [0.25, 0.08, 0.25] }}
-          transition={{ delay: 0.3, duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-          style={{
-            position: 'absolute',
-            width: 100, height: 100, borderRadius: '50%',
-            background: `radial-gradient(circle, ${MAUVE300} 0%, transparent 65%)`,
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* ícone */}
-        <motion.div
-          initial={{ scale: 0.35, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+          initial={{ opacity: 0, scale: 0.82, y: 6 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{
-            duration: 0.75,
-            ease: [0.34, 1.45, 0.64, 1], // spring overshoot suave
+            duration: 0.72,
+            ease: [0.34, 1.38, 0.64, 1],   // spring suave com leve overshoot
           }}
           style={{ position: 'relative', zIndex: 1 }}
         >
-          <NinhoIcon size={76} color={MAUVE700} />
+          <NinhoWordmark height={42} color="#6e2880" />
         </motion.div>
+
       </div>
-
-      {/* ── wordmark ────────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.38, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <NinhoWordmark height={22} color={MAUVE700} />
-      </motion.div>
-
     </div>
   );
 }

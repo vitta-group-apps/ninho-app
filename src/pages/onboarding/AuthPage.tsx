@@ -382,17 +382,101 @@ export default function AuthPage() {
   const isMagic    = mode === 'magic';
   const isForgot   = mode === 'forgot';
   const isSignup   = mode === 'signup';
-  const ctaLabel   = isMagic ? 'Enviar link →' : isForgot ? 'Enviar instruções' : isSignup ? 'Criar conta' : 'Entrar';
+  const ctaLabel   = isMagic ? 'Enviar link' : isForgot ? 'Enviar instruções' : isSignup ? 'Criar conta' : 'Entrar';
   const handleCTA  = isMagic ? handleMagic : isForgot ? handleForgot : handlePasswordAuth;
+
+  // ── layout: magic / forgot → centrado; login / signup → hero + form
+  if (isMagic || isForgot) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={mode}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            minHeight: '100dvh', background: T.white,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            padding: `calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 32px)`,
+          }}
+        >
+          {/* back button — topo fixo */}
+          <button type="button" onClick={() => { setMode('login'); clearErrors(); }}
+            style={{
+              position: 'absolute', top: 'calc(env(safe-area-inset-top) + 16px)', left: 20,
+              background: 'none', border: 'none', cursor: 'pointer', padding: '8px 4px',
+              fontFamily: Font.b, fontWeight: 600, fontSize: 15, color: T.mauve700,
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            ← Entrar com senha
+          </button>
+
+          <div style={{
+            width: '100%', maxWidth: 380,
+            display: 'flex', flexDirection: 'column', gap: 24,
+          }}>
+            {/* logo */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <NinhoWordmark height={28} color={T.mauve700} />
+              <p style={{ fontFamily: Font.b, fontSize: 14, color: T.stone500, textAlign: 'center', margin: 0 }}>
+                {isMagic ? 'Receba um link de acesso direto no e-mail — sem senha.' : 'Enviaremos um link para você redefinir sua senha.'}
+              </p>
+            </div>
+
+            {/* form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Field
+                id="auth-email" type="email" placeholder="seu@email.com"
+                value={email} onChange={v => { setEmail(v); clearErrors(); setEmailTouched(false); }}
+                onBlur={() => setEmailTouched(true)}
+                disabled={isLoading} error={emailErr}
+                autoComplete="email" autoFocus
+              />
+
+              <AnimatePresence>
+                {apiError && (
+                  <motion.div key="api-err" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                    role="alert" style={{ borderRadius: 12, padding: '10px 14px', background: T.clay50, border: `1px solid ${T.clay200}` }}
+                  >
+                    <p style={{ fontFamily: Font.b, fontSize: 13, color: T.clay800, margin: 0 }}>{apiError}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <motion.button type="button" onClick={handleCTA} disabled={isLoading} whileTap={!isLoading ? { scale: 0.975 } : {}}
+                style={{
+                  height: 52, borderRadius: 14, border: 'none',
+                  background: isLoading ? T.mauve300 : `linear-gradient(135deg, ${T.mauve500}, ${T.mauve700})`,
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  fontFamily: Font.h, fontWeight: 700, fontSize: '1rem', color: T.white,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  boxShadow: isLoading ? 'none' : `0 4px 16px ${T.mauve500}55`,
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {loading && <Spinner />}
+                {ctaLabel}
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
+  // ── login / signup layout ──────────────────────────────────────────────────
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={mode}
-        initial={{ opacity: 0, y: mode === 'magic' || mode === 'forgot' ? 20 : 0 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.25 }}
         style={{
           minHeight: '100dvh',
           background: T.white,
@@ -405,29 +489,22 @@ export default function AuthPage() {
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'flex-end',
           paddingTop: `calc(env(safe-area-inset-top) + 52px)`,
-          paddingBottom: 40, paddingInline: 24,
+          paddingBottom: 36, paddingInline: 24,
         }}>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           >
-            <NinhoWordmark height={32} color={T.mauve700} />
+            <NinhoWordmark height={34} color={T.mauve700} />
           </motion.div>
-
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.18, duration: 0.4 }}
-            style={{
-              fontFamily: Font.b, fontSize: 15, color: T.stone500,
-              margin: '14px 0 0', textAlign: 'center', lineHeight: 1.5,
-            }}
+            transition={{ delay: 0.15, duration: 0.4 }}
+            style={{ fontFamily: Font.b, fontSize: 15, color: T.stone500, margin: '12px 0 0', textAlign: 'center', lineHeight: 1.5 }}
           >
-            {isMagic  ? 'Receba um link direto no e-mail — sem senha.'  :
-             isForgot ? 'Redefina sua senha em segundos.' :
-             isSignup ? 'Crie sua conta gratuitamente.' :
-             'Organize a rotina de quem você ama.'}
+            {isSignup ? 'Crie sua conta gratuitamente.' : 'Organize a rotina de quem você ama.'}
           </motion.p>
         </div>
 
@@ -435,34 +512,21 @@ export default function AuthPage() {
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ delay: 0.1, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           style={{
-            padding: `0 24px calc(env(safe-area-inset-bottom) + 32px)`,
+            padding: `0 24px calc(env(safe-area-inset-bottom) + 28px)`,
             display: 'flex', flexDirection: 'column', gap: 10,
             maxWidth: 420, width: '100%', alignSelf: 'center',
           }}
         >
-          {/* ── headline do form ─────────────────────────────────────────── */}
+          {/* label */}
           <p style={{
-            fontFamily: Font.b, fontWeight: 700, fontSize: '0.8rem',
+            fontFamily: Font.b, fontWeight: 700, fontSize: '0.78rem',
             color: T.stone400, letterSpacing: '0.05em', textTransform: 'uppercase',
-            textAlign: 'center', margin: '0 0 4px',
+            textAlign: 'center', margin: '0 0 2px',
           }}>
-            {isMagic  ? 'Link mágico' :
-             isForgot ? 'Recuperar senha' :
-             isSignup ? 'Criar conta' : 'Entrar'}
+            {isSignup ? 'Criar conta' : 'Entrar'}
           </p>
-
-          {/* ── back link (magic/forgot) ─────────────────────────────────── */}
-          {(isMagic || isForgot) && (
-            <button type="button" onClick={() => setMode('login')} style={{
-              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-              fontFamily: Font.b, fontSize: 13, color: T.stone500,
-              display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: 2,
-            }}>
-              ← Voltar
-            </button>
-          )}
 
           {/* ── email ───────────────────────────────────────────────────── */}
           <Field

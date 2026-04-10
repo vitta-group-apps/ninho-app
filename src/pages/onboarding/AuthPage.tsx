@@ -1,15 +1,19 @@
 /**
- * NINHO — AuthPage v4 · Auth Completo
+ * NINHO — AuthPage v5 · Magic Link + Social Auth
  *
- * Fluxo:
- *   Social (Google/Apple) → OAuth redirect → useSession resolve
- *   Email → signInWithOtp → tela de código OTP 6 dígitos → verifyOtp
- *                         → onAuthStateChange SIGNED_IN → useSession resolve
+ * Fluxo de autenticação:
+ *   Google / Apple  → signInWithOAuth → redirect → SIGNED_IN → StateRouter navega
+ *   E-mail          → signInWithOtp (magic link) → tela de confirmação
+ *                   → usuário clica link no e-mail → SIGNED_IN → StateRouter navega
  *
- * Zero componentes do DS — apenas tokens brutos + Framer Motion.
+ * shouldCreateUser: true — mesmo endpoint para cadastro e login.
+ * Copy deixa isso claro: "Novo por aqui ou já tem conta?"
+ *
+ * Referências visuais: Apple Health, Calm, Linear, Notion — clean, tipografia grande,
+ * social auth como CTA primário, e-mail como opção secundária acessível.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase, translateSupabaseError } from '@/lib/supabase';
@@ -28,6 +32,7 @@ const T = {
   stone100: '#eeedec',
   stone200: '#e2e0df',
   stone300: '#ceccca',
+  stone400: '#b5b2af',
   stone500: '#a9a5a2',
   stone700: '#706d69',
   stone800: '#524f4c',
@@ -40,11 +45,11 @@ const T = {
 } as const;
 
 const Font = {
-  h: "'Quicksand', system-ui, sans-serif",
-  b: "'Nunito', system-ui, sans-serif",
+  h: "'Quicksand', -apple-system, 'SF Pro Rounded', system-ui, sans-serif",
+  b: "'Nunito', -apple-system, 'SF Pro Text', system-ui, sans-serif",
 } as const;
 
-// ─── icons ────────────────────────────────────────────────────────────────────
+// ─── inline icons ─────────────────────────────────────────────────────────────
 
 function GoogleIcon() {
   return (
@@ -65,22 +70,22 @@ function AppleIcon() {
   );
 }
 
-function SendIcon() {
+function ArrowRightIcon({ color = 'white' }: { color?: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M5 12H19M14 7l5 5-5 5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5 12H19M14 7l5 5-5 5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
 
-function Spinner({ color = 'white' }: { color?: string }) {
+function Spinner({ color = 'white', size = 16 }: { color?: string; size?: number }) {
   return (
     <motion.div
       animate={{ rotate: 360 }}
       transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
       style={{
-        width: 16, height: 16, borderRadius: '50%',
-        border: `2px solid ${color}40`,
+        width: size, height: size, borderRadius: '50%',
+        border: `2px solid ${color}30`,
         borderTopColor: color,
         flexShrink: 0,
       }}
@@ -88,150 +93,19 @@ function Spinner({ color = 'white' }: { color?: string }) {
   );
 }
 
-// ─── OTP code input (6 dígitos) ───────────────────────────────────────────────
+// ─── tela de confirmação de link enviado ─────────────────────────────────────
 
-const DIGIT_COUNT = 6;
-
-interface OtpCodeInputProps {
-  onComplete: (code: string) => void;
-  loading: boolean;
-  hasError: boolean;
-}
-
-function OtpCodeInput({ onComplete, loading, hasError }: OtpCodeInputProps) {
-  const [digits, setDigits] = useState<string[]>(Array(DIGIT_COUNT).fill(''));
-  const inputRefs = useRef<(HTMLInputElement | null)[]>(Array(DIGIT_COUNT).fill(null));
-
-  const focusAt = (idx: number) => {
-    const el = inputRefs.current[Math.max(0, Math.min(DIGIT_COUNT - 1, idx))];
-    el?.focus();
-  };
-
-  const handleChange = useCallback((idx: number, val: string) => {
-    // handle paste: user pastes full code into any box
-    if (val.length > 1) {
-      const cleaned = val.replace(/\D/g, '').slice(0, DIGIT_COUNT);
-      if (!cleaned) return;
-      const next = Array(DIGIT_COUNT).fill('');
-      cleaned.split('').forEach((c, i) => { next[i] = c; });
-      setDigits(next);
-      const focusIdx = Math.min(cleaned.length, DIGIT_COUNT - 1);
-      setTimeout(() => focusAt(focusIdx), 0);
-      if (cleaned.length === DIGIT_COUNT) {
-        setTimeout(() => onComplete(cleaned), 50);
-      }
-      return;
-    }
-
-    const char = val.replace(/\D/g, '');
-    const next = [...digits];
-    next[idx] = char;
-    setDigits(next);
-
-    if (char && idx < DIGIT_COUNT - 1) {
-      focusAt(idx + 1);
-    }
-
-    const full = next.join('');
-    if (full.length === DIGIT_COUNT && !full.includes('')) {
-      setTimeout(() => onComplete(full), 50);
-    }
-  }, [digits, onComplete]);
-
-  const handleKeyDown = useCallback((idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace') {
-      e.preventDefault();
-      const next = [...digits];
-      if (next[idx]) {
-        next[idx] = '';
-        setDigits(next);
-      } else if (idx > 0) {
-        next[idx - 1] = '';
-        setDigits(next);
-        focusAt(idx - 1);
-      }
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      focusAt(idx - 1);
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      focusAt(idx + 1);
-    }
-  }, [digits]);
-
-  const boxBorder = hasError
-    ? `1.5px solid ${T.clay200}`
-    : `1.5px solid ${T.stone200}`;
-
-  const boxBg = hasError ? T.clay50 : T.stone50;
-
-  return (
-    <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-      {digits.map((d, i) => (
-        <input
-          key={i}
-          ref={el => { inputRefs.current[i] = el; }}
-          type="text"
-          inputMode="numeric"
-          autoComplete={i === 0 ? 'one-time-code' : 'off'}
-          maxLength={DIGIT_COUNT} // allow paste on first box
-          value={d}
-          disabled={loading}
-          autoFocus={i === 0}
-          onChange={e => handleChange(i, e.target.value)}
-          onKeyDown={e => handleKeyDown(i, e)}
-          onFocus={e => e.target.select()}
-          style={{
-            width: 46, height: 58,
-            borderRadius: 14,
-            border: boxBorder,
-            background: boxBg,
-            fontFamily: Font.h,
-            fontWeight: 700,
-            fontSize: '1.4rem',
-            color: hasError ? T.clay800 : T.stone900,
-            textAlign: 'center',
-            outline: 'none',
-            caretColor: T.mauve500,
-            transition: 'border-color 0.15s, background 0.15s',
-            opacity: loading ? 0.6 : 1,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── OTP verify screen ────────────────────────────────────────────────────────
-
-interface OtpVerifyScreenProps {
+interface SentScreenProps {
   email: string;
   onBack: () => void;
   onResend: () => Promise<void>;
 }
 
-function OtpVerifyScreen({ email, onBack, onResend }: OtpVerifyScreenProps) {
-  const [verifying, setVerifying] = useState(false);
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [resending, setResending] = useState(false);
-  const [resentAt,  setResentAt]  = useState<number | null>(null);
-
-  const canResend = !resentAt || Date.now() - resentAt > 60_000;
-
-  async function handleComplete(code: string) {
-    setCodeError(null);
-    setVerifying(true);
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: code,
-      type: 'email',
-    });
-    setVerifying(false);
-    if (error) {
-      setCodeError('Código inválido ou expirado. Tenta de novo.');
-    }
-    // on success: onAuthStateChange fires SIGNED_IN → useSession resolves appState automatically
-  }
+function SentScreen({ email, onBack, onResend }: SentScreenProps) {
+  const [resending,  setResending]  = useState(false);
+  const [resentAt,   setResentAt]   = useState<number | null>(null);
+  const cooldownSec = resentAt ? Math.max(0, 60 - Math.floor((Date.now() - resentAt) / 1000)) : 0;
+  const canResend   = cooldownSec === 0;
 
   async function handleResend() {
     if (!canResend || resending) return;
@@ -239,115 +113,96 @@ function OtpVerifyScreen({ email, onBack, onResend }: OtpVerifyScreenProps) {
     await onResend();
     setResending(false);
     setResentAt(Date.now());
-    setCodeError(null);
-    toast.success('Novo código enviado!');
+    toast.success('Novo link enviado!');
   }
 
   return (
     <motion.div
+      key="sent"
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       style={{
         minHeight: '100dvh',
-        background: `radial-gradient(ellipse 100% 50% at 50% -10%, ${T.mauve200} 0%, ${T.white} 65%)`,
+        background: `radial-gradient(ellipse 120% 55% at 50% -5%, ${T.mauve200} 0%, ${T.white} 60%)`,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '0 28px', gap: 36, textAlign: 'center',
+        padding: '0 32px', gap: 32, textAlign: 'center',
       }}
     >
       {/* icon */}
       <motion.div
-        initial={{ scale: 0.3, opacity: 0 }}
+        initial={{ scale: 0.2, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.55, ease: [0.34, 1.56, 0.64, 1] }}
+        transition={{ duration: 0.55, delay: 0.05, ease: [0.34, 1.56, 0.64, 1] }}
         style={{
-          width: 88, height: 88, borderRadius: '50%',
+          width: 96, height: 96, borderRadius: '50%',
           background: `linear-gradient(135deg, ${T.mauve100}, ${T.mauve200})`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '2.6rem',
+          fontSize: '2.8rem',
+          boxShadow: `0 8px 32px ${T.mauve300}80`,
         }}
         aria-hidden="true"
       >
         📬
       </motion.div>
 
-      {/* headline */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* copy */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.4 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+      >
         <h2 style={{
           fontFamily: Font.h, fontWeight: 700,
-          fontSize: 'clamp(1.7rem, 7vw, 2rem)',
+          fontSize: 'clamp(1.6rem, 7vw, 2rem)',
           color: T.stone900, margin: 0, lineHeight: 1.15,
           letterSpacing: '-0.02em',
         }}>
-          Enviamos um código<br />para seu e-mail
+          Confere seu e-mail ✉️
         </h2>
-        <p style={{ fontFamily: Font.b, fontSize: 15, color: T.stone500, margin: 0, lineHeight: 1.5 }}>
-          Digite os 6 dígitos enviados para<br />
-          <strong style={{ color: T.stone800, fontWeight: 600 }}>{email}</strong>
+        <p style={{ fontFamily: Font.b, fontSize: 15, color: T.stone500, margin: 0, lineHeight: 1.6 }}>
+          Enviamos um link de acesso para<br />
+          <strong style={{ color: T.stone800, fontWeight: 700 }}>{email}</strong>
         </p>
-      </div>
+        <p style={{ fontFamily: Font.b, fontSize: 14, color: T.stone400, margin: 0, lineHeight: 1.5 }}>
+          Clique no link para entrar — sem senha.<br />
+          <span style={{ fontSize: 13 }}>Abra no mesmo aparelho para melhor experiência.</span>
+        </p>
+      </motion.div>
 
-      {/* 6-digit input */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', maxWidth: 340 }}>
-        <OtpCodeInput
-          onComplete={handleComplete}
-          loading={verifying}
-          hasError={!!codeError}
-        />
-
-        {/* loading / error feedback */}
-        <AnimatePresence>
-          {verifying && (
-            <motion.div
-              key="verifying"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                fontFamily: Font.b, fontSize: 14, color: T.mauve500,
-              }}
-            >
-              <Spinner color={T.mauve500} />
-              Verificando…
-            </motion.div>
-          )}
-          {codeError && !verifying && (
-            <motion.div
-              key="code-err"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              role="alert"
-              style={{
-                borderRadius: 14, padding: '10px 16px',
-                background: T.clay50, border: `1px solid ${T.clay200}`,
-              }}
-            >
-              <p style={{ fontFamily: Font.b, fontSize: 13, color: T.clay800, margin: 0 }}>
-                {codeError}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* divider */}
+      <div style={{ width: '100%', maxWidth: 280, height: 1, background: T.stone100 }} />
 
       {/* actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}
+      >
+        <p style={{ fontFamily: Font.b, fontSize: 13, color: T.stone400, margin: 0 }}>
+          Não chegou? Confere o spam ou reenvie.
+        </p>
         <button
           onClick={handleResend}
           disabled={!canResend || resending}
           style={{
-            background: 'none', border: 'none',
-            fontFamily: Font.b, fontSize: 14, fontWeight: 600,
+            background: canResend ? T.mauve50 : 'none',
+            border: `1.5px solid ${canResend ? T.mauve200 : T.stone100}`,
+            borderRadius: 100,
+            paddingInline: 24, paddingBlock: 10,
+            fontFamily: Font.b, fontWeight: 600, fontSize: 14,
             color: canResend ? T.mauve500 : T.stone300,
             cursor: canResend && !resending ? 'pointer' : 'not-allowed',
-            padding: '6px 0',
+            display: 'flex', alignItems: 'center', gap: 8,
+            transition: 'all 0.2s',
           }}
         >
-          {resending ? 'Reenviando…' : 'Reenviar código'}
+          {resending && <Spinner color={T.mauve500} size={14} />}
+          {resending ? 'Reenviando…' : cooldownSec > 0 ? `Reenviar em ${cooldownSec}s` : 'Reenviar link'}
         </button>
         <button
           onClick={onBack}
@@ -359,14 +214,14 @@ function OtpVerifyScreen({ email, onBack, onResend }: OtpVerifyScreenProps) {
         >
           ← Usar outro e-mail
         </button>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
 
-// ─── main auth screen ─────────────────────────────────────────────────────────
+// ─── auth page principal ──────────────────────────────────────────────────────
 
-type Screen = 'main' | 'otp-verify' | 'password';
+type Screen = 'main' | 'sent';
 type SocialLoading = 'google' | 'apple' | null;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -374,9 +229,7 @@ export default function AuthPage() {
   const [screen,        setScreen]        = useState<Screen>('main');
   const [email,         setEmail]         = useState('');
   const [emailTouched,  setEmailTouched]  = useState(false);
-  const [password,      setPassword]      = useState('');
-  const [magicLoading,  setMagicLoading]  = useState(false);
-  const [passLoading,   setPassLoading]   = useState(false);
+  const [emailLoading,  setEmailLoading]  = useState(false);
   const [socialLoading, setSocialLoading] = useState<SocialLoading>(null);
   const [apiError,      setApiError]      = useState<string | null>(null);
   const [sentTo,        setSentTo]        = useState('');
@@ -384,10 +237,13 @@ export default function AuthPage() {
 
   const emailValid = EMAIL_RE.test(email.trim());
   const emailErr   = emailTouched && !emailValid ? 'E-mail inválido. Confere aí?' : null;
-  const isLoading  = magicLoading || passLoading || !!socialLoading;
+  const isLoading  = emailLoading || !!socialLoading;
+
+  // ── OAuth (Google / Apple) ────────────────────────────────────────────────
 
   async function handleOAuth(provider: 'google' | 'apple') {
     setSocialLoading(provider);
+    setApiError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: window.location.origin },
@@ -396,325 +252,292 @@ export default function AuthPage() {
       toast.error(translateSupabaseError(error));
       setSocialLoading(null);
     }
+    // sucesso: browser redireciona, onAuthStateChange → StateRouter navega
   }
 
-  async function sendOtp(targetEmail: string) {
+  // ── Magic link (e-mail) ───────────────────────────────────────────────────
+
+  async function sendMagicLink(targetEmail: string) {
     const { error } = await supabase.auth.signInWithOtp({
       email: targetEmail,
       options: {
-        shouldCreateUser: true,
+        shouldCreateUser: true,           // cria conta se não existir
         emailRedirectTo: window.location.origin,
       },
     });
     if (error) throw error;
   }
 
-  async function handleSendCode() {
+  async function handleEmail() {
     setEmailTouched(true);
     if (!emailValid) { emailRef.current?.focus(); return; }
-    setMagicLoading(true);
+    setEmailLoading(true);
     setApiError(null);
     try {
-      await sendOtp(email.trim());
+      await sendMagicLink(email.trim());
       setSentTo(email.trim());
-      setScreen('otp-verify');
+      setScreen('sent');
     } catch (err: any) {
       setApiError(translateSupabaseError(err));
     } finally {
-      setMagicLoading(false);
+      setEmailLoading(false);
     }
   }
 
   async function handleResend() {
-    try { await sendOtp(sentTo); } catch { /* silencioso — feedback via toast no filho */ }
+    try { await sendMagicLink(sentTo); } catch { /* toast no filho */ }
   }
 
-  async function handlePassword(e: React.FormEvent) {
-    e.preventDefault();
-    if (!password || !emailValid) return;
-    setPassLoading(true);
-    setApiError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setPassLoading(false);
-    if (error) setApiError(translateSupabaseError(error));
-    // on success: onAuthStateChange fires automatically
-  }
+  // ── render: tela de confirmação ───────────────────────────────────────────
 
-  // ── OTP verify screen
-  if (screen === 'otp-verify') {
+  if (screen === 'sent') {
     return (
-      <OtpVerifyScreen
-        email={sentTo}
-        onBack={() => setScreen('main')}
-        onResend={handleResend}
-      />
+      <AnimatePresence mode="wait">
+        <SentScreen key="sent" email={sentTo} onBack={() => setScreen('main')} onResend={handleResend} />
+      </AnimatePresence>
     );
   }
 
-  return (
-    <div style={{
-      minHeight: '100dvh',
-      background: `radial-gradient(ellipse 100% 50% at 50% -10%, ${T.mauve200} 0%, ${T.white} 65%)`,
-      display: 'flex', flexDirection: 'column',
-    }}>
+  // ── render: tela principal ────────────────────────────────────────────────
 
-      {/* ── hero ── */}
+  return (
+    <AnimatePresence mode="wait">
       <motion.div
+        key="main"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.7 }}
+        exit={{ opacity: 0 }}
         style={{
+          minHeight: '100dvh',
+          background: `radial-gradient(ellipse 110% 55% at 50% -8%, ${T.mauve200} 0%, ${T.white} 62%)`,
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+
+        {/* ── hero ─────────────────────────────────────────────────────────── */}
+        <div style={{
           flex: 1,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'flex-end',
-          padding: `calc(env(safe-area-inset-top) + 56px) 28px 44px`,
+          padding: `calc(env(safe-area-inset-top) + 48px) 28px 36px`,
           textAlign: 'center', gap: 20,
-        }}
-      >
-        {/* nest icon + halo */}
-        <motion.div
-          initial={{ scale: 0.3, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
-          style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
+        }}>
+
+          {/* nest icon + halo pulsante */}
           <motion.div
-            animate={{ scale: [1, 1.12, 1], opacity: [0.25, 0.1, 0.25] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            style={{
-              position: 'absolute',
-              width: 110, height: 110, borderRadius: '50%',
-              background: `radial-gradient(circle, ${T.mauve300}, transparent 70%)`,
-            }}
-          />
-          <span style={{ fontSize: '5rem', lineHeight: 1, position: 'relative' }} aria-hidden="true">🪺</span>
-        </motion.div>
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <motion.div
+              animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.08, 0.2] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                position: 'absolute',
+                width: 120, height: 120, borderRadius: '50%',
+                background: `radial-gradient(circle, ${T.mauve300}, transparent 70%)`,
+              }}
+            />
+            <span style={{ fontSize: '5rem', lineHeight: 1, position: 'relative' }} aria-hidden="true">
+              🪺
+            </span>
+          </motion.div>
 
+          {/* headline */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.28, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+          >
+            <h1 style={{
+              fontFamily: Font.h, fontWeight: 700,
+              fontSize: 'clamp(2.1rem, 8vw, 2.75rem)',
+              color: T.stone900, margin: 0,
+              lineHeight: 1.08, letterSpacing: '-0.025em',
+            }}>
+              Tire o peso<br />da memória.
+            </h1>
+            <p style={{
+              fontFamily: Font.b, fontSize: 16,
+              color: T.stone500, margin: 0, lineHeight: 1.5,
+            }}>
+              Organize a rotina de quem você ama.
+            </p>
+          </motion.div>
+        </div>
+
+        {/* ── auth zone ────────────────────────────────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
-        >
-          <h1 style={{
-            fontFamily: Font.h, fontWeight: 700,
-            fontSize: 'clamp(2.2rem, 8vw, 2.8rem)',
-            color: T.stone900, margin: 0,
-            lineHeight: 1.08, letterSpacing: '-0.025em',
-          }}>
-            Tire o peso<br />da memória.
-          </h1>
-          <p style={{ fontFamily: Font.b, fontSize: 15, color: T.stone500, margin: 0 }}>
-            Organize a rotina de quem você ama.
-          </p>
-        </motion.div>
-      </motion.div>
-
-      {/* ── auth zone ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 28 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.38, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-        style={{
-          padding: `0 24px calc(env(safe-area-inset-bottom) + 36px)`,
-          display: 'flex', flexDirection: 'column', gap: 12,
-          maxWidth: 420, width: '100%', alignSelf: 'center',
-        }}
-      >
-
-        {/* Google */}
-        <motion.button
-          whileTap={{ scale: 0.975 }}
-          onClick={() => handleOAuth('google')}
-          disabled={isLoading}
+          transition={{ delay: 0.36, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           style={{
-            height: 56, borderRadius: 100,
-            background: T.white,
-            border: `1.5px solid ${T.stone200}`,
-            boxShadow: '0 1px 3px rgba(13,13,13,0.07), 0 0 0 1px rgba(13,13,13,0.03)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            opacity: socialLoading === 'apple' ? 0.45 : 1,
-            transition: 'opacity 200ms',
-            fontFamily: Font.b, fontWeight: 600, fontSize: 15, color: T.stone900,
-          } as React.CSSProperties}
-        >
-          {socialLoading === 'google' ? <Spinner color={T.stone500} /> : <GoogleIcon />}
-          Continuar com Google
-        </motion.button>
-
-        {/* Apple */}
-        <motion.button
-          whileTap={{ scale: 0.975 }}
-          onClick={() => handleOAuth('apple')}
-          disabled={isLoading}
-          style={{
-            height: 56, borderRadius: 100,
-            background: T.black,
-            border: 'none',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            opacity: socialLoading === 'google' ? 0.45 : 1,
-            transition: 'opacity 200ms',
-            fontFamily: Font.b, fontWeight: 600, fontSize: 15, color: '#fcfcfc',
+            padding: `0 24px calc(env(safe-area-inset-bottom) + 32px)`,
+            display: 'flex', flexDirection: 'column', gap: 11,
+            maxWidth: 420, width: '100%', alignSelf: 'center',
           }}
         >
-          {socialLoading === 'apple' ? <Spinner color="#fcfcfc" /> : <AppleIcon />}
-          Continuar com Apple
-        </motion.button>
 
-        {/* divisor */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }} aria-hidden="true">
-          <div style={{ flex: 1, height: 1, background: T.stone200 }} />
-          <span style={{ fontFamily: Font.b, fontSize: 12, color: T.stone300, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-            ou e-mail
-          </span>
-          <div style={{ flex: 1, height: 1, background: T.stone200 }} />
-        </div>
+          {/* label de contexto — cadastro e login unificados */}
+          <p style={{
+            fontFamily: Font.b, fontSize: 13, color: T.stone400,
+            textAlign: 'center', margin: '0 0 2px',
+          }}>
+            Novo por aqui ou já tem conta? Continue abaixo.
+          </p>
 
-        {/* email pill */}
-        <div style={{
-          height: 56, borderRadius: 100,
-          background: T.stone50,
-          border: `1.5px solid ${emailErr ? '#dfb9b4' : emailTouched && emailValid ? T.sage300 : T.stone200}`,
-          display: 'flex', alignItems: 'center',
-          padding: '0 8px 0 22px',
-          transition: 'border-color 200ms',
-          gap: 8,
-        }}>
-          <input
-            ref={emailRef}
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="seu@email.com"
-            value={email}
-            onChange={e => { setEmail(e.target.value); setApiError(null); setEmailTouched(false); }}
-            onBlur={() => setEmailTouched(true)}
-            onKeyDown={e => e.key === 'Enter' && handleSendCode()}
-            disabled={isLoading}
-            style={{
-              flex: 1, background: 'none', border: 'none', outline: 'none',
-              fontFamily: Font.b, fontSize: 15, color: T.stone900, minWidth: 0,
-            }}
-          />
+          {/* ── Google ─────────────────────────────────────────────────────── */}
           <motion.button
-            whileTap={{ scale: 0.88 }}
-            onClick={handleSendCode}
+            whileTap={{ scale: 0.975 }}
+            onClick={() => handleOAuth('google')}
             disabled={isLoading}
-            aria-label="Enviar código de acesso"
+            aria-label="Continuar com Google"
             style={{
-              width: 40, height: 40, borderRadius: 100, flexShrink: 0,
-              background: magicLoading ? T.mauve300 : T.mauve500,
-              border: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              height: 56, borderRadius: 100,
+              background: T.white,
+              border: `1.5px solid ${T.stone200}`,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.03)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               cursor: isLoading ? 'not-allowed' : 'pointer',
-              transition: 'background 200ms',
+              opacity: socialLoading === 'apple' ? 0.42 : 1,
+              transition: 'opacity 200ms, box-shadow 200ms',
+              fontFamily: Font.b, fontWeight: 600, fontSize: 15, color: T.stone900,
+              WebkitTapHighlightColor: 'transparent',
+            } as React.CSSProperties}
+          >
+            {socialLoading === 'google' ? <Spinner color={T.stone500} /> : <GoogleIcon />}
+            Continuar com Google
+          </motion.button>
+
+          {/* ── Apple ──────────────────────────────────────────────────────── */}
+          <motion.button
+            whileTap={{ scale: 0.975 }}
+            onClick={() => handleOAuth('apple')}
+            disabled={isLoading}
+            aria-label="Continuar com Apple"
+            style={{
+              height: 56, borderRadius: 100,
+              background: T.black,
+              border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: socialLoading === 'google' ? 0.42 : 1,
+              transition: 'opacity 200ms',
+              fontFamily: Font.b, fontWeight: 600, fontSize: 15, color: '#f8f8f8',
+              WebkitTapHighlightColor: 'transparent',
             }}
           >
-            {magicLoading ? <Spinner /> : <SendIcon />}
+            {socialLoading === 'apple' ? <Spinner color="#f8f8f8" /> : <AppleIcon />}
+            Continuar com Apple
           </motion.button>
-        </div>
 
-        {/* erros */}
-        <AnimatePresence>
-          {emailErr && (
-            <motion.p key="email-err" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              style={{ fontFamily: Font.b, fontSize: 13, color: '#a74235', margin: 0, paddingLeft: 20 }}
-            >
-              {emailErr}
-            </motion.p>
-          )}
-          {apiError && (
-            <motion.div key="api-err" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-              role="alert"
-              style={{ borderRadius: 16, padding: '12px 18px', background: T.clay50, border: `1px solid ${T.clay200}` }}
-            >
-              <p style={{ fontFamily: Font.b, fontSize: 13, color: T.clay800, margin: 0 }}>{apiError}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          {/* ── divisor ────────────────────────────────────────────────────── */}
+          <div
+            aria-hidden="true"
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '3px 0' }}
+          >
+            <div style={{ flex: 1, height: 1, background: T.stone100 }} />
+            <span style={{
+              fontFamily: Font.b, fontSize: 12, color: T.stone300,
+              letterSpacing: '0.04em', textTransform: 'uppercase',
+            }}>
+              ou e-mail
+            </span>
+            <div style={{ flex: 1, height: 1, background: T.stone100 }} />
+          </div>
 
-        <p style={{ fontFamily: Font.b, fontSize: 13, color: T.stone300, textAlign: 'center', margin: 0 }}>
-          Código de 6 dígitos direto no e-mail. ✨
-        </p>
+          {/* ── e-mail pill ────────────────────────────────────────────────── */}
+          <div style={{
+            height: 56, borderRadius: 100,
+            background: T.stone50,
+            border: `1.5px solid ${
+              emailErr            ? '#dfb9b4'  :
+              emailTouched && emailValid ? T.sage300 :
+              T.stone200
+            }`,
+            display: 'flex', alignItems: 'center',
+            paddingLeft: 22, paddingRight: 8,
+            gap: 8,
+            transition: 'border-color 200ms',
+          }}>
+            <input
+              ref={emailRef}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setApiError(null); setEmailTouched(false); }}
+              onBlur={() => setEmailTouched(true)}
+              onKeyDown={e => e.key === 'Enter' && handleEmail()}
+              disabled={isLoading}
+              style={{
+                flex: 1, background: 'none', border: 'none', outline: 'none',
+                fontFamily: Font.b, fontSize: 15, color: T.stone900, minWidth: 0,
+              }}
+            />
+            {/* botão enviar */}
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              onClick={handleEmail}
+              disabled={isLoading}
+              aria-label="Enviar link de acesso"
+              style={{
+                width: 40, height: 40, borderRadius: 100, flexShrink: 0,
+                background: emailLoading ? T.mauve300 : T.mauve500,
+                border: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                transition: 'background 200ms',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {emailLoading ? <Spinner /> : <ArrowRightIcon />}
+            </motion.button>
+          </div>
 
-        {/* senha expandível */}
-        <AnimatePresence mode="wait">
-          {screen !== 'password' ? (
-            <motion.div key="pass-link" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ textAlign: 'center' }}
-            >
-              <button
-                onClick={() => setScreen('password')}
-                style={{
-                  background: 'none', border: 'none',
-                  fontFamily: Font.b, fontSize: 13, color: T.stone500,
-                  cursor: 'pointer', padding: '4px 0',
-                }}
+          {/* erros */}
+          <AnimatePresence>
+            {emailErr && !apiError && (
+              <motion.p key="email-err" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                style={{ fontFamily: Font.b, fontSize: 13, color: '#a74235', margin: 0, paddingLeft: 20 }}
               >
-                Prefiro usar senha
-              </button>
-            </motion.div>
-          ) : (
-            <motion.form
-              key="pass-form"
-              onSubmit={handlePassword}
-              noValidate
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
-            >
-              <div style={{
-                height: 54, borderRadius: 100,
-                background: T.stone50, border: `1.5px solid ${T.stone200}`,
-                display: 'flex', alignItems: 'center', padding: '0 20px',
-              }}>
-                <input
-                  type="password"
-                  placeholder="Senha"
-                  autoFocus
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={e => { setPassword(e.target.value); setApiError(null); }}
-                  style={{
-                    flex: 1, background: 'none', border: 'none', outline: 'none',
-                    fontFamily: Font.b, fontSize: 15, color: T.stone900,
-                  }}
-                />
-              </div>
-              <motion.button
-                whileTap={{ scale: 0.975 }}
-                type="submit"
-                disabled={isLoading}
-                style={{
-                  height: 52, borderRadius: 100,
-                  background: T.stone100, border: `1.5px solid ${T.stone200}`,
-                  fontFamily: Font.b, fontWeight: 600, fontSize: 15, color: T.stone800,
-                  cursor: passLoading ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  opacity: passLoading ? 0.7 : 1,
-                }}
+                {emailErr}
+              </motion.p>
+            )}
+            {apiError && (
+              <motion.div key="api-err" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                role="alert"
+                style={{ borderRadius: 16, padding: '12px 18px', background: T.clay50, border: `1px solid ${T.clay200}` }}
               >
-                {passLoading && <Spinner color={T.stone500} />}
-                {passLoading ? 'Entrando…' : 'Entrar com senha'}
-              </motion.button>
-              <button
-                type="button"
-                onClick={() => { setScreen('main'); setApiError(null); }}
-                style={{
-                  background: 'none', border: 'none',
-                  fontFamily: Font.b, fontSize: 13, color: T.stone500,
-                  cursor: 'pointer', textAlign: 'center', padding: '2px 0',
-                }}
-              >
-                ← Voltar para código
-              </button>
-            </motion.form>
-          )}
-        </AnimatePresence>
+                <p style={{ fontFamily: Font.b, fontSize: 13, color: T.clay800, margin: 0 }}>{apiError}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* reassurance */}
+          <p style={{
+            fontFamily: Font.b, fontSize: 12, color: T.stone300,
+            textAlign: 'center', margin: 0, lineHeight: 1.5,
+          }}>
+            Link direto no e-mail — sem senha, sem complicação. ✨
+          </p>
+
+          {/* termos */}
+          <p style={{
+            fontFamily: Font.b, fontSize: 11, color: T.stone300,
+            textAlign: 'center', margin: '4px 0 0', lineHeight: 1.5,
+          }}>
+            Ao continuar, você concorda com os{' '}
+            <span style={{ color: T.stone400, fontWeight: 600 }}>Termos de Uso</span>
+            {' '}e a{' '}
+            <span style={{ color: T.stone400, fontWeight: 600 }}>Política de Privacidade</span>.
+          </p>
+
+        </motion.div>
       </motion.div>
-    </div>
+    </AnimatePresence>
   );
 }

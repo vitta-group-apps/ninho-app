@@ -296,7 +296,6 @@ export default function AuthPage() {
             opacity: socialLoading === 'apple' ? 0.45 : 1,
             transition: 'opacity 200ms',
             fontFamily: Font.b, fontWeight: 600, fontSize: 15, color: T.stone900,
-            border: `1.5px solid ${T.stone200}`,
           } as React.CSSProperties}
         >
           {socialLoading === 'google' ? <Spinner color={T.stone500} /> : <GoogleIcon />}

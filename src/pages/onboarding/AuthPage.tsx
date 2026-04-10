@@ -1,27 +1,26 @@
 /**
- * NINHO — AuthPage v3 · Redesign Total
- * Zero dependência do DS de componentes.
- * Apenas tokens brutos (cores, tipografia), Framer Motion e criatividade.
+ * NINHO — AuthPage v4 · Auth Completo
  *
- * Conceito visual: "Névoa da Madrugada"
- * Um glow suave de mauve no topo, branco limpo embaixo.
- * A headline é a âncora emocional — enorme, pesada, acolhedora.
- * Social auth domina: 2 toques → dentro.
- * Email: pill minimalista com botão integrado.
+ * Fluxo:
+ *   Social (Google/Apple) → OAuth redirect → useSession resolve
+ *   Email → signInWithOtp → tela de código OTP 6 dígitos → verifyOtp
+ *                         → onAuthStateChange SIGNED_IN → useSession resolve
+ *
+ * Zero componentes do DS — apenas tokens brutos + Framer Motion.
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase, translateSupabaseError } from '@/lib/supabase';
 
-// ── Tokens primitivos (tokens.css) ────────────────────────────────────────────
+// ─── tokens ──────────────────────────────────────────────────────────────────
+
 const T = {
   mauve50:  '#faf3fc',
   mauve100: '#f4e8f7',
   mauve200: '#e8d4ed',
   mauve300: '#d8b9df',
-  mauve400: '#c59ad0',
   mauve500: '#8b5e96',
   mauve700: '#6e2880',
   sage300:  '#b8dbcd',
@@ -45,7 +44,7 @@ const Font = {
   b: "'Nunito', system-ui, sans-serif",
 } as const;
 
-// ── SVG Icons inline ──────────────────────────────────────────────────────────
+// ─── icons ────────────────────────────────────────────────────────────────────
 
 function GoogleIcon() {
   return (
@@ -74,7 +73,6 @@ function SendIcon() {
   );
 }
 
-// ── Spinner com Framer Motion ─────────────────────────────────────────────────
 function Spinner({ color = 'white' }: { color?: string }) {
   return (
     <motion.div
@@ -90,71 +88,285 @@ function Spinner({ color = 'white' }: { color?: string }) {
   );
 }
 
-// ── OTP Sent ──────────────────────────────────────────────────────────────────
-function OtpSentScreen({ email, onBack }: { email: string; onBack: () => void }) {
+// ─── OTP code input (6 dígitos) ───────────────────────────────────────────────
+
+const DIGIT_COUNT = 6;
+
+interface OtpCodeInputProps {
+  onComplete: (code: string) => void;
+  loading: boolean;
+  hasError: boolean;
+}
+
+function OtpCodeInput({ onComplete, loading, hasError }: OtpCodeInputProps) {
+  const [digits, setDigits] = useState<string[]>(Array(DIGIT_COUNT).fill(''));
+  const inputRefs = useRef<(HTMLInputElement | null)[]>(Array(DIGIT_COUNT).fill(null));
+
+  const focusAt = (idx: number) => {
+    const el = inputRefs.current[Math.max(0, Math.min(DIGIT_COUNT - 1, idx))];
+    el?.focus();
+  };
+
+  const handleChange = useCallback((idx: number, val: string) => {
+    // handle paste: user pastes full code into any box
+    if (val.length > 1) {
+      const cleaned = val.replace(/\D/g, '').slice(0, DIGIT_COUNT);
+      if (!cleaned) return;
+      const next = Array(DIGIT_COUNT).fill('');
+      cleaned.split('').forEach((c, i) => { next[i] = c; });
+      setDigits(next);
+      const focusIdx = Math.min(cleaned.length, DIGIT_COUNT - 1);
+      setTimeout(() => focusAt(focusIdx), 0);
+      if (cleaned.length === DIGIT_COUNT) {
+        setTimeout(() => onComplete(cleaned), 50);
+      }
+      return;
+    }
+
+    const char = val.replace(/\D/g, '');
+    const next = [...digits];
+    next[idx] = char;
+    setDigits(next);
+
+    if (char && idx < DIGIT_COUNT - 1) {
+      focusAt(idx + 1);
+    }
+
+    const full = next.join('');
+    if (full.length === DIGIT_COUNT && !full.includes('')) {
+      setTimeout(() => onComplete(full), 50);
+    }
+  }, [digits, onComplete]);
+
+  const handleKeyDown = useCallback((idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const next = [...digits];
+      if (next[idx]) {
+        next[idx] = '';
+        setDigits(next);
+      } else if (idx > 0) {
+        next[idx - 1] = '';
+        setDigits(next);
+        focusAt(idx - 1);
+      }
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      focusAt(idx - 1);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      focusAt(idx + 1);
+    }
+  }, [digits]);
+
+  const boxBorder = hasError
+    ? `1.5px solid ${T.clay200}`
+    : `1.5px solid ${T.stone200}`;
+
+  const boxBg = hasError ? T.clay50 : T.stone50;
+
+  return (
+    <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={el => { inputRefs.current[i] = el; }}
+          type="text"
+          inputMode="numeric"
+          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          maxLength={DIGIT_COUNT} // allow paste on first box
+          value={d}
+          disabled={loading}
+          autoFocus={i === 0}
+          onChange={e => handleChange(i, e.target.value)}
+          onKeyDown={e => handleKeyDown(i, e)}
+          onFocus={e => e.target.select()}
+          style={{
+            width: 46, height: 58,
+            borderRadius: 14,
+            border: boxBorder,
+            background: boxBg,
+            fontFamily: Font.h,
+            fontWeight: 700,
+            fontSize: '1.4rem',
+            color: hasError ? T.clay800 : T.stone900,
+            textAlign: 'center',
+            outline: 'none',
+            caretColor: T.mauve500,
+            transition: 'border-color 0.15s, background 0.15s',
+            opacity: loading ? 0.6 : 1,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── OTP verify screen ────────────────────────────────────────────────────────
+
+interface OtpVerifyScreenProps {
+  email: string;
+  onBack: () => void;
+  onResend: () => Promise<void>;
+}
+
+function OtpVerifyScreen({ email, onBack, onResend }: OtpVerifyScreenProps) {
+  const [verifying, setVerifying] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resentAt,  setResentAt]  = useState<number | null>(null);
+
+  const canResend = !resentAt || Date.now() - resentAt > 60_000;
+
+  async function handleComplete(code: string) {
+    setCodeError(null);
+    setVerifying(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: 'email',
+    });
+    setVerifying(false);
+    if (error) {
+      setCodeError('Código inválido ou expirado. Tenta de novo.');
+    }
+    // on success: onAuthStateChange fires SIGNED_IN → useSession resolves appState automatically
+  }
+
+  async function handleResend() {
+    if (!canResend || resending) return;
+    setResending(true);
+    await onResend();
+    setResending(false);
+    setResentAt(Date.now());
+    setCodeError(null);
+    toast.success('Novo código enviado!');
+  }
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       style={{
-        minHeight: '100dvh', background: T.white,
+        minHeight: '100dvh',
+        background: `radial-gradient(ellipse 100% 50% at 50% -10%, ${T.mauve200} 0%, ${T.white} 65%)`,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '0 32px', gap: '28px', textAlign: 'center',
+        padding: '0 28px', gap: 36, textAlign: 'center',
       }}
     >
+      {/* icon */}
       <motion.div
         initial={{ scale: 0.3, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.6, delay: 0.1, ease: [0.34, 1.56, 0.64, 1] }}
+        transition={{ duration: 0.55, ease: [0.34, 1.56, 0.64, 1] }}
         style={{
-          width: 96, height: 96, borderRadius: '50%',
+          width: 88, height: 88, borderRadius: '50%',
           background: `linear-gradient(135deg, ${T.mauve100}, ${T.mauve200})`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '44px', lineHeight: 1,
+          fontSize: '2.6rem',
         }}
         aria-hidden="true"
       >
         📬
       </motion.div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <h2 style={{ fontFamily: Font.h, fontWeight: 700, fontSize: '1.9rem', color: T.stone900, margin: 0, lineHeight: 1.15 }}>
-          Confere seu e-mail
+      {/* headline */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h2 style={{
+          fontFamily: Font.h, fontWeight: 700,
+          fontSize: 'clamp(1.7rem, 7vw, 2rem)',
+          color: T.stone900, margin: 0, lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+        }}>
+          Enviamos um código<br />para seu e-mail
         </h2>
-        <p style={{ fontFamily: Font.b, fontSize: '15px', color: T.stone500, margin: 0, lineHeight: 1.5 }}>
-          Enviamos um link mágico para
-          <br />
+        <p style={{ fontFamily: Font.b, fontSize: 15, color: T.stone500, margin: 0, lineHeight: 1.5 }}>
+          Digite os 6 dígitos enviados para<br />
           <strong style={{ color: T.stone800, fontWeight: 600 }}>{email}</strong>
-        </p>
-        <p style={{ fontFamily: Font.b, fontSize: '14px', color: T.stone500, margin: 0 }}>
-          Clique no link — sem precisar de senha.
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-        <p style={{ fontFamily: Font.b, fontSize: '13px', color: T.stone300, margin: 0 }}>
-          Não chegou? Confere o spam.
-        </p>
+      {/* 6-digit input */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', maxWidth: 340 }}>
+        <OtpCodeInput
+          onComplete={handleComplete}
+          loading={verifying}
+          hasError={!!codeError}
+        />
+
+        {/* loading / error feedback */}
+        <AnimatePresence>
+          {verifying && (
+            <motion.div
+              key="verifying"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                fontFamily: Font.b, fontSize: 14, color: T.mauve500,
+              }}
+            >
+              <Spinner color={T.mauve500} />
+              Verificando…
+            </motion.div>
+          )}
+          {codeError && !verifying && (
+            <motion.div
+              key="code-err"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              role="alert"
+              style={{
+                borderRadius: 14, padding: '10px 16px',
+                background: T.clay50, border: `1px solid ${T.clay200}`,
+              }}
+            >
+              <p style={{ fontFamily: Font.b, fontSize: 13, color: T.clay800, margin: 0 }}>
+                {codeError}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* actions */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <button
+          onClick={handleResend}
+          disabled={!canResend || resending}
+          style={{
+            background: 'none', border: 'none',
+            fontFamily: Font.b, fontSize: 14, fontWeight: 600,
+            color: canResend ? T.mauve500 : T.stone300,
+            cursor: canResend && !resending ? 'pointer' : 'not-allowed',
+            padding: '6px 0',
+          }}
+        >
+          {resending ? 'Reenviando…' : 'Reenviar código'}
+        </button>
         <button
           onClick={onBack}
           style={{
             background: 'none', border: 'none',
-            fontFamily: Font.b, fontSize: '14px', fontWeight: 600,
-            color: T.mauve500, cursor: 'pointer', padding: '6px 0',
+            fontFamily: Font.b, fontSize: 13, color: T.stone500,
+            cursor: 'pointer', padding: '4px 0',
           }}
         >
-          ← Tentar de novo
+          ← Usar outro e-mail
         </button>
       </div>
     </motion.div>
   );
 }
 
-// ── AuthPage ──────────────────────────────────────────────────────────────────
-type Screen = 'main' | 'otp-sent' | 'password';
+// ─── main auth screen ─────────────────────────────────────────────────────────
+
+type Screen = 'main' | 'otp-verify' | 'password';
 type SocialLoading = 'google' | 'apple' | null;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -180,33 +392,63 @@ export default function AuthPage() {
       provider,
       options: { redirectTo: window.location.origin },
     });
-    if (error) { toast.error(translateSupabaseError(error)); setSocialLoading(null); }
+    if (error) {
+      toast.error(translateSupabaseError(error));
+      setSocialLoading(null);
+    }
   }
 
-  async function handleMagicLink() {
+  async function sendOtp(targetEmail: string) {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: targetEmail,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
+  }
+
+  async function handleSendCode() {
     setEmailTouched(true);
     if (!emailValid) { emailRef.current?.focus(); return; }
-    setMagicLoading(true); setApiError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
-    });
-    setMagicLoading(false);
-    if (error) setApiError(translateSupabaseError(error));
-    else { setSentTo(email.trim()); setScreen('otp-sent'); }
+    setMagicLoading(true);
+    setApiError(null);
+    try {
+      await sendOtp(email.trim());
+      setSentTo(email.trim());
+      setScreen('otp-verify');
+    } catch (err: any) {
+      setApiError(translateSupabaseError(err));
+    } finally {
+      setMagicLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    try { await sendOtp(sentTo); } catch { /* silencioso — feedback via toast no filho */ }
   }
 
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
     if (!password || !emailValid) return;
-    setPassLoading(true); setApiError(null);
+    setPassLoading(true);
+    setApiError(null);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setPassLoading(false);
     if (error) setApiError(translateSupabaseError(error));
+    // on success: onAuthStateChange fires automatically
   }
 
-  if (screen === 'otp-sent') {
-    return <OtpSentScreen email={sentTo} onBack={() => setScreen('main')} />;
+  // ── OTP verify screen
+  if (screen === 'otp-verify') {
+    return (
+      <OtpVerifyScreen
+        email={sentTo}
+        onBack={() => setScreen('main')}
+        onResend={handleResend}
+      />
+    );
   }
 
   return (
@@ -216,7 +458,7 @@ export default function AuthPage() {
       display: 'flex', flexDirection: 'column',
     }}>
 
-      {/* ── Hero ── */}
+      {/* ── hero ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -226,17 +468,16 @@ export default function AuthPage() {
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'flex-end',
           padding: `calc(env(safe-area-inset-top) + 56px) 28px 44px`,
-          textAlign: 'center', gap: '20px',
+          textAlign: 'center', gap: 20,
         }}
       >
-        {/* Ícone com halo */}
+        {/* nest icon + halo */}
         <motion.div
           initial={{ scale: 0.3, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
           style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          {/* Halo animado */}
           <motion.div
             animate={{ scale: [1, 1.12, 1], opacity: [0.25, 0.1, 0.25] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
@@ -253,7 +494,7 @@ export default function AuthPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
         >
           <h1 style={{
             fontFamily: Font.h, fontWeight: 700,
@@ -263,20 +504,20 @@ export default function AuthPage() {
           }}>
             Tire o peso<br />da memória.
           </h1>
-          <p style={{ fontFamily: Font.b, fontSize: '15px', color: T.stone500, margin: 0 }}>
+          <p style={{ fontFamily: Font.b, fontSize: 15, color: T.stone500, margin: 0 }}>
             Organize a rotina de quem você ama.
           </p>
         </motion.div>
       </motion.div>
 
-      {/* ── Auth actions — zona do polegar ── */}
+      {/* ── auth zone ── */}
       <motion.div
         initial={{ opacity: 0, y: 28 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.38, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         style={{
           padding: `0 24px calc(env(safe-area-inset-bottom) + 36px)`,
-          display: 'flex', flexDirection: 'column', gap: '12px',
+          display: 'flex', flexDirection: 'column', gap: 12,
           maxWidth: 420, width: '100%', alignSelf: 'center',
         }}
       >
@@ -322,7 +563,7 @@ export default function AuthPage() {
           Continuar com Apple
         </motion.button>
 
-        {/* Divisor */}
+        {/* divisor */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }} aria-hidden="true">
           <div style={{ flex: 1, height: 1, background: T.stone200 }} />
           <span style={{ fontFamily: Font.b, fontSize: 12, color: T.stone300, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
@@ -331,7 +572,7 @@ export default function AuthPage() {
           <div style={{ flex: 1, height: 1, background: T.stone200 }} />
         </div>
 
-        {/* Email pill com botão integrado */}
+        {/* email pill */}
         <div style={{
           height: 56, borderRadius: 100,
           background: T.stone50,
@@ -350,7 +591,7 @@ export default function AuthPage() {
             value={email}
             onChange={e => { setEmail(e.target.value); setApiError(null); setEmailTouched(false); }}
             onBlur={() => setEmailTouched(true)}
-            onKeyDown={e => e.key === 'Enter' && handleMagicLink()}
+            onKeyDown={e => e.key === 'Enter' && handleSendCode()}
             disabled={isLoading}
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
@@ -359,9 +600,9 @@ export default function AuthPage() {
           />
           <motion.button
             whileTap={{ scale: 0.88 }}
-            onClick={handleMagicLink}
+            onClick={handleSendCode}
             disabled={isLoading}
-            aria-label="Enviar link mágico"
+            aria-label="Enviar código de acesso"
             style={{
               width: 40, height: 40, borderRadius: 100, flexShrink: 0,
               background: magicLoading ? T.mauve300 : T.mauve500,
@@ -375,30 +616,19 @@ export default function AuthPage() {
           </motion.button>
         </div>
 
-        {/* Erros */}
+        {/* erros */}
         <AnimatePresence>
           {emailErr && (
-            <motion.p
-              key="email-err"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
+            <motion.p key="email-err" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               style={{ fontFamily: Font.b, fontSize: 13, color: '#a74235', margin: 0, paddingLeft: 20 }}
             >
               {emailErr}
             </motion.p>
           )}
           {apiError && (
-            <motion.div
-              key="api-err"
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
+            <motion.div key="api-err" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
               role="alert"
-              style={{
-                borderRadius: 16, padding: '12px 18px',
-                background: T.clay50, border: `1px solid ${T.clay200}`,
-              }}
+              style={{ borderRadius: 16, padding: '12px 18px', background: T.clay50, border: `1px solid ${T.clay200}` }}
             >
               <p style={{ fontFamily: Font.b, fontSize: 13, color: T.clay800, margin: 0 }}>{apiError}</p>
             </motion.div>
@@ -406,17 +636,13 @@ export default function AuthPage() {
         </AnimatePresence>
 
         <p style={{ fontFamily: Font.b, fontSize: 13, color: T.stone300, textAlign: 'center', margin: 0 }}>
-          Sem senha — link direto no e-mail. ✨
+          Código de 6 dígitos direto no e-mail. ✨
         </p>
 
-        {/* Senha expandível */}
+        {/* senha expandível */}
         <AnimatePresence mode="wait">
           {screen !== 'password' ? (
-            <motion.div
-              key="pass-link"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <motion.div key="pass-link" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{ textAlign: 'center' }}
             >
               <button
@@ -472,7 +698,7 @@ export default function AuthPage() {
                 }}
               >
                 {passLoading && <Spinner color={T.stone500} />}
-                {passLoading ? 'Entrando...' : 'Entrar com senha'}
+                {passLoading ? 'Entrando…' : 'Entrar com senha'}
               </motion.button>
               <button
                 type="button"
@@ -483,7 +709,7 @@ export default function AuthPage() {
                   cursor: 'pointer', textAlign: 'center', padding: '2px 0',
                 }}
               >
-                ← Voltar para link mágico
+                ← Voltar para código
               </button>
             </motion.form>
           )}
